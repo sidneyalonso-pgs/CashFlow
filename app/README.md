@@ -12,7 +12,7 @@ Stack: Next.js (App Router) + TypeScript + Tailwind + Supabase (Postgres, Auth, 
 2. Clique em **New project**. Escolha um nome (ex: `pagsmile-treasury`), senha do banco e região `South America (São Paulo)`.
 3. Aguarde o provisionamento (1–2 minutos).
 4. Vá em **SQL Editor** → **New query**, cole e execute, **nesta ordem**, os arquivos de `supabase/migrations/`:
-   `0001_fase1_schema.sql` → `0002_fase1_rls.sql` → `0003_fix_handle_new_user.sql` → `0004_audit_triggers.sql` → `0005_storage_attachments.sql`.
+   `0001_fase1_schema.sql` → `0002_fase1_rls.sql` → `0003_fix_handle_new_user.sql` → `0004_audit_triggers.sql` → `0005_storage_attachments.sql` → `0006_recurring_payments.sql`.
 6. Vá em **Authentication → Users** e crie seu primeiro usuário (e-mail/senha). Isso cria automaticamente um `profile` com `role = visualizador`.
 7. No **SQL Editor**, promova esse usuário a administrador:
    ```sql
@@ -35,8 +35,10 @@ Stack: Next.js (App Router) + TypeScript + Tailwind + Supabase (Postgres, Auth, 
 4. Em **Environment Variables**, adicione:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   (valores copiados no passo 1.9)
+   - `SUPABASE_SERVICE_ROLE_KEY` (em Supabase: Project Settings → API → **service_role** — nunca expor no front-end, só é usada na rota de cron)
+   - `CRON_SECRET` (invente uma string aleatória qualquer, ex: gerada com `openssl rand -hex 32`)
 5. Clique em **Deploy**. O Vercel instala dependências e builda o projeto — é lá que erros de tipo/lint vão aparecer, já que não há Node local para testar antes.
+6. O arquivo `vercel.json` já configura um **Cron Job** diário (`/api/cron/generate-recurring-payments`, todo dia às 9h UTC ≈ 6h em São Paulo) que gera os lançamentos pendentes dos pagamentos fixos cadastrados em **Pagamentos → Pagamentos fixos**. Cron Jobs só funcionam em produção (não em preview deploys).
 
 ### 4. Rodar localmente (quando tiver Node disponível)
 
@@ -61,7 +63,8 @@ Ver `../ARQUITETURA.md` na raiz do projeto para o desenho completo (fases, model
 
 - **Autenticação e permissões**: login, perfis (`administrador`, `tesouraria`, `aprovador`, `conciliacao`, `fpa`, `visualizador`), acesso por empresa, tela de usuários em Configurações.
 - **Cadastros**: empresas, contas bancárias, fornecedores, categorias, centros de custo, projetos — todos com listagem + criação.
-- **Pagamentos**: criação, envio para aprovação, aprovar/rejeitar/devolver, registro de baixa (parcial ou total), anexos (Storage privado com download via signed URL), histórico de aprovação.
+- **Pagamentos**: lançamento direto como pago (fornecedor → categoria/centro de custo preenchidos automaticamente pelo cadastro do fornecedor, editável), anexos (Storage privado com download via signed URL).
+- **Pagamentos fixos**: templates recorrentes (aluguel, assinaturas) sem valor definido — um Cron Job diário gera o lançamento pendente no dia do mês configurado, e a tela de **Baixa em massa** permite confirmar valor e data de vários de uma vez.
 - **Movimentações**: tabela consolidada dos pagamentos com filtros por empresa e período.
 - **Importação Excel/CSV**: wizard de pagamentos com prévia, validação linha a linha e relatório de erros.
 - **Auditoria**: trigger automático em empresas/contas/fornecedores/pagamentos/baixas + tela de consulta.

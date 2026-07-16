@@ -1,0 +1,58 @@
+import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/PageHeader";
+import { DataTable } from "@/components/DataTable";
+import { NewTemplateButton } from "./NewTemplateButton";
+import { TemplateActiveToggle } from "./TemplateActiveToggle";
+
+export default async function RecurringPaymentsPage() {
+  const supabase = createClient();
+
+  const [{ data: templates }, { data: companies }, { data: suppliers }, { data: categories }, { data: costCenters }, { data: bankAccounts }] =
+    await Promise.all([
+      supabase
+        .from("recurring_payment_templates")
+        .select("id, description, day_of_month, active, companies(legal_name), suppliers(legal_name)")
+        .order("day_of_month"),
+      supabase.from("companies").select("id, legal_name").order("legal_name"),
+      supabase.from("suppliers").select("id, legal_name").eq("status", "ativo").order("legal_name"),
+      supabase.from("categories").select("id, name").order("name"),
+      supabase.from("cost_centers").select("id, code, name").order("code"),
+      supabase.from("bank_accounts").select("id, bank_name, nickname").order("bank_name"),
+    ]);
+
+  return (
+    <div>
+      <PageHeader
+        title="Pagamentos fixos"
+        subtitle="Pagamentos recorrentes (aluguel, assinaturas) gerados automaticamente todo mês"
+        actions={
+          <NewTemplateButton
+            companies={companies ?? []}
+            suppliers={suppliers ?? []}
+            categories={categories ?? []}
+            costCenters={costCenters ?? []}
+            bankAccounts={bankAccounts ?? []}
+          />
+        }
+      />
+
+      <p className="text-sm text-ps-muted mb-4">
+        Todo dia, o sistema verifica os pagamentos fixos ativos e gera um lançamento pendente em{" "}
+        <strong>Pagamentos</strong> no dia do mês configurado — sem valor, para você preencher e dar baixa
+        quando a fatura chegar.
+      </p>
+
+      <DataTable
+        rows={templates ?? []}
+        rowKey={(t: any) => t.id}
+        columns={[
+          { header: "Descrição", cell: (t: any) => <span className="font-medium text-ps-ink">{t.description}</span> },
+          { header: "Empresa", cell: (t: any) => t.companies?.legal_name ?? "—" },
+          { header: "Fornecedor", cell: (t: any) => t.suppliers?.legal_name ?? "—" },
+          { header: "Dia do mês", cell: (t: any) => t.day_of_month },
+          { header: "Status", cell: (t: any) => <TemplateActiveToggle templateId={t.id} active={t.active} /> },
+        ]}
+      />
+    </div>
+  );
+}

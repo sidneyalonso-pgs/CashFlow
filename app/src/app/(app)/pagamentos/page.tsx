@@ -30,9 +30,21 @@ export default async function PaymentsPage({
     <div>
       <PageHeader
         title="Pagamentos"
-        subtitle="Pagamentos a fornecedores — realizados e previstos"
+        subtitle="Pagamentos já realizados e pagamentos fixos"
         actions={
           <div className="flex gap-2">
+            <Link
+              href="/pagamentos/fixos"
+              className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
+            >
+              Pagamentos fixos
+            </Link>
+            <Link
+              href="/pagamentos/baixa-em-massa"
+              className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
+            >
+              Baixa em massa
+            </Link>
             <Link
               href="/importacao/pagamentos"
               className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
@@ -43,7 +55,7 @@ export default async function PaymentsPage({
               href="/pagamentos/novo"
               className="bg-ps-navy text-white text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-navy-700 transition-colors"
             >
-              Novo pagamento
+              Lançar pagamento
             </Link>
           </div>
         }
@@ -69,18 +81,12 @@ export default async function PaymentsPage({
         >
           <option value="">Todos os status</option>
           {[
-            "rascunho",
-            "pendente_aprovacao",
-            "aprovado",
-            "rejeitado",
-            "agendado",
-            "pago_parcialmente",
-            "pago",
-            "vencido",
-            "cancelado",
+            { value: "rascunho", label: "Pendente (fixo aguardando valor)" },
+            { value: "pago", label: "Pago" },
+            { value: "cancelado", label: "Cancelado" },
           ].map((s) => (
-            <option key={s} value={s}>
-              {s}
+            <option key={s.value} value={s.value}>
+              {s.label}
             </option>
           ))}
         </select>

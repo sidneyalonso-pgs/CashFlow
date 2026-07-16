@@ -1,125 +1,191 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { TextField, SelectField } from "@/components/FormField";
-import { createPayment } from "../actions";
+import { useMemo, useState, useTransition } from "react";
+import { createPaidPayment } from "../actions";
 
-const PAYMENT_METHODS = [
-  { value: "pix", label: "Pix" },
-  { value: "ted", label: "TED" },
-  { value: "boleto", label: "Boleto" },
-  { value: "debito_automatico", label: "Débito automático" },
-  { value: "cartao", label: "Cartão" },
-  { value: "transferencia_interna", label: "Transferência interna" },
-  { value: "outro", label: "Outro" },
-];
+type Supplier = {
+  id: string;
+  legal_name: string;
+  default_category_id: string | null;
+  default_cost_center_id: string | null;
+};
 
 export function PaymentForm({
   companies,
   suppliers,
   categories,
-  subcategories,
   costCenters,
-  projects,
+  bankAccounts,
 }: {
   companies: Array<{ id: string; legal_name: string }>;
-  suppliers: Array<{ id: string; legal_name: string }>;
+  suppliers: Supplier[];
   categories: Array<{ id: string; name: string }>;
-  subcategories: Array<{ id: string; name: string; category_id: string }>;
   costCenters: Array<{ id: string; code: string; name: string }>;
-  projects: Array<{ id: string; code: string; name: string }>;
+  bankAccounts: Array<{ id: string; bank_name: string; nickname: string | null }>;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [supplierId, setSupplierId] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [costCenterId, setCostCenterId] = useState("");
+
+  const suppliersById = useMemo(() => new Map(suppliers.map((s) => [s.id, s])), [suppliers]);
+
+  function handleSupplierChange(id: string) {
+    setSupplierId(id);
+    const supplier = suppliersById.get(id);
+    setCategoryId(supplier?.default_category_id ?? "");
+    setCostCenterId(supplier?.default_cost_center_id ?? "");
+  }
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
-      const result = await createPayment(formData);
+      const result = await createPaidPayment(formData);
       if (result?.error) setError(result.error);
     });
   }
 
   return (
-    <form action={handleSubmit} className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-6 space-y-4 max-w-3xl">
-      <div className="grid grid-cols-2 gap-4">
-        <SelectField
-          label="Empresa"
+    <form action={handleSubmit} className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-6 space-y-4 max-w-xl">
+      <div>
+        <label className="block text-sm text-ps-ink-2 mb-1">Empresa</label>
+        <select
           name="company_id"
           required
-          options={companies.map((c) => ({ value: c.id, label: c.legal_name }))}
-        />
-        <SelectField
-          label="Fornecedor"
+          className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+        >
+          <option value="">Selecione...</option>
+          {companies.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.legal_name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm text-ps-ink-2 mb-1">Fornecedor</label>
+        <select
           name="supplier_id"
           required
-          options={suppliers.map((s) => ({ value: s.id, label: s.legal_name }))}
-        />
+          value={supplierId}
+          onChange={(e) => handleSupplierChange(e.target.value)}
+          className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+        >
+          <option value="">Selecione...</option>
+          {suppliers.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.legal_name}
+            </option>
+          ))}
+        </select>
       </div>
 
-      <TextField label="Descrição" name="description" required />
-
-      <div className="grid grid-cols-3 gap-4">
-        <TextField label="Valor bruto" name="gross_amount" type="number" required />
-        <TextField label="Moeda" name="currency" defaultValue="BRL" />
-        <TextField label="Número do documento" name="document_number" required />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <SelectField
-          label="Categoria"
-          name="category_id"
+      <div>
+        <label className="block text-sm text-ps-ink-2 mb-1">Descrição</label>
+        <input
+          name="description"
           required
-          options={categories.map((c) => ({ value: c.id, label: c.name }))}
-        />
-        <SelectField
-          label="Subcategoria"
-          name="subcategory_id"
-          options={subcategories.map((s) => ({ value: s.id, label: s.name }))}
+          className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm"
         />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <SelectField
-          label="Centro de custo"
-          name="cost_center_id"
-          options={costCenters.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }))}
-        />
-        <SelectField
-          label="Projeto"
-          name="project_id"
-          options={projects.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }))}
-        />
+        <div>
+          <label className="block text-sm text-ps-ink-2 mb-1">Valor pago</label>
+          <input
+            name="gross_amount"
+            type="number"
+            step="0.01"
+            required
+            className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-ps-ink-2 mb-1">Data do pagamento</label>
+          <input
+            name="paid_at"
+            type="date"
+            required
+            className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm"
+          />
+        </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        <TextField label="Data do documento" name="document_date" type="date" required />
-        <TextField label="Vencimento" name="due_date" type="date" required />
-        <TextField label="Previsão de pagamento" name="expected_payment_date" type="date" required />
-        <TextField label="Competência" name="competence_date" type="date" required />
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm text-ps-ink-2 mb-1">
+            Categoria <span className="text-xs text-ps-muted">(preenchida pelo fornecedor)</span>
+          </label>
+          <select
+            name="category_id"
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+          >
+            <option value="">Selecione...</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm text-ps-ink-2 mb-1">
+            Centro de custo <span className="text-xs text-ps-muted">(preenchido pelo fornecedor)</span>
+          </label>
+          <select
+            name="cost_center_id"
+            value={costCenterId}
+            onChange={(e) => setCostCenterId(e.target.value)}
+            className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+          >
+            <option value="">Selecione...</option>
+            {costCenters.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.code} - {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      <SelectField label="Forma de pagamento" name="payment_method" options={PAYMENT_METHODS} />
+      <div>
+        <label className="block text-sm text-ps-ink-2 mb-1">Conta pagadora</label>
+        <select name="paying_bank_account_id" className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+          <option value="">Selecione...</option>
+          {bankAccounts.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.nickname ?? a.bank_name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <label className="flex items-center gap-2 text-sm text-ps-ink-2">
+        <input type="checkbox" name="recurring" className="rounded" />
+        Isso é um pagamento recorrente (só para referência — pagamentos fixos automáticos ficam em "Pagamentos fixos")
+      </label>
 
       <div>
         <label className="block text-sm text-ps-ink-2 mb-1">Observações</label>
         <textarea
           name="notes"
-          rows={3}
-          className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ps-green"
+          rows={2}
+          className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm"
         />
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <div className="flex justify-end gap-2 pt-2">
-        <button
-          type="submit"
-          disabled={isPending}
-          className="bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-5 py-2 text-sm disabled:opacity-60"
-        >
-          {isPending ? "Salvando..." : "Salvar rascunho"}
-        </button>
-      </div>
+      <button
+        type="submit"
+        disabled={isPending}
+        className="bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-5 py-2 text-sm disabled:opacity-60"
+      >
+        {isPending ? "Salvando..." : "Lançar como pago"}
+      </button>
     </form>
   );
 }

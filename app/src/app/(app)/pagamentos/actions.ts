@@ -3,21 +3,21 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { paymentSchema } from "@/lib/validators/payment";
 
-export async function createPayment(formData: FormData) {
-  const raw = Object.fromEntries(formData.entries());
-  const parsed = paymentSchema.safeParse({
-    ...raw,
-    subcategory_id: raw.subcategory_id || undefined,
-    cost_center_id: raw.cost_center_id || undefined,
-    project_id: raw.project_id || undefined,
-    payment_method: raw.payment_method || undefined,
-    notes: raw.notes || undefined,
-  });
+export async function createPaidPayment(formData: FormData) {
+  const companyId = String(formData.get("company_id") || "");
+  const supplierId = String(formData.get("supplier_id") || "");
+  const description = String(formData.get("description") || "");
+  const grossAmount = Number(formData.get("gross_amount"));
+  const paidAt = String(formData.get("paid_at") || "");
+  const categoryId = String(formData.get("category_id") || "") || null;
+  const costCenterId = String(formData.get("cost_center_id") || "") || null;
+  const bankAccountId = String(formData.get("paying_bank_account_id") || "") || null;
+  const notes = String(formData.get("notes") || "") || null;
+  const recurring = formData.get("recurring") === "on";
 
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+  if (!companyId || !supplierId || !description || !grossAmount || grossAmount <= 0 || !paidAt) {
+    return { error: "Preencha empresa, fornecedor, descrição, valor e data do pagamento." };
   }
 
   const supabase = createClient();
@@ -25,14 +25,26 @@ export async function createPayment(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { gross_amount, ...rest } = parsed.data;
-
   const { data: payment, error } = await supabase
     .from("payments")
     .insert({
-      ...rest,
-      gross_amount,
-      status: "rascunho",
+      company_id: companyId,
+      supplier_id: supplierId,
+      description,
+      gross_amount: grossAmount,
+      currency: "BRL",
+      category_id: categoryId,
+      cost_center_id: costCenterId,
+      paying_bank_account_id: bankAccountId,
+      document_date: paidAt,
+      due_date: paidAt,
+      expected_payment_date: paidAt,
+      competence_date: paidAt,
+      effective_payment_date: paidAt,
+      paid_amount: grossAmount,
+      recurring,
+      notes,
+      status: "pago",
       created_by: user?.id,
       updated_by: user?.id,
     })
@@ -41,77 +53,21 @@ export async function createPayment(formData: FormData) {
 
   if (error) return { error: error.message };
 
+  const { error: realizationError } = await supabase.from("payment_realizations").insert({
+    payment_id: payment.id,
+    amount: grossAmount,
+    paid_at: paidAt,
+    bank_account_id: bankAccountId,
+    created_by: user?.id,
+  });
+
+  if (realizationError) return { error: realizationError.message };
+
   revalidatePath("/pagamentos");
-  redirect(`/pagamentos/${payment.id}`);
+  redirect("/pagamentos");
 }
 
-export async function submitForApproval(paymentId: string) {
-  const supabase = createClient();
-  const { error } = await supabase
-    .from("payments")
-    .update({ status: "pendente_aprovacao" })
-    .eq("id", paymentId);
-
-  if (error) return { error: error.message };
-  revalidatePath(`/pagamentos/${paymentId}`);
-  return { error: null };
-}
-
-export async function decidePayment(paymentId: string, decision: "aprovado" | "rejeitado", notes: string) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { error: approvalError } = await supabase.from("approvals").insert({
-    payment_id: paymentId,
-    approver_id: user?.id,
-    decision,
-    notes: notes || null,
-  });
-  if (approvalError) return { error: approvalError.message };
-
-  const { error } = await supabase
-    .from("payments")
-    .update({
-      status: decision,
-      approver_id: user?.id,
-      approved_at: new Date().toISOString(),
-    })
-    .eq("id", paymentId);
-
-  if (error) return { error: error.message };
-  revalidatePath(`/pagamentos/${paymentId}`);
-  return { error: null };
-}
-
-export async function scheduleReturnForCorrection(paymentId: string, notes: string) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { error: approvalError } = await supabase.from("approvals").insert({
-    payment_id: paymentId,
-    approver_id: user?.id,
-    decision: "devolvido",
-    notes: notes || null,
-  });
-  if (approvalError) return { error: approvalError.message };
-
-  const { error } = await supabase.from("payments").update({ status: "rascunho" }).eq("id", paymentId);
-  if (error) return { error: error.message };
-
-  revalidatePath(`/pagamentos/${paymentId}`);
-  return { error: null };
-}
-
-export async function registerRealization(formData: FormData) {
-  const paymentId = String(formData.get("payment_id"));
-  const amount = Number(formData.get("amount"));
-  const paidAt = String(formData.get("paid_at"));
-  const bankAccountId = String(formData.get("bank_account_id") || "") || null;
-
+export async function settlePayment(paymentId: string, amount: number, paidAt: string, bankAccountId: string | null) {
   if (!amount || amount <= 0) return { error: "Valor deve ser maior que zero" };
 
   const supabase = createClient();
@@ -128,31 +84,35 @@ export async function registerRealization(formData: FormData) {
   });
   if (realizationError) return { error: realizationError.message };
 
-  const { data: payment } = await supabase
+  const { error } = await supabase
     .from("payments")
-    .select("gross_amount, payment_realizations(amount)")
-    .eq("id", paymentId)
-    .single();
+    .update({
+      status: "pago",
+      gross_amount: amount,
+      paid_amount: amount,
+      effective_payment_date: paidAt,
+      due_date: paidAt,
+      expected_payment_date: paidAt,
+      competence_date: paidAt,
+      document_date: paidAt,
+    })
+    .eq("id", paymentId);
 
-  if (payment) {
-    const totalPaid = (payment.payment_realizations ?? []).reduce(
-      (sum: number, r: any) => sum + Number(r.amount),
-      0
-    );
-    const newStatus = totalPaid >= Number(payment.gross_amount) ? "pago" : "pago_parcialmente";
+  if (error) return { error: error.message };
 
-    await supabase
-      .from("payments")
-      .update({
-        status: newStatus,
-        effective_payment_date: paidAt,
-        paid_amount: totalPaid,
-      })
-      .eq("id", paymentId);
-  }
-
-  revalidatePath(`/pagamentos/${paymentId}`);
+  revalidatePath("/pagamentos");
   return { error: null };
+}
+
+export async function bulkSettlePayments(
+  entries: Array<{ id: string; amount: number; paidAt: string; bankAccountId: string | null }>
+) {
+  const results = await Promise.all(
+    entries.map((e) => settlePayment(e.id, e.amount, e.paidAt, e.bankAccountId))
+  );
+  const errors = results.filter((r) => r.error).map((r) => r.error as string);
+  revalidatePath("/pagamentos");
+  return { errors };
 }
 
 export async function recordAttachment(params: {
@@ -187,5 +147,6 @@ export async function cancelPayment(paymentId: string) {
   const { error } = await supabase.from("payments").update({ status: "cancelado" }).eq("id", paymentId);
   if (error) return { error: error.message };
   revalidatePath(`/pagamentos/${paymentId}`);
+  revalidatePath("/pagamentos");
   return { error: null };
 }

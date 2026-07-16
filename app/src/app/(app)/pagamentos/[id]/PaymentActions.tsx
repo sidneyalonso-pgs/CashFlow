@@ -2,23 +2,28 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  submitForApproval,
-  decidePayment,
-  scheduleReturnForCorrection,
-  cancelPayment,
-} from "../actions";
+import { settlePayment, cancelPayment } from "../actions";
 
-export function PaymentActions({ paymentId, status }: { paymentId: string; status: string }) {
+export function PaymentActions({
+  paymentId,
+  status,
+  bankAccounts,
+}: {
+  paymentId: string;
+  status: string;
+  bankAccounts: Array<{ id: string; bank_name: string; nickname: string | null }>;
+}) {
   const router = useRouter();
-  const [notes, setNotes] = useState("");
+  const [amount, setAmount] = useState("");
+  const [paidAt, setPaidAt] = useState("");
+  const [bankAccountId, setBankAccountId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function run(action: () => Promise<{ error: string | null } | undefined>) {
+  function handleSettle() {
     startTransition(async () => {
-      const result = await action();
-      if (result?.error) setError(result.error);
+      const result = await settlePayment(paymentId, Number(amount), paidAt, bankAccountId || null);
+      if (result.error) setError(result.error);
       else {
         setError(null);
         router.refresh();
@@ -26,72 +31,85 @@ export function PaymentActions({ paymentId, status }: { paymentId: string; statu
     });
   }
 
+  function handleCancel() {
+    startTransition(async () => {
+      const result = await cancelPayment(paymentId);
+      if (result.error) setError(result.error);
+      else router.refresh();
+    });
+  }
+
+  if (status === "pago") {
+    return (
+      <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5">
+        <p className="text-sm text-ps-green-700 font-medium">Pagamento já baixado.</p>
+      </div>
+    );
+  }
+
+  if (status === "cancelado") {
+    return (
+      <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5">
+        <p className="text-sm text-ps-muted">Pagamento cancelado.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5 space-y-3">
-      <h3 className="font-semibold text-ps-ink">Ações</h3>
+      <h3 className="font-semibold text-ps-ink">Dar baixa</h3>
+
+      <div>
+        <label className="block text-sm text-ps-ink-2 mb-1">Valor pago</label>
+        <input
+          type="number"
+          step="0.01"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm text-ps-ink-2 mb-1">Data do pagamento</label>
+        <input
+          type="date"
+          value={paidAt}
+          onChange={(e) => setPaidAt(e.target.value)}
+          className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm text-ps-ink-2 mb-1">Conta pagadora</label>
+        <select
+          value={bankAccountId}
+          onChange={(e) => setBankAccountId(e.target.value)}
+          className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+        >
+          <option value="">Selecione...</option>
+          {bankAccounts.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.nickname ?? a.bank_name}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      {status === "rascunho" && (
-        <button
-          disabled={isPending}
-          onClick={() => run(() => submitForApproval(paymentId))}
-          className="w-full bg-ps-navy text-white text-sm font-medium rounded-ps-sm px-4 py-2 disabled:opacity-60"
-        >
-          Enviar para aprovação
-        </button>
-      )}
-
-      {status === "pendente_aprovacao" && (
-        <>
-          <textarea
-            placeholder="Observações (opcional)"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={2}
-            className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm"
-          />
-          <div className="flex gap-2">
-            <button
-              disabled={isPending}
-              onClick={() => run(() => decidePayment(paymentId, "aprovado", notes))}
-              className="flex-1 bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-4 py-2 text-sm disabled:opacity-60"
-            >
-              Aprovar
-            </button>
-            <button
-              disabled={isPending}
-              onClick={() => run(() => decidePayment(paymentId, "rejeitado", notes))}
-              className="flex-1 bg-red-100 text-red-700 font-semibold rounded-ps-sm px-4 py-2 text-sm disabled:opacity-60"
-            >
-              Rejeitar
-            </button>
-          </div>
-          <button
-            disabled={isPending}
-            onClick={() => run(() => scheduleReturnForCorrection(paymentId, notes))}
-            className="w-full text-sm text-ps-muted hover:text-ps-ink underline"
-          >
-            Devolver para correção
-          </button>
-        </>
-      )}
-
-      {(status === "aprovado" || status === "pago_parcialmente") && (
-        <p className="text-xs text-ps-muted">
-          Use o formulário de baixa abaixo para registrar pagamentos.
-        </p>
-      )}
-
-      {!["pago", "cancelado", "rejeitado"].includes(status) && (
-        <button
-          disabled={isPending}
-          onClick={() => run(() => cancelPayment(paymentId))}
-          className="w-full text-sm text-red-600 hover:underline"
-        >
-          Cancelar pagamento
-        </button>
-      )}
+      <button
+        onClick={handleSettle}
+        disabled={isPending}
+        className="w-full bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-4 py-2 text-sm disabled:opacity-60"
+      >
+        {isPending ? "Baixando..." : "Confirmar pagamento"}
+      </button>
+      <button
+        onClick={handleCancel}
+        disabled={isPending}
+        className="w-full text-sm text-red-600 hover:underline"
+      >
+        Cancelar
+      </button>
     </div>
   );
 }
