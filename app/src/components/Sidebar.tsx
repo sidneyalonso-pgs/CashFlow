@@ -10,7 +10,7 @@ const NAV_ITEMS = [
   { href: "/investimentos", label: "Investimentos" },
   { href: "/fpa", label: "FP&A" },
   { href: "/relatorios", label: "Relatórios" },
-  { href: "/cadastros/empresas", label: "Cadastros" },
+  { href: "/cadastros", label: "Cadastros" },
   { href: "/configuracoes", label: "Configurações" },
 ];
 

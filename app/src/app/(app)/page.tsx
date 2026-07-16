@@ -6,20 +6,28 @@ import { formatBRL, sumMoney } from "@/lib/calculations/money";
 export default async function DashboardPage() {
   const supabase = createClient();
 
-  const { data: bankAccounts } = await supabase
-    .from("bank_accounts")
-    .select("initial_balance, counts_as_available_cash");
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  const monthStartStr = monthStart.toISOString().slice(0, 10);
 
-  const { data: overduePayments } = await supabase
-    .from("payments")
-    .select("id")
-    .eq("status", "vencido");
+  const [{ data: bankAccounts }, { data: overduePayments }, { data: realizationsThisMonth }] = await Promise.all([
+    supabase.from("bank_accounts").select("initial_balance, counts_as_available_cash"),
+    supabase
+      .from("payments")
+      .select("id")
+      .lt("due_date", today)
+      .not("status", "in", "(pago,cancelado,rejeitado)"),
+    supabase.from("payment_realizations").select("amount").gte("paid_at", monthStartStr),
+  ]);
 
   const availableCash = sumMoney(
     (bankAccounts ?? [])
       .filter((a: any) => a.counts_as_available_cash)
       .map((a: any) => a.initial_balance)
   );
+
+  const outflowsThisMonth = sumMoney((realizationsThisMonth ?? []).map((r: any) => r.amount));
 
   return (
     <div>
@@ -29,8 +37,12 @@ export default async function DashboardPage() {
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <FinancialCard label="Caixa disponível hoje" value={formatBRL(availableCash)} />
-        <FinancialCard label="Entradas realizadas (mês)" value={formatBRL(0)} />
-        <FinancialCard label="Saídas realizadas (mês)" value={formatBRL(0)} />
+        <FinancialCard
+          label="Entradas realizadas (mês)"
+          value={formatBRL(0)}
+          hint="Módulo de receitas chega na Fase 2"
+        />
+        <FinancialCard label="Saídas realizadas (mês)" value={formatBRL(outflowsThisMonth)} tone="negative" />
         <FinancialCard
           label="Pagamentos vencidos"
           value={String(overduePayments?.length ?? 0)}
