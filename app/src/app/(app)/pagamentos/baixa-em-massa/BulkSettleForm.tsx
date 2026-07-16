@@ -35,10 +35,10 @@ export function BulkSettleForm({
   }
 
   function updateValue(id: string, field: "amount" | "paidAt" | "bankAccountId", value: string) {
-    setValues((prev) => ({
-      ...prev,
-      [id]: { amount: "", paidAt: "", bankAccountId: "", ...prev[id], [field]: value },
-    }));
+    setValues((prev) => {
+      const current = prev[id] ?? { amount: "", paidAt: "", bankAccountId: "" };
+      return { ...prev, [id]: { ...current, [field]: value } };
+    });
   }
 
   function handleSubmit() {
