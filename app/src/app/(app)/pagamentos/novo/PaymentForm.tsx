@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { createPaidPayment } from "../actions";
+import { createPaidPayment, createScheduledPayment } from "../actions";
 
 type Supplier = {
   id: string;
@@ -28,6 +28,7 @@ export function PaymentForm({
   const [supplierId, setSupplierId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [costCenterId, setCostCenterId] = useState("");
+  const [mode, setMode] = useState<"pago" | "programado">("pago");
 
   const suppliersById = useMemo(() => new Map(suppliers.map((s) => [s.id, s])), [suppliers]);
 
@@ -40,13 +41,35 @@ export function PaymentForm({
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
-      const result = await createPaidPayment(formData);
+      const action = mode === "pago" ? createPaidPayment : createScheduledPayment;
+      const result = await action(formData);
       if (result?.error) setError(result.error);
     });
   }
 
   return (
     <form action={handleSubmit} className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-6 space-y-4 max-w-xl">
+      <div className="flex gap-2 p-1 bg-ps-bg-2 rounded-ps-sm w-fit">
+        <button
+          type="button"
+          onClick={() => setMode("pago")}
+          className={`px-4 py-1.5 rounded-ps-sm text-sm font-medium transition-colors ${
+            mode === "pago" ? "bg-white shadow-ps-sm text-ps-ink" : "text-ps-muted"
+          }`}
+        >
+          Já foi pago
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("programado")}
+          className={`px-4 py-1.5 rounded-ps-sm text-sm font-medium transition-colors ${
+            mode === "programado" ? "bg-white shadow-ps-sm text-ps-ink" : "text-ps-muted"
+          }`}
+        >
+          Programado (futuro)
+        </button>
+      </div>
+
       <div>
         <label className="block text-sm text-ps-ink-2 mb-1">Empresa</label>
         <select
@@ -92,7 +115,9 @@ export function PaymentForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm text-ps-ink-2 mb-1">Valor pago</label>
+          <label className="block text-sm text-ps-ink-2 mb-1">
+            Valor {mode === "programado" && "previsto"}
+          </label>
           <input
             name="gross_amount"
             type="number"
@@ -102,9 +127,11 @@ export function PaymentForm({
           />
         </div>
         <div>
-          <label className="block text-sm text-ps-ink-2 mb-1">Data do pagamento</label>
+          <label className="block text-sm text-ps-ink-2 mb-1">
+            {mode === "pago" ? "Data do pagamento" : "Data prevista de pagamento"}
+          </label>
           <input
-            name="paid_at"
+            name={mode === "pago" ? "paid_at" : "expected_payment_date"}
             type="date"
             required
             className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm"
@@ -184,7 +211,7 @@ export function PaymentForm({
         disabled={isPending}
         className="bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-5 py-2 text-sm disabled:opacity-60"
       >
-        {isPending ? "Salvando..." : "Lançar como pago"}
+        {isPending ? "Salvando..." : mode === "pago" ? "Lançar como pago" : "Programar pagamento"}
       </button>
     </form>
   );

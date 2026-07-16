@@ -67,6 +67,53 @@ export async function createPaidPayment(formData: FormData) {
   redirect("/pagamentos");
 }
 
+export async function createScheduledPayment(formData: FormData) {
+  const companyId = String(formData.get("company_id") || "");
+  const supplierId = String(formData.get("supplier_id") || "");
+  const description = String(formData.get("description") || "");
+  const grossAmount = Number(formData.get("gross_amount"));
+  const expectedDate = String(formData.get("expected_payment_date") || "");
+  const categoryId = String(formData.get("category_id") || "") || null;
+  const costCenterId = String(formData.get("cost_center_id") || "") || null;
+  const bankAccountId = String(formData.get("paying_bank_account_id") || "") || null;
+  const notes = String(formData.get("notes") || "") || null;
+  const recurring = formData.get("recurring") === "on";
+
+  if (!companyId || !supplierId || !description || !grossAmount || grossAmount <= 0 || !expectedDate) {
+    return { error: "Preencha empresa, fornecedor, descrição, valor e data prevista." };
+  }
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await supabase.from("payments").insert({
+    company_id: companyId,
+    supplier_id: supplierId,
+    description,
+    gross_amount: grossAmount,
+    currency: "BRL",
+    category_id: categoryId,
+    cost_center_id: costCenterId,
+    paying_bank_account_id: bankAccountId,
+    document_date: expectedDate,
+    due_date: expectedDate,
+    expected_payment_date: expectedDate,
+    competence_date: expectedDate,
+    recurring,
+    notes,
+    status: "agendado",
+    created_by: user?.id,
+    updated_by: user?.id,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/pagamentos");
+  redirect("/pagamentos");
+}
+
 export async function settlePayment(paymentId: string, amount: number, paidAt: string, bankAccountId: string | null) {
   if (!amount || amount <= 0) return { error: "Valor deve ser maior que zero" };
 
