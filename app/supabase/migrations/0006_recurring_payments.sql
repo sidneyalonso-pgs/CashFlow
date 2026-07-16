@@ -30,8 +30,9 @@ alter table payments alter column category_id drop not null;
 alter table payments alter column document_number drop not null;
 
 -- Evita gerar o mesmo mês duas vezes para o mesmo template
+-- (extract() é IMMUTABLE para o tipo date; date_trunc() não é, e quebra a criação do índice)
 create unique index payments_recurring_template_month_idx
-  on payments (recurring_template_id, date_trunc('month', due_date))
+  on payments (recurring_template_id, extract(year from due_date), extract(month from due_date))
   where recurring_template_id is not null;
 
 alter table recurring_payment_templates enable row level security;
