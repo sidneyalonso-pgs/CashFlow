@@ -2,13 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-
-type StatementRow = {
-  data?: string;
-  descricao?: string;
-  valor?: string | number;
-  documento?: string;
-};
+import type { StatementRow } from "@/lib/parsing/bankStatement";
 
 export async function importBankStatement(
   rows: StatementRow[],
@@ -39,17 +33,14 @@ export async function importBankStatement(
 
   let imported = 0;
   for (const row of rows) {
-    const amount = Number(row.valor);
-    if (!row.data || !amount) continue;
-
     const { error } = await supabase.from("bank_statement_entries").insert({
       import_id: importRecord.id,
       bank_account_id: bankAccountId,
-      entry_date: row.data,
-      bank_description: row.descricao ?? "",
-      amount: Math.abs(amount),
-      direction: amount >= 0 ? "entrada" : "saida",
-      document_reference: row.documento ?? null,
+      entry_date: row.date,
+      bank_description: row.description,
+      amount: Math.abs(row.amount),
+      direction: row.amount >= 0 ? "entrada" : "saida",
+      bank_balance: row.balance,
     });
 
     if (!error) imported++;

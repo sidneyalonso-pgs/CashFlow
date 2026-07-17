@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
+import { parseBankStatementText, type StatementRow } from "@/lib/parsing/bankStatement";
+import { formatBRL } from "@/lib/calculations/money";
 import { importBankStatement } from "./actions";
-
-const EXPECTED_COLUMNS = ["data", "descricao", "valor", "documento"];
 
 export function ImportStatementWizard({
   companies,
@@ -17,7 +17,8 @@ export function ImportStatementWizard({
   const router = useRouter();
   const [companyId, setCompanyId] = useState("");
   const [bankAccountId, setBankAccountId] = useState("");
-  const [rows, setRows] = useState<Record<string, any>[]>([]);
+  const [rows, setRows] = useState<StatementRow[]>([]);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ imported: number; total: number } | null>(null);
@@ -32,16 +33,23 @@ export function ImportStatementWizard({
     setResult(null);
     setFileName(file.name);
 
-    const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer);
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const parsed = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { raw: false });
+    let text: string;
+    if (file.name.toLowerCase().endsWith(".csv")) {
+      text = await file.text();
+    } else {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer);
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      text = XLSX.utils.sheet_to_csv(sheet, { FS: ";" });
+    }
 
-    if (parsed.length === 0) {
-      setError("A planilha está vazia.");
+    const parsed = parseBankStatementText(text);
+    if (parsed.rows.length === 0) {
+      setError("Não encontrei linhas de transação no arquivo. Confira se ele tem colunas de Data, Descrição e Valor.");
       return;
     }
-    setRows(parsed);
+    setRows(parsed.rows);
+    setWarnings(parsed.warnings);
   }
 
   async function handleConfirm() {
@@ -50,7 +58,7 @@ export function ImportStatementWizard({
       return;
     }
     setIsSubmitting(true);
-    const res = await importBankStatement(rows as any, companyId, bankAccountId, fileName);
+    const res = await importBankStatement(rows, companyId, bankAccountId, fileName);
     setIsSubmitting(false);
     if (res.error) {
       setError(res.error);
@@ -94,12 +102,28 @@ export function ImportStatementWizard({
           </select>
         </div>
         <p className="text-sm text-ps-muted">
-          Colunas esperadas: <code className="font-mono text-xs">{EXPECTED_COLUMNS.join(", ")}</code> — valores
-          negativos são tratados como saída, positivos como entrada.
+          Aceita o extrato exportado direto do banco (CSV com colunas Data, Descrição, Valor e Saldo) ou uma
+          planilha Excel no mesmo formato.
         </p>
         <input type="file" accept=".xlsx,.csv" onChange={handleFile} className="text-sm" />
         {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
+
+      {warnings.length > 0 && !result && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-ps p-4">
+          <h4 className="text-sm font-semibold text-yellow-800 mb-2">
+            Divergências de saldo encontradas ({warnings.length})
+          </h4>
+          <ul className="text-xs text-yellow-800 space-y-1 max-h-40 overflow-y-auto">
+            {warnings.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
+          <p className="text-xs text-yellow-700 mt-2">
+            Isso pode indicar uma linha faltando no extrato — a importação continua normalmente, mas vale conferir.
+          </p>
+        </div>
+      )}
 
       {rows.length > 0 && !result && (
         <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5">
@@ -110,26 +134,28 @@ export function ImportStatementWizard({
             <table className="w-full text-xs">
               <thead className="bg-ps-bg-2 text-ps-muted uppercase">
                 <tr>
-                  {EXPECTED_COLUMNS.map((c) => (
-                    <th key={c} className="text-left px-2 py-2">
-                      {c}
-                    </th>
-                  ))}
+                  <th className="text-left px-2 py-2">Data</th>
+                  <th className="text-left px-2 py-2">Descrição</th>
+                  <th className="text-left px-2 py-2">Valor</th>
+                  <th className="text-left px-2 py-2">Saldo</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.slice(0, 10).map((row, i) => (
                   <tr key={i} className="border-t border-ps-navy/5">
-                    {EXPECTED_COLUMNS.map((c) => (
-                      <td key={c} className="px-2 py-2 whitespace-nowrap">
-                        {row[c] ?? ""}
-                      </td>
-                    ))}
+                    <td className="px-2 py-2 whitespace-nowrap">{row.date}</td>
+                    <td className="px-2 py-2">{row.description}</td>
+                    <td className={`px-2 py-2 whitespace-nowrap ${row.amount < 0 ? "text-red-600" : "text-ps-green-700"}`}>
+                      {formatBRL(row.amount)}
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap">{row.balance !== null ? formatBRL(row.balance) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          {rows.length > 10 && <p className="text-xs text-ps-muted mt-2">Mostrando 10 de {rows.length} linhas.</p>}
+
           <button
             onClick={handleConfirm}
             disabled={isSubmitting}
