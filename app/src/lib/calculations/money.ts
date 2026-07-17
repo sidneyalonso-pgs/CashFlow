@@ -6,7 +6,7 @@ export function toDecimal(value: string | number): Decimal {
   return new Decimal(value);
 }
 
-export function sumMoney(values: Array<string | number>): Decimal {
+export function sumMoney(values: Array<string | number | Decimal>): Decimal {
   return values.reduce((acc: Decimal, v) => acc.plus(v), new Decimal(0));
 }
 
