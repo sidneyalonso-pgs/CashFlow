@@ -21,14 +21,8 @@ export default async function DashboardPage({
   const monthStartStr = `${refYear}-${String(refMonth).padStart(2, "0")}-01`;
   const monthEndDate = new Date(Date.UTC(refYear, refMonth, 0));
   const monthEndStr = monthEndDate.toISOString().slice(0, 10);
-  const todayStr = today.toISOString().slice(0, 10);
 
   let bankAccountsQuery = supabase.from("bank_accounts").select("initial_balance, counts_as_available_cash, company_id");
-  let overdueQuery = supabase
-    .from("payments")
-    .select("id")
-    .lt("due_date", todayStr)
-    .not("status", "in", "(pago,cancelado,rejeitado)");
   let outflowsQuery = supabase
     .from("payment_realizations")
     .select("amount, paid_at, payments!inner(company_id, category_id, categories(name))")
@@ -42,19 +36,16 @@ export default async function DashboardPage({
 
   if (companyId) {
     bankAccountsQuery = bankAccountsQuery.eq("company_id", companyId);
-    overdueQuery = overdueQuery.eq("company_id", companyId);
     outflowsQuery = outflowsQuery.eq("payments.company_id", companyId);
     inflowsQuery = inflowsQuery.eq("revenues.company_id", companyId);
   }
 
-  const [{ data: bankAccounts }, { data: overduePayments }, { data: outflows }, { data: inflows }, { data: companies }] =
-    await Promise.all([
-      bankAccountsQuery,
-      overdueQuery,
-      outflowsQuery,
-      inflowsQuery,
-      supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
-    ]);
+  const [{ data: bankAccounts }, { data: outflows }, { data: inflows }, { data: companies }] = await Promise.all([
+    bankAccountsQuery,
+    outflowsQuery,
+    inflowsQuery,
+    supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
+  ]);
 
   const availableCash = sumMoney(
     (bankAccounts ?? []).filter((a: any) => a.counts_as_available_cash).map((a: any) => a.initial_balance)
@@ -121,15 +112,10 @@ export default async function DashboardPage({
         </button>
       </form>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <FinancialCard label="Caixa disponível hoje" value={formatBRL(availableCash)} />
         <FinancialCard label="Entradas realizadas (mês)" value={formatBRL(inflowsThisMonth)} tone="positive" />
         <FinancialCard label="Saídas realizadas (mês)" value={formatBRL(outflowsThisMonth)} tone="negative" />
-        <FinancialCard
-          label="Pagamentos vencidos"
-          value={String(overduePayments?.length ?? 0)}
-          tone={overduePayments && overduePayments.length > 0 ? "negative" : "neutral"}
-        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
