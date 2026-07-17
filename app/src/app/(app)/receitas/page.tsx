@@ -10,17 +10,16 @@ import { EditRevenueButton } from "./EditRevenueButton";
 export default async function RevenuesPage() {
   const supabase = createClient();
 
-  const [{ data: revenues }, { data: bankAccounts }, { data: customers }, { data: categories }] = await Promise.all([
+  const [{ data: revenues }, { data: bankAccounts }, { data: categories }] = await Promise.all([
     supabase
       .from("revenues")
       .select(
-        "id, description, customer_id, category_id, expected_amount, realized_amount, expected_date, status, notes, companies(legal_name), customers(name)"
+        "id, description, category_id, expected_amount, realized_amount, expected_date, status, notes, companies(legal_name), categories(name)"
       )
       .is("deleted_at", null)
       .order("expected_date", { ascending: false }),
     supabase.from("bank_accounts").select("id, bank_name, nickname").order("bank_name"),
-    supabase.from("customers").select("id, name").order("name"),
-    supabase.from("categories").select("id, name").order("name"),
+    supabase.from("categories").select("id, name").in("allowed_direction", ["entrada", "ambas"]).order("name"),
   ]);
 
   return (
@@ -42,9 +41,9 @@ export default async function RevenuesPage() {
         rows={revenues ?? []}
         rowKey={(r: any) => r.id}
         columns={[
-          { header: "Descrição", cell: (r: any) => <span className="font-medium text-ps-ink">{r.description}</span> },
           { header: "Empresa", cell: (r: any) => r.companies?.legal_name ?? "—" },
-          { header: "Cliente", cell: (r: any) => r.customers?.name ?? "—" },
+          { header: "Categoria", cell: (r: any) => r.categories?.name ?? "—" },
+          { header: "Descrição", cell: (r: any) => <span className="font-medium text-ps-ink">{r.description}</span> },
           { header: "Data prevista", cell: (r: any) => r.expected_date },
           {
             header: "Valor",
@@ -57,7 +56,7 @@ export default async function RevenuesPage() {
             header: "Ações",
             cell: (r: any) => (
               <div className="flex gap-2">
-                <EditRevenueButton revenue={r} customers={customers ?? []} categories={categories ?? []} />
+                <EditRevenueButton revenue={r} categories={categories ?? []} />
                 {["estimada", "confirmada", "atrasada", "reprogramada"].includes(r.status) && (
                   <RevenueSettleButton revenueId={r.id} bankAccounts={bankAccounts ?? []} />
                 )}

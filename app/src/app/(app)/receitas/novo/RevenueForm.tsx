@@ -5,12 +5,10 @@ import { createReceivedRevenue, createEstimatedRevenue } from "../actions";
 
 export function RevenueForm({
   companies,
-  customers,
   categories,
   bankAccounts,
 }: {
   companies: Array<{ id: string; legal_name: string }>;
-  customers: Array<{ id: string; name: string }>;
   categories: Array<{ id: string; name: string }>;
   bankAccounts: Array<{ id: string; bank_name: string; nickname: string | null }>;
 }) {
@@ -62,18 +60,6 @@ export function RevenueForm({
       </div>
 
       <div>
-        <label className="block text-sm text-ps-ink-2 mb-1">Cliente / origem</label>
-        <select name="customer_id" className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="">Selecione...</option>
-          {customers.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
         <label className="block text-sm text-ps-ink-2 mb-1">Descrição</label>
         <input name="description" required className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm" />
       </div>
@@ -118,7 +104,7 @@ export function RevenueForm({
 
       <div>
         <label className="block text-sm text-ps-ink-2 mb-1">Categoria</label>
-        <select name="category_id" className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+        <select name="category_id" required className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
           <option value="">Selecione...</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>

@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DataTable } from "@/components/DataTable";
 import { formatBRL } from "@/lib/calculations/money";
+import { InlineDueDateEdit } from "./InlineDueDateEdit";
 
 export default async function PaymentsPage({
   searchParams,
@@ -97,7 +98,10 @@ export default async function PaymentsPage({
               </Link>
             ),
           },
-          { header: "Vencimento", cell: (p: any) => p.due_date },
+          {
+            header: "Vencimento",
+            cell: (p: any) => <InlineDueDateEdit paymentId={p.id} dueDate={p.due_date} />,
+          },
           {
             header: "Valor",
             cell: (p: any) => <span className="tabular-nums">{formatBRL(p.gross_amount)}</span>,

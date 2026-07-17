@@ -282,6 +282,47 @@ export async function updatePayment(paymentId: string, formData: FormData) {
   return { error: null };
 }
 
+export async function updatePaymentDueDate(paymentId: string, dueDate: string) {
+  if (!dueDate) return { error: "Informe a data de vencimento." };
+
+  const dateError = assertReasonableDate(dueDate, "Data de vencimento");
+  if (dateError) return { error: dateError };
+
+  const supabase = createClient();
+
+  const { data: payment } = await supabase.from("payments").select("status").eq("id", paymentId).single();
+
+  const update: Record<string, unknown> = {
+    due_date: dueDate,
+    expected_payment_date: dueDate,
+  };
+
+  if (payment?.status === "pago") {
+    update.effective_payment_date = dueDate;
+    update.competence_date = dueDate;
+    update.document_date = dueDate;
+
+    const { data: realizations } = await supabase
+      .from("payment_realizations")
+      .select("id")
+      .eq("payment_id", paymentId)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (realizations && realizations.length > 0) {
+      await supabase.from("payment_realizations").update({ paid_at: dueDate }).eq("id", realizations[0].id);
+    }
+  }
+
+  const { error } = await supabase.from("payments").update(update).eq("id", paymentId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/pagamentos");
+  revalidatePath(`/pagamentos/${paymentId}`);
+  return { error: null };
+}
+
 export async function cancelPayment(paymentId: string) {
   const supabase = createClient();
   const { error } = await supabase.from("payments").update({ status: "cancelado" }).eq("id", paymentId);

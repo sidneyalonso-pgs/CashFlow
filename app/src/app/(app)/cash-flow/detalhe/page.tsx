@@ -33,7 +33,7 @@ export default async function CashFlowDetailPage({
 
   let revenuesQuery = supabase
     .from("revenue_realizations")
-    .select("id, amount, received_at, revenues!inner(id, description, company_id, companies(legal_name), customers(name))")
+    .select("id, amount, received_at, revenues!inner(id, description, company_id, companies(legal_name), categories(name))")
     .gte("received_at", start)
     .lte("received_at", end)
     .order("received_at");
@@ -96,7 +96,7 @@ export default async function CashFlowDetailPage({
             columns={[
               { header: "Descrição", cell: (r: any) => r.revenues?.description },
               { header: "Empresa", cell: (r: any) => r.revenues?.companies?.legal_name ?? "—" },
-              { header: "Cliente", cell: (r: any) => r.revenues?.customers?.name ?? "—" },
+              { header: "Categoria", cell: (r: any) => r.revenues?.categories?.name ?? "—" },
               { header: "Data", cell: (r: any) => r.received_at },
               { header: "Valor", cell: (r: any) => <span className="tabular-nums text-ps-green-700">{formatBRL(r.amount)}</span> },
             ]}

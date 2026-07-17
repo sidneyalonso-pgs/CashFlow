@@ -31,7 +31,7 @@ export function ExportReconciliationButton({ bankAccountId }: { bankAccountId?: 
         ? supabase.from("payments").select("id, description, effective_payment_date, gross_amount, suppliers(legal_name)").in("id", paymentIds)
         : Promise.resolve({ data: [] as any[] }),
       revenueIds.length
-        ? supabase.from("revenues").select("id, description, realized_date, realized_amount, customers(name)").in("id", revenueIds)
+        ? supabase.from("revenues").select("id, description, realized_date, realized_amount, categories(name)").in("id", revenueIds)
         : Promise.resolve({ data: [] as any[] }),
     ]);
 
@@ -55,7 +55,7 @@ export function ExportReconciliationButton({ bankAccountId }: { bankAccountId?: 
       const entry = r.bank_statement_entries;
       const internal = r.entity_type === "payment" ? paymentById.get(r.entity_id) : revenueById.get(r.entity_id);
       const counterpart =
-        r.entity_type === "payment" ? internal?.suppliers?.legal_name : internal?.customers?.name;
+        r.entity_type === "payment" ? internal?.suppliers?.legal_name : internal?.categories?.name;
       const internalDate = r.entity_type === "payment" ? internal?.effective_payment_date : internal?.realized_date;
       const internalAmount = r.entity_type === "payment" ? internal?.gross_amount : internal?.realized_amount;
 

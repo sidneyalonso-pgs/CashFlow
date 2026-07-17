@@ -7,7 +7,6 @@ import { assertReasonableDate } from "@/lib/validators/dateSanity";
 
 export async function createReceivedRevenue(formData: FormData) {
   const companyId = String(formData.get("company_id") || "");
-  const customerId = String(formData.get("customer_id") || "") || null;
   const description = String(formData.get("description") || "");
   const amount = Number(formData.get("expected_amount"));
   const receivedAt = String(formData.get("received_at") || "");
@@ -15,8 +14,8 @@ export async function createReceivedRevenue(formData: FormData) {
   const bankAccountId = String(formData.get("receiving_bank_account_id") || "") || null;
   const notes = String(formData.get("notes") || "") || null;
 
-  if (!companyId || !description || !amount || amount <= 0 || !receivedAt) {
-    return { error: "Preencha empresa, descrição, valor e data do recebimento." };
+  if (!companyId || !description || !amount || amount <= 0 || !receivedAt || !categoryId) {
+    return { error: "Preencha empresa, descrição, categoria, valor e data do recebimento." };
   }
 
   const dateError = assertReasonableDate(receivedAt, "Data do recebimento");
@@ -31,7 +30,6 @@ export async function createReceivedRevenue(formData: FormData) {
     .from("revenues")
     .insert({
       company_id: companyId,
-      customer_id: customerId,
       description,
       expected_amount: amount,
       realized_amount: amount,
@@ -66,7 +64,6 @@ export async function createReceivedRevenue(formData: FormData) {
 
 export async function createEstimatedRevenue(formData: FormData) {
   const companyId = String(formData.get("company_id") || "");
-  const customerId = String(formData.get("customer_id") || "") || null;
   const description = String(formData.get("description") || "");
   const amount = Number(formData.get("expected_amount"));
   const expectedDate = String(formData.get("expected_date") || "");
@@ -74,8 +71,8 @@ export async function createEstimatedRevenue(formData: FormData) {
   const categoryId = String(formData.get("category_id") || "") || null;
   const notes = String(formData.get("notes") || "") || null;
 
-  if (!companyId || !description || !amount || amount <= 0 || !expectedDate) {
-    return { error: "Preencha empresa, descrição, valor e data prevista." };
+  if (!companyId || !description || !amount || amount <= 0 || !expectedDate || !categoryId) {
+    return { error: "Preencha empresa, descrição, categoria, valor e data prevista." };
   }
 
   const dateError = assertReasonableDate(expectedDate, "Data prevista");
@@ -88,7 +85,6 @@ export async function createEstimatedRevenue(formData: FormData) {
 
   const { error } = await supabase.from("revenues").insert({
     company_id: companyId,
-    customer_id: customerId,
     description,
     expected_amount: amount,
     category_id: categoryId,
@@ -144,7 +140,6 @@ export async function settleRevenue(revenueId: string, amount: number, receivedA
 
 export async function updateRevenue(revenueId: string, formData: FormData) {
   const description = String(formData.get("description") || "");
-  const customerId = String(formData.get("customer_id") || "") || null;
   const categoryId = String(formData.get("category_id") || "") || null;
   const amount = Number(formData.get("amount"));
   const notes = String(formData.get("notes") || "") || null;
@@ -158,7 +153,6 @@ export async function updateRevenue(revenueId: string, formData: FormData) {
 
   const update: Record<string, unknown> = {
     description,
-    customer_id: customerId,
     category_id: categoryId,
     notes,
   };

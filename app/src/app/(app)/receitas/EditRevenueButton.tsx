@@ -9,7 +9,6 @@ import { updateRevenue } from "./actions";
 type Revenue = {
   id: string;
   description: string;
-  customer_id: string | null;
   category_id: string | null;
   expected_amount: number;
   realized_amount: number | null;
@@ -19,11 +18,9 @@ type Revenue = {
 
 export function EditRevenueButton({
   revenue,
-  customers,
   categories,
 }: {
   revenue: Revenue;
-  customers: Array<{ id: string; name: string }>;
   categories: Array<{ id: string; name: string }>;
 }) {
   const router = useRouter();
@@ -54,12 +51,6 @@ export function EditRevenueButton({
       <Modal open={open} onClose={() => setOpen(false)} title="Editar receita">
         <form action={handleSubmit} className="space-y-3">
           <TextField label="Descrição" name="description" defaultValue={revenue.description} required />
-          <SelectField
-            label="Cliente / origem"
-            name="customer_id"
-            defaultValue={revenue.customer_id ?? ""}
-            options={customers.map((c) => ({ value: c.id, label: c.name }))}
-          />
           <SelectField
             label="Categoria"
             name="category_id"
