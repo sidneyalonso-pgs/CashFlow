@@ -4,39 +4,52 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/Modal";
 import { TextField, SelectField } from "@/components/FormField";
-import { updateSupplier } from "./actions";
+import { updateSupplier, deleteSupplier } from "./actions";
+
+const COST_TYPES = [
+  { value: "despesas", label: "Despesas" },
+  { value: "custo_direto", label: "Custo Direto" },
+  { value: "custo_indireto", label: "Custo Indireto" },
+];
 
 type Supplier = {
   id: string;
   legal_name: string;
-  trade_name: string | null;
   tax_id: string;
-  person_type: string;
-  pix_key: string | null;
-  email: string | null;
-  phone: string | null;
+  cost_type: string;
   default_category_id: string | null;
-  default_cost_center_id: string | null;
   status: string;
 };
 
 export function EditSupplierButton({
   supplier,
   categories,
-  costCenters,
 }: {
   supplier: Supplier;
   categories: Array<{ id: string; name: string }>;
-  costCenters: Array<{ id: string; code: string; name: string }>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [costType, setCostType] = useState(supplier.cost_type);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
       const result = await updateSupplier(supplier.id, formData);
+      if (result.error) setError(result.error);
+      else {
+        setError(null);
+        setOpen(false);
+        router.refresh();
+      }
+    });
+  }
+
+  function handleDelete() {
+    if (!confirm(`Excluir o fornecedor "${supplier.legal_name}"? Essa ação não pode ser desfeita.`)) return;
+    startTransition(async () => {
+      const result = await deleteSupplier(supplier.id);
       if (result.error) setError(result.error);
       else {
         setError(null);
@@ -54,34 +67,31 @@ export function EditSupplierButton({
 
       <Modal open={open} onClose={() => setOpen(false)} title="Editar fornecedor">
         <form action={handleSubmit} className="space-y-3">
-          <TextField label="Razão social ou nome" name="legal_name" defaultValue={supplier.legal_name} required />
-          <TextField label="Nome fantasia" name="trade_name" defaultValue={supplier.trade_name ?? ""} />
+          <TextField label="Razão social" name="legal_name" defaultValue={supplier.legal_name} required />
           <TextField label="CPF ou CNPJ" name="tax_id" defaultValue={supplier.tax_id} required />
-          <SelectField
-            label="Tipo de pessoa"
-            name="person_type"
-            required
-            defaultValue={supplier.person_type}
-            options={[
-              { value: "fisica", label: "Física" },
-              { value: "juridica", label: "Jurídica" },
-            ]}
-          />
-          <TextField label="Chave Pix" name="pix_key" defaultValue={supplier.pix_key ?? ""} />
-          <TextField label="E-mail" name="email" type="email" defaultValue={supplier.email ?? ""} />
-          <TextField label="Telefone" name="phone" defaultValue={supplier.phone ?? ""} />
-          <SelectField
-            label="Categoria padrão"
-            name="default_category_id"
-            defaultValue={supplier.default_category_id ?? ""}
-            options={categories.map((c) => ({ value: c.id, label: c.name }))}
-          />
-          <SelectField
-            label="Centro de custo padrão"
-            name="default_cost_center_id"
-            defaultValue={supplier.default_cost_center_id ?? ""}
-            options={costCenters.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }))}
-          />
+          <div>
+            <label className="block text-sm text-ps-ink-2 mb-1">Tipo de custo</label>
+            <select
+              name="cost_type"
+              value={costType}
+              onChange={(e) => setCostType(e.target.value)}
+              className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+            >
+              {COST_TYPES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {costType === "despesas" && (
+            <SelectField
+              label="Categoria padrão"
+              name="default_category_id"
+              defaultValue={supplier.default_category_id ?? ""}
+              options={categories.map((c) => ({ value: c.id, label: c.name }))}
+            />
+          )}
           <SelectField
             label="Status"
             name="status"
@@ -94,17 +104,22 @@ export function EditSupplierButton({
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 text-sm text-ps-muted hover:text-ps-ink">
-              Cancelar
+          <div className="flex justify-between items-center pt-2">
+            <button type="button" onClick={handleDelete} disabled={isPending} className="text-sm text-red-600 hover:underline">
+              Excluir fornecedor
             </button>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-4 py-2 text-sm disabled:opacity-60"
-            >
-              {isPending ? "Salvando..." : "Salvar"}
-            </button>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 text-sm text-ps-muted hover:text-ps-ink">
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={isPending}
+                className="bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-4 py-2 text-sm disabled:opacity-60"
+              >
+                {isPending ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
           </div>
         </form>
       </Modal>

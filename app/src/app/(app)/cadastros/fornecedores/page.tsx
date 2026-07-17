@@ -5,42 +5,46 @@ import { DataTable } from "@/components/DataTable";
 import { NewSupplierButton } from "./NewSupplierButton";
 import { EditSupplierButton } from "./EditSupplierButton";
 
+const COST_TYPE_LABELS: Record<string, string> = {
+  despesas: "Despesas",
+  custo_direto: "Custo Direto",
+  custo_indireto: "Custo Indireto",
+};
+
 export default async function SuppliersPage() {
   const supabase = createClient();
-  const [{ data: suppliers }, { data: categories }, { data: costCenters }] = await Promise.all([
+  const [{ data: suppliers }, { data: categories }] = await Promise.all([
     supabase
       .from("suppliers")
-      .select(
-        "id, legal_name, trade_name, tax_id, person_type, email, phone, pix_key, default_category_id, default_cost_center_id, status"
-      )
+      .select("id, legal_name, tax_id, cost_type, default_category_id, status, categories(name)")
       .order("legal_name"),
-    supabase.from("categories").select("id, name").order("name"),
-    supabase.from("cost_centers").select("id, code, name").order("code"),
+    supabase
+      .from("categories")
+      .select("id, name")
+      .in("name", ["G&A (Gerais e Administrativas)", "Despesas Operacionais"])
+      .order("name"),
   ]);
 
   return (
     <div>
       <PageHeader
         title="Fornecedores"
-        subtitle="Cadastro de fornecedores e prestadores de serviço"
-        actions={<NewSupplierButton categories={categories ?? []} costCenters={costCenters ?? []} />}
+        subtitle="Razão social, documento e classificação de custo"
+        actions={<NewSupplierButton categories={categories ?? []} />}
       />
 
       <DataTable
         rows={suppliers ?? []}
-        rowKey={(s) => s.id}
+        rowKey={(s: any) => s.id}
         columns={[
-          { header: "Razão social", cell: (s) => <span className="font-medium text-ps-ink">{s.legal_name}</span> },
-          { header: "Nome fantasia", cell: (s) => s.trade_name ?? "—" },
-          { header: "CPF/CNPJ", cell: (s) => <span className="font-mono text-xs text-ps-muted">{s.tax_id}</span> },
-          { header: "Tipo", cell: (s) => (s.person_type === "juridica" ? "Jurídica" : "Física") },
-          { header: "E-mail", cell: (s) => s.email ?? "—" },
-          { header: "Status", cell: (s) => <StatusBadge status={s.status} /> },
+          { header: "Razão social", cell: (s: any) => <span className="font-medium text-ps-ink">{s.legal_name}</span> },
+          { header: "CPF/CNPJ", cell: (s: any) => <span className="font-mono text-xs text-ps-muted">{s.tax_id}</span> },
+          { header: "Tipo de custo", cell: (s: any) => COST_TYPE_LABELS[s.cost_type] ?? s.cost_type },
+          { header: "Categoria", cell: (s: any) => s.categories?.name ?? "—" },
+          { header: "Status", cell: (s: any) => <StatusBadge status={s.status} /> },
           {
             header: "Ações",
-            cell: (s) => (
-              <EditSupplierButton supplier={s as any} categories={categories ?? []} costCenters={costCenters ?? []} />
-            ),
+            cell: (s: any) => <EditSupplierButton supplier={s} categories={categories ?? []} />,
           },
         ]}
       />

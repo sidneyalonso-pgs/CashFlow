@@ -3,11 +3,7 @@ import { z } from "zod";
 export const supplierSchema = z.object({
   legal_name: z.string().min(3, "Nome obrigatório"),
   tax_id: z.string().min(11, "CPF/CNPJ obrigatório"),
-  person_type: z.enum(["fisica", "juridica"]),
-  trade_name: z.string().optional(),
-  pix_key: z.string().optional(),
-  email: z.string().email("E-mail inválido").optional().or(z.literal("")),
-  phone: z.string().optional(),
+  cost_type: z.enum(["despesas", "custo_direto", "custo_indireto"]).default("despesas"),
   status: z.enum(["ativo", "inativo"]).default("ativo"),
 });
 export type SupplierInput = z.infer<typeof supplierSchema>;

@@ -38,11 +38,18 @@ export async function GET(request: NextRequest) {
   const skipped: string[] = [];
 
   for (const template of templates ?? []) {
+    const { data: supplier } = await supabase
+      .from("suppliers")
+      .select("cost_type")
+      .eq("id", template.supplier_id)
+      .single();
+
     const { error } = await supabase.from("payments").insert({
       company_id: template.company_id,
       supplier_id: template.supplier_id,
       category_id: template.category_id,
       cost_center_id: template.cost_center_id,
+      cost_type: supplier?.cost_type ?? "despesas",
       paying_bank_account_id: template.paying_bank_account_id,
       description: template.description,
       currency: "BRL",

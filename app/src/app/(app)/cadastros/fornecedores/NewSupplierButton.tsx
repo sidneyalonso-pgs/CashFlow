@@ -5,14 +5,19 @@ import { Modal } from "@/components/Modal";
 import { TextField, SelectField } from "@/components/FormField";
 import { createSupplier } from "./actions";
 
+const COST_TYPES = [
+  { value: "despesas", label: "Despesas" },
+  { value: "custo_direto", label: "Custo Direto" },
+  { value: "custo_indireto", label: "Custo Indireto" },
+];
+
 export function NewSupplierButton({
   categories,
-  costCenters,
 }: {
   categories: Array<{ id: string; name: string }>;
-  costCenters: Array<{ id: string; code: string; name: string }>;
 }) {
   const [open, setOpen] = useState(false);
+  const [costType, setCostType] = useState("despesas");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -38,31 +43,30 @@ export function NewSupplierButton({
 
       <Modal open={open} onClose={() => setOpen(false)} title="Novo fornecedor">
         <form action={handleSubmit} className="space-y-3">
-          <TextField label="Razão social ou nome" name="legal_name" required />
-          <TextField label="Nome fantasia" name="trade_name" />
+          <TextField label="Razão social" name="legal_name" required />
           <TextField label="CPF ou CNPJ" name="tax_id" required />
-          <SelectField
-            label="Tipo de pessoa"
-            name="person_type"
-            required
-            options={[
-              { value: "fisica", label: "Física" },
-              { value: "juridica", label: "Jurídica" },
-            ]}
-          />
-          <TextField label="Chave Pix" name="pix_key" />
-          <TextField label="E-mail" name="email" type="email" />
-          <TextField label="Telefone" name="phone" />
-          <SelectField
-            label="Categoria padrão"
-            name="default_category_id"
-            options={categories.map((c) => ({ value: c.id, label: c.name }))}
-          />
-          <SelectField
-            label="Centro de custo padrão"
-            name="default_cost_center_id"
-            options={costCenters.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }))}
-          />
+          <div>
+            <label className="block text-sm text-ps-ink-2 mb-1">Tipo de custo</label>
+            <select
+              name="cost_type"
+              value={costType}
+              onChange={(e) => setCostType(e.target.value)}
+              className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+            >
+              {COST_TYPES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {costType === "despesas" && (
+            <SelectField
+              label="Categoria padrão"
+              name="default_category_id"
+              options={categories.map((c) => ({ value: c.id, label: c.name }))}
+            />
+          )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 

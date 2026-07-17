@@ -29,6 +29,8 @@ export async function createPaidPayment(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const { data: supplier } = await supabase.from("suppliers").select("cost_type").eq("id", supplierId).single();
+
   const { data: payment, error } = await supabase
     .from("payments")
     .insert({
@@ -39,6 +41,7 @@ export async function createPaidPayment(formData: FormData) {
       currency: "BRL",
       category_id: categoryId,
       cost_center_id: costCenterId,
+      cost_type: supplier?.cost_type ?? "despesas",
       paying_bank_account_id: bankAccountId,
       document_date: paidAt,
       due_date: paidAt,
@@ -95,6 +98,8 @@ export async function createScheduledPayment(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const { data: supplier } = await supabase.from("suppliers").select("cost_type").eq("id", supplierId).single();
+
   const { error } = await supabase.from("payments").insert({
     company_id: companyId,
     supplier_id: supplierId,
@@ -103,6 +108,7 @@ export async function createScheduledPayment(formData: FormData) {
     currency: "BRL",
     category_id: categoryId,
     cost_center_id: costCenterId,
+    cost_type: supplier?.cost_type ?? "despesas",
     paying_bank_account_id: bankAccountId,
     document_date: expectedDate,
     due_date: expectedDate,

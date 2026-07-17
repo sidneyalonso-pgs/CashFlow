@@ -8,11 +8,7 @@ export async function createSupplier(formData: FormData) {
   const parsed = supplierSchema.safeParse({
     legal_name: formData.get("legal_name"),
     tax_id: formData.get("tax_id"),
-    person_type: formData.get("person_type"),
-    trade_name: formData.get("trade_name") || undefined,
-    pix_key: formData.get("pix_key") || undefined,
-    email: formData.get("email") || "",
-    phone: formData.get("phone") || undefined,
+    cost_type: formData.get("cost_type") || "despesas",
   });
 
   if (!parsed.success) {
@@ -20,12 +16,10 @@ export async function createSupplier(formData: FormData) {
   }
 
   const supabase = createClient();
-  const { email, ...data } = parsed.data;
   const { error } = await supabase.from("suppliers").insert({
-    ...data,
-    email: email || null,
+    ...parsed.data,
+    person_type: "juridica",
     default_category_id: String(formData.get("default_category_id") || "") || null,
-    default_cost_center_id: String(formData.get("default_cost_center_id") || "") || null,
   });
 
   if (error) return { error: error.message };
@@ -38,11 +32,7 @@ export async function updateSupplier(supplierId: string, formData: FormData) {
   const parsed = supplierSchema.safeParse({
     legal_name: formData.get("legal_name"),
     tax_id: formData.get("tax_id"),
-    person_type: formData.get("person_type"),
-    trade_name: formData.get("trade_name") || undefined,
-    pix_key: formData.get("pix_key") || undefined,
-    email: formData.get("email") || "",
-    phone: formData.get("phone") || undefined,
+    cost_type: formData.get("cost_type") || "despesas",
     status: formData.get("status") || "ativo",
   });
 
@@ -51,16 +41,23 @@ export async function updateSupplier(supplierId: string, formData: FormData) {
   }
 
   const supabase = createClient();
-  const { email, ...data } = parsed.data;
   const { error } = await supabase
     .from("suppliers")
     .update({
-      ...data,
-      email: email || null,
+      ...parsed.data,
       default_category_id: String(formData.get("default_category_id") || "") || null,
-      default_cost_center_id: String(formData.get("default_cost_center_id") || "") || null,
     })
     .eq("id", supplierId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/cadastros/fornecedores");
+  return { error: null };
+}
+
+export async function deleteSupplier(supplierId: string) {
+  const supabase = createClient();
+  const { error } = await supabase.from("suppliers").delete().eq("id", supplierId);
 
   if (error) return { error: error.message };
 

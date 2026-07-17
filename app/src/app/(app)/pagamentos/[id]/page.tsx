@@ -51,6 +51,8 @@ export default async function PaymentDetailPage({ params }: { params: { id: stri
             <dl className="grid grid-cols-2 gap-y-2 text-sm">
               <dt className="text-ps-muted">Valor</dt>
               <dd className="tabular-nums">{payment.gross_amount ? formatBRL(payment.gross_amount) : "—"}</dd>
+              <dt className="text-ps-muted">Tipo de custo</dt>
+              <dd className="capitalize">{payment.cost_type?.replace("_", " ") ?? "—"}</dd>
               <dt className="text-ps-muted">Categoria</dt>
               <dd>{payment.categories?.name ?? "—"}</dd>
               <dt className="text-ps-muted">Centro de custo</dt>
