@@ -8,7 +8,7 @@ export async function createCostCenter(formData: FormData) {
   const parsed = costCenterSchema.safeParse({
     code: formData.get("code"),
     name: formData.get("name"),
-    company_id: formData.get("company_id"),
+    company_id: formData.get("company_id") || "",
     responsible_area: formData.get("responsible_area") || undefined,
     manager_name: formData.get("manager_name") || undefined,
   });
@@ -18,7 +18,8 @@ export async function createCostCenter(formData: FormData) {
   }
 
   const supabase = createClient();
-  const { error } = await supabase.from("cost_centers").insert(parsed.data);
+  const { company_id, ...rest } = parsed.data;
+  const { error } = await supabase.from("cost_centers").insert({ ...rest, company_id: company_id || null });
 
   if (error) return { error: error.message };
 
@@ -30,7 +31,7 @@ export async function updateCostCenter(costCenterId: string, formData: FormData)
   const parsed = costCenterSchema.safeParse({
     code: formData.get("code"),
     name: formData.get("name"),
-    company_id: formData.get("company_id"),
+    company_id: formData.get("company_id") || "",
     responsible_area: formData.get("responsible_area") || undefined,
     manager_name: formData.get("manager_name") || undefined,
     status: formData.get("status") || "ativo",
@@ -41,7 +42,11 @@ export async function updateCostCenter(costCenterId: string, formData: FormData)
   }
 
   const supabase = createClient();
-  const { error } = await supabase.from("cost_centers").update(parsed.data).eq("id", costCenterId);
+  const { company_id, ...rest } = parsed.data;
+  const { error } = await supabase
+    .from("cost_centers")
+    .update({ ...rest, company_id: company_id || null })
+    .eq("id", costCenterId);
 
   if (error) return { error: error.message };
 

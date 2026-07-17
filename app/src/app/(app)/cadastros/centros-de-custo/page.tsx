@@ -19,7 +19,7 @@ export default async function CostCentersPage() {
     <div>
       <PageHeader
         title="Centros de custo"
-        subtitle="Estrutura de centros de custo por empresa"
+        subtitle="Estrutura de centros de custo do grupo"
         actions={<NewCostCenterButton companies={companies ?? []} />}
       />
 
@@ -29,7 +29,7 @@ export default async function CostCentersPage() {
         columns={[
           { header: "Código", cell: (c: any) => <span className="font-mono text-xs">{c.code}</span> },
           { header: "Nome", cell: (c: any) => <span className="font-medium text-ps-ink">{c.name}</span> },
-          { header: "Empresa", cell: (c: any) => c.companies?.legal_name ?? "—" },
+          { header: "Empresa", cell: (c: any) => c.companies?.legal_name ?? "Grupo (todas)" },
           { header: "Área", cell: (c: any) => c.responsible_area ?? "—" },
           { header: "Gestor", cell: (c: any) => c.manager_name ?? "—" },
           { header: "Status", cell: (c: any) => <StatusBadge status={c.status} /> },

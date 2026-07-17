@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const supplierSchema = z.object({
   legal_name: z.string().min(3, "Nome obrigatório"),
-  tax_id: z.string().min(11, "CPF/CNPJ obrigatório"),
+  tax_id: z.string().optional().or(z.literal("")),
   cost_type: z.enum(["despesas", "custo_direto", "custo_indireto"]).default("despesas"),
   status: z.enum(["ativo", "inativo"]).default("ativo"),
 });
@@ -44,7 +44,7 @@ export type CategoryInput = z.infer<typeof categorySchema>;
 export const costCenterSchema = z.object({
   code: z.string().min(1, "Código obrigatório"),
   name: z.string().min(2, "Nome obrigatório"),
-  company_id: z.string().uuid("Selecione a empresa"),
+  company_id: z.string().uuid().optional().or(z.literal("")),
   responsible_area: z.string().optional(),
   manager_name: z.string().optional(),
   status: z.enum(["ativo", "inativo"]).default("ativo"),

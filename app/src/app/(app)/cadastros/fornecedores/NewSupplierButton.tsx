@@ -16,7 +16,7 @@ export function NewSupplierButton({
   costCenters,
 }: {
   categories: Array<{ id: string; name: string }>;
-  costCenters: Array<{ id: string; code: string; name: string; company_name: string }>;
+  costCenters: Array<{ id: string; code: string; name: string }>;
 }) {
   const [open, setOpen] = useState(false);
   const [costType, setCostType] = useState("despesas");
@@ -46,7 +46,6 @@ export function NewSupplierButton({
       <Modal open={open} onClose={() => setOpen(false)} title="Novo fornecedor">
         <form action={handleSubmit} className="space-y-3">
           <TextField label="Razão social" name="legal_name" required />
-          <TextField label="CPF ou CNPJ" name="tax_id" required />
           <div>
             <label className="block text-sm text-ps-ink-2 mb-1">Tipo de custo</label>
             <select
@@ -70,7 +69,7 @@ export function NewSupplierButton({
           <SelectField
             label="Departamento (centro de custo)"
             name="default_cost_center_id"
-            options={costCenters.map((c) => ({ value: c.id, label: `${c.code} - ${c.name} (${c.company_name})` }))}
+            options={costCenters.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }))}
           />
 
           {error && <p className="text-sm text-red-600">{error}</p>}

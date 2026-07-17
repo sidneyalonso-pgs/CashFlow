@@ -7,7 +7,7 @@ import { supplierSchema } from "@/lib/validators/registrations";
 export async function createSupplier(formData: FormData) {
   const parsed = supplierSchema.safeParse({
     legal_name: formData.get("legal_name"),
-    tax_id: formData.get("tax_id"),
+    tax_id: formData.get("tax_id") || "",
     cost_type: formData.get("cost_type") || "despesas",
   });
 
@@ -16,8 +16,10 @@ export async function createSupplier(formData: FormData) {
   }
 
   const supabase = createClient();
+  const { tax_id, ...rest } = parsed.data;
   const { error } = await supabase.from("suppliers").insert({
-    ...parsed.data,
+    ...rest,
+    tax_id: tax_id || null,
     person_type: "juridica",
     default_category_id: String(formData.get("default_category_id") || "") || null,
     default_cost_center_id: String(formData.get("default_cost_center_id") || "") || null,
@@ -32,7 +34,7 @@ export async function createSupplier(formData: FormData) {
 export async function updateSupplier(supplierId: string, formData: FormData) {
   const parsed = supplierSchema.safeParse({
     legal_name: formData.get("legal_name"),
-    tax_id: formData.get("tax_id"),
+    tax_id: formData.get("tax_id") || "",
     cost_type: formData.get("cost_type") || "despesas",
     status: formData.get("status") || "ativo",
   });
@@ -42,10 +44,12 @@ export async function updateSupplier(supplierId: string, formData: FormData) {
   }
 
   const supabase = createClient();
+  const { tax_id, ...rest } = parsed.data;
   const { error } = await supabase
     .from("suppliers")
     .update({
-      ...parsed.data,
+      ...rest,
+      tax_id: tax_id || null,
       default_category_id: String(formData.get("default_category_id") || "") || null,
       default_cost_center_id: String(formData.get("default_cost_center_id") || "") || null,
     })

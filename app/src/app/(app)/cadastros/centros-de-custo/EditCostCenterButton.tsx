@@ -10,7 +10,7 @@ type CostCenter = {
   id: string;
   code: string;
   name: string;
-  company_id: string;
+  company_id: string | null;
   responsible_area: string | null;
   manager_name: string | null;
   status: string;
@@ -49,10 +49,9 @@ export function EditCostCenterButton({
       <Modal open={open} onClose={() => setOpen(false)} title="Editar centro de custo">
         <form action={handleSubmit} className="space-y-3">
           <SelectField
-            label="Empresa"
+            label="Empresa (deixe em branco para o grupo todo)"
             name="company_id"
-            required
-            defaultValue={costCenter.company_id}
+            defaultValue={costCenter.company_id ?? ""}
             options={companies.map((c) => ({ value: c.id, label: c.legal_name }))}
           />
           <TextField label="Código" name="code" defaultValue={costCenter.code} required />

@@ -15,7 +15,6 @@ const COST_TYPES = [
 type Supplier = {
   id: string;
   legal_name: string;
-  tax_id: string;
   cost_type: string;
   default_category_id: string | null;
   default_cost_center_id: string | null;
@@ -29,7 +28,7 @@ export function EditSupplierButton({
 }: {
   supplier: Supplier;
   categories: Array<{ id: string; name: string }>;
-  costCenters: Array<{ id: string; code: string; name: string; company_name: string }>;
+  costCenters: Array<{ id: string; code: string; name: string }>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -71,7 +70,6 @@ export function EditSupplierButton({
       <Modal open={open} onClose={() => setOpen(false)} title="Editar fornecedor">
         <form action={handleSubmit} className="space-y-3">
           <TextField label="Razão social" name="legal_name" defaultValue={supplier.legal_name} required />
-          <TextField label="CPF ou CNPJ" name="tax_id" defaultValue={supplier.tax_id} required />
           <div>
             <label className="block text-sm text-ps-ink-2 mb-1">Tipo de custo</label>
             <select
@@ -97,7 +95,7 @@ export function EditSupplierButton({
             label="Departamento (centro de custo)"
             name="default_cost_center_id"
             defaultValue={supplier.default_cost_center_id ?? ""}
-            options={costCenters.map((c) => ({ value: c.id, label: `${c.code} - ${c.name} (${c.company_name})` }))}
+            options={costCenters.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }))}
           />
           <SelectField
             label="Status"

@@ -37,9 +37,8 @@ export function NewCostCenterButton({
       <Modal open={open} onClose={() => setOpen(false)} title="Novo centro de custo">
         <form action={handleSubmit} className="space-y-3">
           <SelectField
-            label="Empresa"
+            label="Empresa (deixe em branco para o grupo todo)"
             name="company_id"
-            required
             options={companies.map((c) => ({ value: c.id, label: c.legal_name }))}
           />
           <TextField label="Código" name="code" required />
