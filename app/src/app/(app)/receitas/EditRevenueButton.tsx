@@ -57,7 +57,7 @@ export function EditRevenueButton({
             defaultValue={revenue.category_id ?? ""}
             options={categories.map((c) => ({ value: c.id, label: c.name }))}
           />
-          <TextField label="Valor" name="amount" type="number" defaultValue={String(currentAmount)} required />
+          <TextField label="Valor" name="amount" type="number" step="0.01" defaultValue={String(currentAmount)} required />
           <div>
             <label className="block text-sm text-ps-ink-2 mb-1">Observações</label>
             <textarea name="notes" rows={2} defaultValue={revenue.notes ?? ""} className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm" />

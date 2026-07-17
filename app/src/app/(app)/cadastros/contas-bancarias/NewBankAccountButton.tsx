@@ -60,7 +60,7 @@ export function NewBankAccountButton({
           <TextField label="Número da conta" name="account_number" required />
           <TextField label="Apelido" name="nickname" placeholder="Ex: Conta principal" />
           <SelectField label="Tipo da conta" name="account_type" required options={ACCOUNT_TYPES} />
-          <TextField label="Saldo inicial" name="initial_balance" type="number" defaultValue="0" />
+          <TextField label="Saldo inicial" name="initial_balance" type="number" step="0.01" defaultValue="0" />
           <CheckboxField
             label="Considera no caixa disponível"
             name="counts_as_available_cash"

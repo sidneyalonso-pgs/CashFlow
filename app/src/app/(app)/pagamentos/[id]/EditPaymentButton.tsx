@@ -60,6 +60,7 @@ export function EditPaymentButton({
             label="Valor"
             name="gross_amount"
             type="number"
+            step="0.01"
             defaultValue={payment.gross_amount ? String(payment.gross_amount) : ""}
             required
           />

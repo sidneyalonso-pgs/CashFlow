@@ -55,7 +55,7 @@ export function NewInvestmentButton({
           <TextField label="Instituição" name="institution" required />
           <TextField label="Produto" name="product" placeholder="Ex: CDB, Tesouro Selic" required />
           <div className="grid grid-cols-2 gap-3">
-            <TextField label="Valor aplicado" name="applied_amount" type="number" required />
+            <TextField label="Valor aplicado" name="applied_amount" type="number" step="0.01" required />
             <TextField label="Data da aplicação" name="applied_date" type="date" required />
           </div>
           <div className="grid grid-cols-2 gap-3">

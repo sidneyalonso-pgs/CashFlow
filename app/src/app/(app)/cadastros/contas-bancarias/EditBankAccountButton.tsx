@@ -88,6 +88,7 @@ export function EditBankAccountButton({
             label="Saldo inicial"
             name="initial_balance"
             type="number"
+            step="0.01"
             defaultValue={String(account.initial_balance)}
           />
           <CheckboxField

@@ -74,6 +74,7 @@ export function EditInvestmentButton({
               label="Valor aplicado"
               name="applied_amount"
               type="number"
+              step="0.01"
               defaultValue={String(investment.applied_amount)}
               required
             />

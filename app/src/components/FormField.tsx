@@ -5,6 +5,7 @@ export function TextField({
   required,
   defaultValue,
   placeholder,
+  step,
 }: {
   label: string;
   name: string;
@@ -12,6 +13,7 @@ export function TextField({
   required?: boolean;
   defaultValue?: string;
   placeholder?: string;
+  step?: string;
 }) {
   return (
     <div>
@@ -22,6 +24,7 @@ export function TextField({
         required={required}
         defaultValue={defaultValue}
         placeholder={placeholder}
+        step={step}
         className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ps-green"
       />
     </div>
