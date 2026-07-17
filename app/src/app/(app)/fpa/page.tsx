@@ -25,12 +25,12 @@ export default async function FpaPage({
 
   let paymentsQuery = supabase
     .from("payments")
-    .select("gross_amount, competence_date, categories(name), cost_centers(name), fpa_classification, company_id")
+    .select("gross_amount, competence_date, categories(name, fpa_classification), cost_centers(name), company_id")
     .eq("status", "pago")
     .is("deleted_at", null);
   let revenuesQuery = supabase
     .from("revenues")
-    .select("realized_amount, realized_date, categories(name), fpa_classification, company_id")
+    .select("realized_amount, realized_date, categories(name, fpa_classification), company_id")
     .eq("status", "recebida")
     .is("deleted_at", null);
 
@@ -69,7 +69,7 @@ export default async function FpaPage({
   );
   const expensesByFpaClass = groupSum(
     payments ?? [],
-    (p: any) => p.fpa_classification ?? "Não classificado",
+    (p: any) => p.categories?.fpa_classification ?? "Não classificado",
     (p: any) => Number(p.gross_amount)
   );
   const revenueByCategory = groupSum(
