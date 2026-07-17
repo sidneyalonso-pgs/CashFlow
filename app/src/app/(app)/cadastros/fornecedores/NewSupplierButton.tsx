@@ -60,13 +60,11 @@ export function NewSupplierButton({
               ))}
             </select>
           </div>
-          {costType === "despesas" && (
-            <SelectField
-              label="Categoria padrão"
-              name="default_category_id"
-              options={categories.map((c) => ({ value: c.id, label: c.name }))}
-            />
-          )}
+          <SelectField
+            label="Categoria padrão"
+            name="default_category_id"
+            options={categories.map((c) => ({ value: c.id, label: c.name }))}
+          />
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 

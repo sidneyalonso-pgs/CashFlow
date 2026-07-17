@@ -84,14 +84,12 @@ export function EditSupplierButton({
               ))}
             </select>
           </div>
-          {costType === "despesas" && (
-            <SelectField
-              label="Categoria padrão"
-              name="default_category_id"
-              defaultValue={supplier.default_category_id ?? ""}
-              options={categories.map((c) => ({ value: c.id, label: c.name }))}
-            />
-          )}
+          <SelectField
+            label="Categoria padrão"
+            name="default_category_id"
+            defaultValue={supplier.default_category_id ?? ""}
+            options={categories.map((c) => ({ value: c.id, label: c.name }))}
+          />
           <SelectField
             label="Status"
             name="status"
