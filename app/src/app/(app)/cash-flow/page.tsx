@@ -30,10 +30,12 @@ export default async function CashFlowPage({
   let bankAccountsQuery = supabase.from("bank_accounts").select("initial_balance, counts_as_available_cash, company_id");
   let paymentRealizationsQuery = supabase
     .from("payment_realizations")
-    .select("amount, paid_at, payments!inner(company_id)");
+    .select("amount, paid_at, payments!inner(company_id)")
+    .is("payments.deleted_at", null);
   let revenueRealizationsQuery = supabase
     .from("revenue_realizations")
-    .select("amount, received_at, revenues!inner(company_id)");
+    .select("amount, received_at, revenues!inner(company_id)")
+    .is("revenues.deleted_at", null);
 
   if (companyId) {
     bankAccountsQuery = bankAccountsQuery.eq("company_id", companyId);

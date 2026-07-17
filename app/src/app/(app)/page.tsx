@@ -26,11 +26,13 @@ export default async function DashboardPage({
   let outflowsQuery = supabase
     .from("payment_realizations")
     .select("amount, paid_at, payments!inner(company_id, category_id, categories(name))")
+    .is("payments.deleted_at", null)
     .gte("paid_at", monthStartStr)
     .lte("paid_at", monthEndStr);
   let inflowsQuery = supabase
     .from("revenue_realizations")
     .select("amount, received_at, revenues!inner(company_id)")
+    .is("revenues.deleted_at", null)
     .gte("received_at", monthStartStr)
     .lte("received_at", monthEndStr);
 
