@@ -105,10 +105,12 @@ export function PaymentForm({
       </div>
 
       <div>
-        <label className="block text-sm text-ps-ink-2 mb-1">Descrição</label>
+        <label className="block text-sm text-ps-ink-2 mb-1">
+          Descrição <span className="text-xs text-ps-muted">(serviço prestado — se deixar em branco, usa o nome do fornecedor)</span>
+        </label>
         <input
           name="description"
-          required
+          placeholder="Ex: Consultoria de TI, aluguel de escritório..."
           className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm"
         />
       </div>

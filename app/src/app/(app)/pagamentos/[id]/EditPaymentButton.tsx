@@ -14,7 +14,7 @@ type Payment = {
   cost_center_id: string | null;
   notes: string | null;
   status: string;
-  effective_payment_date: string | null;
+  due_date: string | null;
 };
 
 export function EditPaymentButton({
@@ -51,7 +51,11 @@ export function EditPaymentButton({
 
       <Modal open={open} onClose={() => setOpen(false)} title="Editar pagamento">
         <form action={handleSubmit} className="space-y-3">
-          <TextField label="Descrição" name="description" defaultValue={payment.description} required />
+          <TextField
+            label="Descrição (serviço prestado — se deixar em branco, usa o nome do fornecedor)"
+            name="description"
+            defaultValue={payment.description}
+          />
           <TextField
             label="Valor"
             name="gross_amount"
@@ -71,14 +75,12 @@ export function EditPaymentButton({
             defaultValue={payment.cost_center_id ?? ""}
             options={costCenters.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }))}
           />
-          {payment.status === "pago" && (
-            <TextField
-              label="Data do pagamento"
-              name="effective_payment_date"
-              type="date"
-              defaultValue={payment.effective_payment_date ?? ""}
-            />
-          )}
+          <TextField
+            label="Data de vencimento"
+            name="due_date"
+            type="date"
+            defaultValue={payment.due_date ?? ""}
+          />
           <div>
             <label className="block text-sm text-ps-ink-2 mb-1">Observações</label>
             <textarea

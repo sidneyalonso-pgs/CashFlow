@@ -87,6 +87,8 @@ export default async function PaymentsPage({
         rows={payments ?? []}
         rowKey={(p: any) => p.id}
         columns={[
+          { header: "Empresa", cell: (p: any) => p.companies?.legal_name ?? "—" },
+          { header: "Fornecedor", cell: (p: any) => p.suppliers?.legal_name ?? "—" },
           {
             header: "Descrição",
             cell: (p: any) => (
@@ -95,8 +97,6 @@ export default async function PaymentsPage({
               </Link>
             ),
           },
-          { header: "Empresa", cell: (p: any) => p.companies?.legal_name ?? "—" },
-          { header: "Fornecedor", cell: (p: any) => p.suppliers?.legal_name ?? "—" },
           { header: "Vencimento", cell: (p: any) => p.due_date },
           {
             header: "Valor",

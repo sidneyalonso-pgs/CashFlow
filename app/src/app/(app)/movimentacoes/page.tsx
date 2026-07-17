@@ -70,6 +70,8 @@ export default async function MovementsPage({
         rows={movements ?? []}
         rowKey={(m: any) => m.id}
         columns={[
+          { header: "Empresa", cell: (m: any) => m.companies?.legal_name ?? "—" },
+          { header: "Fornecedor", cell: (m: any) => m.suppliers?.legal_name ?? "—" },
           {
             header: "Descrição",
             cell: (m: any) => (
@@ -78,8 +80,6 @@ export default async function MovementsPage({
               </Link>
             ),
           },
-          { header: "Empresa", cell: (m: any) => m.companies?.legal_name ?? "—" },
-          { header: "Fornecedor", cell: (m: any) => m.suppliers?.legal_name ?? "—" },
           { header: "Categoria", cell: (m: any) => m.categories?.name ?? "—" },
           { header: "Direção", cell: () => "Saída" },
           { header: "Vencimento", cell: (m: any) => m.due_date },

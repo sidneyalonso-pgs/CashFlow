@@ -17,8 +17,8 @@ export async function createPaidPayment(formData: FormData) {
   const notes = String(formData.get("notes") || "") || null;
   const recurring = formData.get("recurring") === "on";
 
-  if (!companyId || !supplierId || !description || !grossAmount || grossAmount <= 0 || !paidAt) {
-    return { error: "Preencha empresa, fornecedor, descrição, valor e data do pagamento." };
+  if (!companyId || !supplierId || !grossAmount || grossAmount <= 0 || !paidAt) {
+    return { error: "Preencha empresa, fornecedor, valor e data do pagamento." };
   }
 
   const dateError = assertReasonableDate(paidAt, "Data do pagamento");
@@ -29,14 +29,18 @@ export async function createPaidPayment(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: supplier } = await supabase.from("suppliers").select("cost_type").eq("id", supplierId).single();
+  const { data: supplier } = await supabase
+    .from("suppliers")
+    .select("legal_name, cost_type")
+    .eq("id", supplierId)
+    .single();
 
   const { data: payment, error } = await supabase
     .from("payments")
     .insert({
       company_id: companyId,
       supplier_id: supplierId,
-      description,
+      description: description || supplier?.legal_name || "Pagamento",
       gross_amount: grossAmount,
       currency: "BRL",
       category_id: categoryId,
@@ -86,8 +90,8 @@ export async function createScheduledPayment(formData: FormData) {
   const notes = String(formData.get("notes") || "") || null;
   const recurring = formData.get("recurring") === "on";
 
-  if (!companyId || !supplierId || !description || !grossAmount || grossAmount <= 0 || !expectedDate) {
-    return { error: "Preencha empresa, fornecedor, descrição, valor e data prevista." };
+  if (!companyId || !supplierId || !grossAmount || grossAmount <= 0 || !expectedDate) {
+    return { error: "Preencha empresa, fornecedor, valor e data prevista." };
   }
 
   const dateError = assertReasonableDate(expectedDate, "Data prevista de pagamento");
@@ -98,12 +102,16 @@ export async function createScheduledPayment(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: supplier } = await supabase.from("suppliers").select("cost_type").eq("id", supplierId).single();
+  const { data: supplier } = await supabase
+    .from("suppliers")
+    .select("legal_name, cost_type")
+    .eq("id", supplierId)
+    .single();
 
   const { error } = await supabase.from("payments").insert({
     company_id: companyId,
     supplier_id: supplierId,
-    description,
+    description: description || supplier?.legal_name || "Pagamento",
     gross_amount: grossAmount,
     currency: "BRL",
     category_id: categoryId,
@@ -211,35 +219,44 @@ export async function updatePayment(paymentId: string, formData: FormData) {
   const categoryId = String(formData.get("category_id") || "") || null;
   const costCenterId = String(formData.get("cost_center_id") || "") || null;
   const notes = String(formData.get("notes") || "") || null;
-  const effectivePaymentDate = String(formData.get("effective_payment_date") || "") || null;
+  const dueDate = String(formData.get("due_date") || "") || null;
 
-  if (!description || !grossAmount || grossAmount <= 0) {
-    return { error: "Preencha descrição e valor." };
+  if (!grossAmount || grossAmount <= 0) {
+    return { error: "Preencha o valor." };
   }
-  if (effectivePaymentDate) {
-    const dateError = assertReasonableDate(effectivePaymentDate, "Data do pagamento");
+  if (dueDate) {
+    const dateError = assertReasonableDate(dueDate, "Data de vencimento");
     if (dateError) return { error: dateError };
   }
 
   const supabase = createClient();
 
-  const { data: payment } = await supabase.from("payments").select("status").eq("id", paymentId).single();
+  const { data: payment } = await supabase
+    .from("payments")
+    .select("status, suppliers(legal_name)")
+    .eq("id", paymentId)
+    .single();
+
+  const finalDescription = description || (payment as any)?.suppliers?.legal_name || "Pagamento";
 
   const update: Record<string, unknown> = {
-    description,
+    description: finalDescription,
     gross_amount: grossAmount,
     category_id: categoryId,
     cost_center_id: costCenterId,
     notes,
   };
 
-  if (payment?.status === "pago" && effectivePaymentDate) {
+  if (dueDate) {
+    update.due_date = dueDate;
+    update.expected_payment_date = dueDate;
+  }
+
+  if (payment?.status === "pago" && dueDate) {
     update.paid_amount = grossAmount;
-    update.effective_payment_date = effectivePaymentDate;
-    update.due_date = effectivePaymentDate;
-    update.expected_payment_date = effectivePaymentDate;
-    update.competence_date = effectivePaymentDate;
-    update.document_date = effectivePaymentDate;
+    update.effective_payment_date = dueDate;
+    update.competence_date = dueDate;
+    update.document_date = dueDate;
 
     const { data: realizations } = await supabase
       .from("payment_realizations")
@@ -251,7 +268,7 @@ export async function updatePayment(paymentId: string, formData: FormData) {
     if (realizations && realizations.length > 0) {
       await supabase
         .from("payment_realizations")
-        .update({ amount: grossAmount, paid_at: effectivePaymentDate })
+        .update({ amount: grossAmount, paid_at: dueDate })
         .eq("id", realizations[0].id);
     }
   }
