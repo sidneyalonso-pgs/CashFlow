@@ -2,111 +2,119 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { FinancialCard } from "@/components/FinancialCard";
 import { formatBRL, sumMoney } from "@/lib/calculations/money";
+import { getWeekBuckets, getMonthBuckets, getQuarterBuckets, type Bucket } from "@/lib/calculations/cashflowPeriods";
 
-const HORIZONS = [
-  { label: "Hoje", days: 0 },
-  { label: "7 dias", days: 7 },
-  { label: "15 dias", days: 15 },
-  { label: "30 dias", days: 30 },
-  { label: "60 dias", days: 60 },
-  { label: "90 dias", days: 90 },
-];
-
-function addDays(date: Date, days: number) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
+type Granularity = "semana" | "mes" | "trimestre";
 
 export default async function CashFlowPage({
   searchParams,
 }: {
-  searchParams: { company_id?: string };
+  searchParams: { company_id?: string; visao?: string; ano?: string; mes?: string };
 }) {
   const supabase = createClient();
   const companyId = searchParams.company_id;
+  const granularity: Granularity =
+    searchParams.visao === "mes" || searchParams.visao === "trimestre" ? (searchParams.visao as Granularity) : "semana";
+
+  const today = new Date();
+  const year = Number(searchParams.ano) || today.getFullYear();
+  const month = Number(searchParams.mes) || today.getMonth() + 1;
+
+  const buckets: Bucket[] =
+    granularity === "semana" ? getWeekBuckets(year, month) : granularity === "mes" ? getMonthBuckets(year) : getQuarterBuckets(year);
+
+  const rangeStart = buckets[0].start;
+  const rangeEnd = buckets[buckets.length - 1].end;
 
   let bankAccountsQuery = supabase.from("bank_accounts").select("initial_balance, counts_as_available_cash, company_id");
-  let paymentRealizationsQuery = supabase.from("payment_realizations").select("amount, payments!inner(company_id)");
-  let revenueRealizationsQuery = supabase.from("revenue_realizations").select("amount, revenues!inner(company_id)");
-  let pendingPaymentsQuery = supabase
-    .from("payments")
-    .select("gross_amount, due_date, company_id")
-    .in("status", ["agendado", "rascunho"])
-    .not("gross_amount", "is", null)
-    .is("deleted_at", null);
-  let pendingRevenuesQuery = supabase
-    .from("revenues")
-    .select("expected_amount, probability_pct, expected_date, company_id")
-    .in("status", ["estimada", "confirmada", "reprogramada"])
-    .is("deleted_at", null);
+  let paymentRealizationsQuery = supabase
+    .from("payment_realizations")
+    .select("amount, paid_at, payments!inner(company_id)");
+  let revenueRealizationsQuery = supabase
+    .from("revenue_realizations")
+    .select("amount, received_at, revenues!inner(company_id)");
 
   if (companyId) {
     bankAccountsQuery = bankAccountsQuery.eq("company_id", companyId);
     paymentRealizationsQuery = paymentRealizationsQuery.eq("payments.company_id", companyId);
     revenueRealizationsQuery = revenueRealizationsQuery.eq("revenues.company_id", companyId);
-    pendingPaymentsQuery = pendingPaymentsQuery.eq("company_id", companyId);
-    pendingRevenuesQuery = pendingRevenuesQuery.eq("company_id", companyId);
   }
 
-  const [
-    { data: bankAccounts },
-    { data: paymentRealizations },
-    { data: revenueRealizations },
-    { data: pendingPayments },
-    { data: pendingRevenues },
-    { data: companies },
-  ] = await Promise.all([
-    bankAccountsQuery,
-    paymentRealizationsQuery,
-    revenueRealizationsQuery,
-    pendingPaymentsQuery,
-    pendingRevenuesQuery,
-    supabase.from("companies").select("id, legal_name").order("legal_name"),
-  ]);
+  const [{ data: bankAccounts }, { data: paymentRealizations }, { data: revenueRealizations }, { data: companies }] =
+    await Promise.all([
+      bankAccountsQuery,
+      paymentRealizationsQuery,
+      revenueRealizationsQuery,
+      supabase.from("companies").select("id, legal_name").order("legal_name"),
+    ]);
 
-  const initialBalance = sumMoney(
+  const initialCashBalance = sumMoney(
     (bankAccounts ?? []).filter((a: any) => a.counts_as_available_cash).map((a: any) => a.initial_balance)
   );
-  const totalOutflowsRealized = sumMoney((paymentRealizations ?? []).map((r: any) => r.amount));
-  const totalInflowsRealized = sumMoney((revenueRealizations ?? []).map((r: any) => r.amount));
-  const currentBalance = initialBalance.plus(totalInflowsRealized).minus(totalOutflowsRealized);
 
-  const today = new Date();
+  const outflows = (paymentRealizations ?? []) as Array<{ amount: number; paid_at: string }>;
+  const inflows = (revenueRealizations ?? []) as Array<{ amount: number; received_at: string }>;
 
-  const horizonRows = HORIZONS.map((h) => {
-    const limitDate = addDays(today, h.days);
+  const sumInRange = (items: Array<{ amount: number }>, dates: string[], from: string, to: string) =>
+    sumMoney(items.filter((_, i) => dates[i] >= from && dates[i] <= to).map((it) => it.amount));
 
-    const outflows = sumMoney(
-      (pendingPayments ?? [])
-        .filter((p: any) => p.due_date && p.due_date <= limitDate)
-        .map((p: any) => p.gross_amount)
-    );
-    const inflows = sumMoney(
-      (pendingRevenues ?? [])
-        .filter((r: any) => r.expected_date && r.expected_date <= limitDate)
-        .map((r: any) => (Number(r.expected_amount) * Number(r.probability_pct)) / 100)
-    );
+  const outflowDates = outflows.map((o) => o.paid_at);
+  const inflowDates = inflows.map((i) => i.received_at);
 
-    const projectedBalance = currentBalance.plus(inflows).minus(outflows);
+  // saldo inicial do período selecionado = saldo cadastrado + tudo que aconteceu antes do início do range
+  const outflowsBefore = sumInRange(outflows, outflowDates, "0000-01-01", shiftDay(rangeStart, -1));
+  const inflowsBefore = sumInRange(inflows, inflowDates, "0000-01-01", shiftDay(rangeStart, -1));
+  let runningBalance = initialCashBalance.plus(inflowsBefore).minus(outflowsBefore);
+  const openingBalance = runningBalance;
 
-    return { ...h, inflows, outflows, projectedBalance };
+  const bucketRows = buckets.map((b) => {
+    const bucketInflows = sumInRange(inflows, inflowDates, b.start, b.end);
+    const bucketOutflows = sumInRange(outflows, outflowDates, b.start, b.end);
+    runningBalance = runningBalance.plus(bucketInflows).minus(bucketOutflows);
+    return { ...b, inflows: bucketInflows, outflows: bucketOutflows, balance: runningBalance };
   });
+
+  const totalInflows = sumMoney(bucketRows.map((r) => r.inflows));
+  const totalOutflows = sumMoney(bucketRows.map((r) => r.outflows));
+  const closingBalance = runningBalance;
+
+  const monthOptions = Array.from({ length: 12 }, (_, i) => ({
+    value: i + 1,
+    label: ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"][i],
+  }));
+  const yearOptions = Array.from({ length: 5 }, (_, i) => today.getFullYear() - 2 + i);
 
   return (
     <div>
-      <PageHeader title="Cash Flow" subtitle="Saldo realizado e projeção de caixa" />
+      <PageHeader title="Cash Flow" subtitle="Resumo executivo e evolução do saldo de caixa" />
 
-      <form className="flex gap-3 mb-4">
-        <select
-          name="company_id"
-          defaultValue={companyId ?? ""}
-          className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
-        >
+      <form className="flex flex-wrap gap-3 mb-6">
+        <select name="company_id" defaultValue={companyId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
           <option value="">Todas as empresas</option>
           {(companies ?? []).map((c) => (
             <option key={c.id} value={c.id}>
               {c.legal_name}
+            </option>
+          ))}
+        </select>
+        <select name="visao" defaultValue={granularity} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+          <option value="semana">Por semana</option>
+          <option value="mes">Por mês</option>
+          <option value="trimestre">Por trimestre</option>
+        </select>
+        {granularity === "semana" && (
+          <select name="mes" defaultValue={month} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+            {monthOptions.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+        )}
+        <select name="ano" defaultValue={year} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+          {yearOptions.map((y) => (
+            <option key={y} value={y}>
+              {y}
             </option>
           ))}
         </select>
@@ -115,29 +123,45 @@ export default async function CashFlowPage({
         </button>
       </form>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <FinancialCard label="Saldo inicial cadastrado" value={formatBRL(initialBalance)} />
-        <FinancialCard label="Entradas realizadas" value={formatBRL(totalInflowsRealized)} tone="positive" />
-        <FinancialCard label="Saídas realizadas" value={formatBRL(totalOutflowsRealized)} tone="negative" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <FinancialCard label={`Saldo Inicial (${formatShort(rangeStart)})`} value={formatBRL(openingBalance)} />
+        <FinancialCard label="Total de Entradas" value={formatBRL(totalInflows)} tone="positive" />
+        <FinancialCard label="Total de Saídas" value={formatBRL(totalOutflows)} tone="negative" />
+        <FinancialCard
+          label={`Saldo Final (${formatShort(rangeEnd)})`}
+          value={formatBRL(closingBalance)}
+          tone={closingBalance.isNegative() ? "negative" : "neutral"}
+        />
       </div>
 
+      <h3 className="font-semibold text-ps-ink mb-2">
+        Evolução do Saldo — {granularity === "semana" ? "Semanal" : granularity === "mes" ? "Mensal" : "Trimestral"}
+      </h3>
       <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-ps-bg-2 text-ps-muted text-xs uppercase tracking-wide">
             <tr>
-              <th className="text-left px-4 py-3">Horizonte</th>
-              <th className="text-left px-4 py-3">Entradas previstas</th>
-              <th className="text-left px-4 py-3">Saídas previstas</th>
-              <th className="text-left px-4 py-3">Saldo projetado</th>
+              <th className="text-left px-4 py-3">Período</th>
+              <th className="text-left px-4 py-3">Entradas</th>
+              <th className="text-left px-4 py-3">Saídas</th>
+              <th className="text-left px-4 py-3">Saldo Final</th>
             </tr>
           </thead>
           <tbody>
-            {horizonRows.map((row) => (
+            <tr className="border-t border-ps-navy/5 bg-ps-bg-2/40">
+              <td className="px-4 py-3 font-medium text-ps-ink">Saldo Inicial ({formatShort(rangeStart)})</td>
+              <td className="px-4 py-3 text-ps-muted">—</td>
+              <td className="px-4 py-3 text-ps-muted">—</td>
+              <td className="px-4 py-3 tabular-nums font-semibold">{formatBRL(openingBalance)}</td>
+            </tr>
+            {bucketRows.map((row) => (
               <tr key={row.label} className="border-t border-ps-navy/5">
                 <td className="px-4 py-3 font-medium text-ps-ink">{row.label}</td>
                 <td className="px-4 py-3 tabular-nums text-ps-green-700">{formatBRL(row.inflows)}</td>
                 <td className="px-4 py-3 tabular-nums text-red-600">{formatBRL(row.outflows)}</td>
-                <td className="px-4 py-3 tabular-nums font-semibold">{formatBRL(row.projectedBalance)}</td>
+                <td className={`px-4 py-3 tabular-nums font-semibold ${row.balance.isNegative() ? "text-red-600" : ""}`}>
+                  {formatBRL(row.balance)}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -145,10 +169,21 @@ export default async function CashFlowPage({
       </div>
 
       <p className="text-xs text-ps-muted mt-4">
-        Saldo atual = saldo inicial cadastrado + entradas realizadas − saídas realizadas (todo o histórico).
-        Saldo projetado considera pagamentos programados (fixos e programados) e receitas estimadas/confirmadas
-        ponderadas pela probabilidade, com data prevista dentro do horizonte.
+        Saldo inicial do período = saldo cadastrado nas contas bancárias + todas as entradas e saídas realizadas
+        até o dia anterior ao início do período selecionado. Cada linha soma as entradas/saídas realizadas
+        (pagamentos e receitas já baixados) dentro daquele intervalo de datas.
       </p>
     </div>
   );
+}
+
+function shiftDay(iso: string, days: number) {
+  const d = new Date(iso + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function formatShort(iso: string) {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}`;
 }
