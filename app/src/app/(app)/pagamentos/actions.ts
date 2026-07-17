@@ -256,11 +256,13 @@ export async function updatePayment(paymentId: string, formData: FormData) {
     update.expected_payment_date = dueDate;
   }
 
-  if (payment?.status === "pago" && dueDate) {
+  if (payment?.status === "pago") {
     update.paid_amount = grossAmount;
-    update.effective_payment_date = dueDate;
-    update.competence_date = dueDate;
-    update.document_date = dueDate;
+    if (dueDate) {
+      update.effective_payment_date = dueDate;
+      update.competence_date = dueDate;
+      update.document_date = dueDate;
+    }
 
     const { data: realizations } = await supabase
       .from("payment_realizations")
@@ -270,10 +272,10 @@ export async function updatePayment(paymentId: string, formData: FormData) {
       .limit(1);
 
     if (realizations && realizations.length > 0) {
-      await supabase
-        .from("payment_realizations")
-        .update({ amount: grossAmount, paid_at: dueDate })
-        .eq("id", realizations[0].id);
+      const realizationUpdate: Record<string, unknown> = { amount: grossAmount };
+      if (dueDate) realizationUpdate.paid_at = dueDate;
+
+      await supabase.from("payment_realizations").update(realizationUpdate).eq("id", realizations[0].id);
     }
   }
 
