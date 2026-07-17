@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { DataTable } from "@/components/DataTable";
 import { formatBRL, sumMoney } from "@/lib/calculations/money";
 import { NewInvestmentButton } from "./NewInvestmentButton";
+import { EditInvestmentButton } from "./EditInvestmentButton";
 import { RedeemButton } from "./RedeemButton";
 
 export default async function InvestmentsPage() {
@@ -13,7 +14,9 @@ export default async function InvestmentsPage() {
   const [{ data: investments }, { data: companies }, { data: bankAccounts }] = await Promise.all([
     supabase
       .from("investments")
-      .select("id, institution, product, applied_amount, applied_date, redeemed_amount, status, companies(legal_name)")
+      .select(
+        "id, company_id, bank_account_id, institution, product, applied_amount, applied_date, due_date, liquidity, rate, indexer, redeemed_amount, status, companies(legal_name)"
+      )
       .order("applied_date", { ascending: false }),
     supabase.from("companies").select("id, legal_name").order("legal_name"),
     supabase.from("bank_accounts").select("id, bank_name, nickname").order("bank_name"),
@@ -58,7 +61,12 @@ export default async function InvestmentsPage() {
           { header: "Status", cell: (i: any) => <StatusBadge status={i.status} /> },
           {
             header: "Ações",
-            cell: (i: any) => (i.status !== "resgatado" ? <RedeemButton investmentId={i.id} /> : "—"),
+            cell: (i: any) => (
+              <div className="flex gap-2">
+                <EditInvestmentButton investment={i} companies={companies ?? []} bankAccounts={bankAccounts ?? []} />
+                {i.status !== "resgatado" && <RedeemButton investmentId={i.id} />}
+              </div>
+            ),
           },
         ]}
       />

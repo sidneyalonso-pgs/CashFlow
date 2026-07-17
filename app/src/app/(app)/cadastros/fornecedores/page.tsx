@@ -3,20 +3,27 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DataTable } from "@/components/DataTable";
 import { NewSupplierButton } from "./NewSupplierButton";
+import { EditSupplierButton } from "./EditSupplierButton";
 
 export default async function SuppliersPage() {
   const supabase = createClient();
-  const { data: suppliers } = await supabase
-    .from("suppliers")
-    .select("id, legal_name, trade_name, tax_id, person_type, email, status")
-    .order("legal_name");
+  const [{ data: suppliers }, { data: categories }, { data: costCenters }] = await Promise.all([
+    supabase
+      .from("suppliers")
+      .select(
+        "id, legal_name, trade_name, tax_id, person_type, email, phone, pix_key, default_category_id, default_cost_center_id, status"
+      )
+      .order("legal_name"),
+    supabase.from("categories").select("id, name").order("name"),
+    supabase.from("cost_centers").select("id, code, name").order("code"),
+  ]);
 
   return (
     <div>
       <PageHeader
         title="Fornecedores"
         subtitle="Cadastro de fornecedores e prestadores de serviço"
-        actions={<NewSupplierButton />}
+        actions={<NewSupplierButton categories={categories ?? []} costCenters={costCenters ?? []} />}
       />
 
       <DataTable
@@ -29,6 +36,12 @@ export default async function SuppliersPage() {
           { header: "Tipo", cell: (s) => (s.person_type === "juridica" ? "Jurídica" : "Física") },
           { header: "E-mail", cell: (s) => s.email ?? "—" },
           { header: "Status", cell: (s) => <StatusBadge status={s.status} /> },
+          {
+            header: "Ações",
+            cell: (s) => (
+              <EditSupplierButton supplier={s as any} categories={categories ?? []} costCenters={costCenters ?? []} />
+            ),
+          },
         ]}
       />
     </div>

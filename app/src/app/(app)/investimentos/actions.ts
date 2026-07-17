@@ -44,6 +44,45 @@ export async function createInvestment(formData: FormData) {
   return { error: null };
 }
 
+export async function updateInvestment(investmentId: string, formData: FormData) {
+  const companyId = String(formData.get("company_id") || "");
+  const bankAccountId = String(formData.get("bank_account_id") || "") || null;
+  const institution = String(formData.get("institution") || "");
+  const product = String(formData.get("product") || "");
+  const appliedAmount = Number(formData.get("applied_amount"));
+  const appliedDate = String(formData.get("applied_date") || "");
+  const dueDate = String(formData.get("due_date") || "") || null;
+  const liquidity = String(formData.get("liquidity") || "") || null;
+  const rate = String(formData.get("rate") || "") || null;
+  const indexer = String(formData.get("indexer") || "") || null;
+
+  if (!companyId || !institution || !product || !appliedAmount || appliedAmount <= 0 || !appliedDate) {
+    return { error: "Preencha empresa, instituição, produto, valor aplicado e data da aplicação." };
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("investments")
+    .update({
+      company_id: companyId,
+      bank_account_id: bankAccountId,
+      institution,
+      product,
+      applied_amount: appliedAmount,
+      applied_date: appliedDate,
+      due_date: dueDate,
+      liquidity,
+      rate,
+      indexer,
+    })
+    .eq("id", investmentId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/investimentos");
+  return { error: null };
+}
+
 export async function redeemInvestment(investmentId: string, amount: number, redeemedDate: string) {
   const supabase = createClient();
 

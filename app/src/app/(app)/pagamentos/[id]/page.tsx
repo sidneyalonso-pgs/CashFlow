@@ -6,6 +6,7 @@ import { formatBRL } from "@/lib/calculations/money";
 import { PaymentActions } from "./PaymentActions";
 import { AttachmentUploader } from "./AttachmentUploader";
 import { AttachmentList } from "./AttachmentList";
+import { EditPaymentButton } from "./EditPaymentButton";
 
 export default async function PaymentDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -18,7 +19,7 @@ export default async function PaymentDetailPage({ params }: { params: { id: stri
 
   if (!payment) notFound();
 
-  const [{ data: attachments }, { data: bankAccounts }] = await Promise.all([
+  const [{ data: attachments }, { data: bankAccounts }, { data: categories }, { data: costCenters }] = await Promise.all([
     supabase
       .from("attachments")
       .select("id, storage_path, original_name, size_bytes, created_at")
@@ -26,6 +27,8 @@ export default async function PaymentDetailPage({ params }: { params: { id: stri
       .eq("entity_id", params.id)
       .order("created_at", { ascending: false }),
     supabase.from("bank_accounts").select("id, bank_name, nickname").eq("company_id", payment.company_id),
+    supabase.from("categories").select("id, name").order("name"),
+    supabase.from("cost_centers").select("id, code, name").order("code"),
   ]);
 
   return (
@@ -33,7 +36,12 @@ export default async function PaymentDetailPage({ params }: { params: { id: stri
       <PageHeader
         title={payment.description}
         subtitle={`${payment.companies?.legal_name ?? ""} · ${payment.suppliers?.legal_name ?? ""}`}
-        actions={<StatusBadge status={payment.status} />}
+        actions={
+          <div className="flex items-center gap-3">
+            <EditPaymentButton payment={payment} categories={categories ?? []} costCenters={costCenters ?? []} />
+            <StatusBadge status={payment.status} />
+          </div>
+        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

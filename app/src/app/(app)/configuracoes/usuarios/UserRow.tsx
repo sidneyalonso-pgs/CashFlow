@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateUserRole, grantCompanyAccess, revokeCompanyAccess } from "./actions";
+import { updateUserRole, updateUserName, grantCompanyAccess, revokeCompanyAccess } from "./actions";
 
 const ROLES = [
   { value: "administrador", label: "Administrador" },
@@ -25,6 +25,15 @@ export function UserRow({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [selectedCompany, setSelectedCompany] = useState("");
+  const [fullName, setFullName] = useState(profile.full_name);
+
+  function handleNameBlur() {
+    if (fullName.trim() === profile.full_name || !fullName.trim()) return;
+    startTransition(async () => {
+      await updateUserName(profile.id, fullName);
+      router.refresh();
+    });
+  }
 
   function handleRoleChange(role: string) {
     startTransition(async () => {
@@ -54,7 +63,15 @@ export function UserRow({
 
   return (
     <tr className="border-t border-ps-navy/5 align-top">
-      <td className="px-4 py-3 font-medium text-ps-ink">{profile.full_name}</td>
+      <td className="px-4 py-3 font-medium text-ps-ink">
+        <input
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          onBlur={handleNameBlur}
+          disabled={isPending}
+          className="rounded-ps-sm border border-transparent hover:border-ps-navy/15 focus:border-ps-navy/15 px-2 py-1 text-sm bg-transparent focus:bg-white -mx-2"
+        />
+      </td>
       <td className="px-4 py-3">
         <select
           defaultValue={profile.role}

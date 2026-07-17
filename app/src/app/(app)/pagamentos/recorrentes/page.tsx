@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { DataTable } from "@/components/DataTable";
 import { NewTemplateButton } from "./NewTemplateButton";
+import { EditTemplateButton } from "./EditTemplateButton";
 import { TemplateActiveToggle } from "./TemplateActiveToggle";
 
 export default async function RecurringPaymentsPage() {
@@ -12,7 +13,9 @@ export default async function RecurringPaymentsPage() {
     await Promise.all([
       supabase
         .from("recurring_payment_templates")
-        .select("id, description, day_of_month, week_of_month, active, companies(legal_name), suppliers(legal_name)")
+        .select(
+          "id, company_id, supplier_id, description, day_of_month, week_of_month, category_id, cost_center_id, paying_bank_account_id, active, companies(legal_name), suppliers(legal_name)"
+        )
         .order("day_of_month"),
       supabase.from("companies").select("id, legal_name").order("legal_name"),
       supabase.from("suppliers").select("id, legal_name").eq("status", "ativo").order("legal_name"),
@@ -69,6 +72,19 @@ export default async function RecurringPaymentsPage() {
             cell: (t: any) => (t.week_of_month ? `Semana ${t.week_of_month}` : `Dia ${t.day_of_month}`),
           },
           { header: "Status", cell: (t: any) => <TemplateActiveToggle templateId={t.id} active={t.active} /> },
+          {
+            header: "Ações",
+            cell: (t: any) => (
+              <EditTemplateButton
+                template={t}
+                companies={companies ?? []}
+                suppliers={suppliers ?? []}
+                categories={categories ?? []}
+                costCenters={costCenters ?? []}
+                bankAccounts={bankAccounts ?? []}
+              />
+            ),
+          },
         ]}
       />
     </div>

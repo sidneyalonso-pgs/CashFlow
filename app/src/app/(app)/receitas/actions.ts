@@ -142,6 +142,52 @@ export async function settleRevenue(revenueId: string, amount: number, receivedA
   return { error: null };
 }
 
+export async function updateRevenue(revenueId: string, formData: FormData) {
+  const description = String(formData.get("description") || "");
+  const customerId = String(formData.get("customer_id") || "") || null;
+  const categoryId = String(formData.get("category_id") || "") || null;
+  const amount = Number(formData.get("amount"));
+  const notes = String(formData.get("notes") || "") || null;
+
+  if (!description || !amount || amount <= 0) {
+    return { error: "Preencha descrição e valor." };
+  }
+
+  const supabase = createClient();
+  const { data: revenue } = await supabase.from("revenues").select("status").eq("id", revenueId).single();
+
+  const update: Record<string, unknown> = {
+    description,
+    customer_id: customerId,
+    category_id: categoryId,
+    notes,
+  };
+
+  if (revenue?.status === "recebida") {
+    update.realized_amount = amount;
+
+    const { data: realizations } = await supabase
+      .from("revenue_realizations")
+      .select("id")
+      .eq("revenue_id", revenueId)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (realizations && realizations.length > 0) {
+      await supabase.from("revenue_realizations").update({ amount }).eq("id", realizations[0].id);
+    }
+  } else {
+    update.expected_amount = amount;
+  }
+
+  const { error } = await supabase.from("revenues").update(update).eq("id", revenueId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/receitas");
+  return { error: null };
+}
+
 export async function cancelRevenue(revenueId: string) {
   const supabase = createClient();
   const { error } = await supabase.from("revenues").update({ status: "cancelada" }).eq("id", revenueId);

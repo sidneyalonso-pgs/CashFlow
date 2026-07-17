@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DataTable } from "@/components/DataTable";
 import { NewCategoryButton } from "./NewCategoryButton";
+import { EditCategoryButton } from "./EditCategoryButton";
 
 const DIRECTION_LABELS: Record<string, string> = {
   entrada: "Entrada",
@@ -35,6 +36,7 @@ export default async function CategoriesPage() {
           { header: "Classificação econômica", cell: (c) => c.economic_classification ?? "—" },
           { header: "FP&A", cell: (c) => c.fpa_classification ?? "—" },
           { header: "Status", cell: (c) => <StatusBadge status={c.status} /> },
+          { header: "Ações", cell: (c) => <EditCategoryButton category={c} /> },
         ]}
       />
     </div>

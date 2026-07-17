@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { NewCompanyButton } from "./NewCompanyButton";
+import { EditCompanyButton } from "./EditCompanyButton";
 
 export default async function CompaniesPage() {
   const supabase = createClient();
@@ -27,6 +28,7 @@ export default async function CompaniesPage() {
               <th className="text-left px-4 py-3">CNPJ</th>
               <th className="text-left px-4 py-3">Moeda</th>
               <th className="text-left px-4 py-3">Status</th>
+              <th className="text-left px-4 py-3">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -39,11 +41,14 @@ export default async function CompaniesPage() {
                 <td className="px-4 py-3">
                   <StatusBadge status={c.status} />
                 </td>
+                <td className="px-4 py-3">
+                  <EditCompanyButton company={c} />
+                </td>
               </tr>
             ))}
             {(!companies || companies.length === 0) && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-ps-muted">
+                <td colSpan={6} className="px-4 py-8 text-center text-ps-muted">
                   Nenhuma empresa cadastrada ainda.
                 </td>
               </tr>

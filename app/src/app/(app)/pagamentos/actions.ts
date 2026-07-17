@@ -199,6 +199,66 @@ export async function recordAttachment(params: {
   return { error: null };
 }
 
+export async function updatePayment(paymentId: string, formData: FormData) {
+  const description = String(formData.get("description") || "");
+  const grossAmount = Number(formData.get("gross_amount"));
+  const categoryId = String(formData.get("category_id") || "") || null;
+  const costCenterId = String(formData.get("cost_center_id") || "") || null;
+  const notes = String(formData.get("notes") || "") || null;
+  const effectivePaymentDate = String(formData.get("effective_payment_date") || "") || null;
+
+  if (!description || !grossAmount || grossAmount <= 0) {
+    return { error: "Preencha descrição e valor." };
+  }
+  if (effectivePaymentDate) {
+    const dateError = assertReasonableDate(effectivePaymentDate, "Data do pagamento");
+    if (dateError) return { error: dateError };
+  }
+
+  const supabase = createClient();
+
+  const { data: payment } = await supabase.from("payments").select("status").eq("id", paymentId).single();
+
+  const update: Record<string, unknown> = {
+    description,
+    gross_amount: grossAmount,
+    category_id: categoryId,
+    cost_center_id: costCenterId,
+    notes,
+  };
+
+  if (payment?.status === "pago" && effectivePaymentDate) {
+    update.paid_amount = grossAmount;
+    update.effective_payment_date = effectivePaymentDate;
+    update.due_date = effectivePaymentDate;
+    update.expected_payment_date = effectivePaymentDate;
+    update.competence_date = effectivePaymentDate;
+    update.document_date = effectivePaymentDate;
+
+    const { data: realizations } = await supabase
+      .from("payment_realizations")
+      .select("id")
+      .eq("payment_id", paymentId)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (realizations && realizations.length > 0) {
+      await supabase
+        .from("payment_realizations")
+        .update({ amount: grossAmount, paid_at: effectivePaymentDate })
+        .eq("id", realizations[0].id);
+    }
+  }
+
+  const { error } = await supabase.from("payments").update(update).eq("id", paymentId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/pagamentos/${paymentId}`);
+  revalidatePath("/pagamentos");
+  return { error: null };
+}
+
 export async function cancelPayment(paymentId: string) {
   const supabase = createClient();
   const { error } = await supabase.from("payments").update({ status: "cancelado" }).eq("id", paymentId);

@@ -5,17 +5,22 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { DataTable } from "@/components/DataTable";
 import { formatBRL } from "@/lib/calculations/money";
 import { RevenueSettleButton } from "./RevenueSettleButton";
+import { EditRevenueButton } from "./EditRevenueButton";
 
 export default async function RevenuesPage() {
   const supabase = createClient();
 
-  const [{ data: revenues }, { data: bankAccounts }] = await Promise.all([
+  const [{ data: revenues }, { data: bankAccounts }, { data: customers }, { data: categories }] = await Promise.all([
     supabase
       .from("revenues")
-      .select("id, description, expected_amount, realized_amount, expected_date, status, companies(legal_name), customers(name)")
+      .select(
+        "id, description, customer_id, category_id, expected_amount, realized_amount, expected_date, status, notes, companies(legal_name), customers(name)"
+      )
       .is("deleted_at", null)
       .order("expected_date", { ascending: false }),
     supabase.from("bank_accounts").select("id, bank_name, nickname").order("bank_name"),
+    supabase.from("customers").select("id, name").order("name"),
+    supabase.from("categories").select("id, name").order("name"),
   ]);
 
   return (
@@ -50,12 +55,14 @@ export default async function RevenuesPage() {
           { header: "Status", cell: (r: any) => <StatusBadge status={r.status} /> },
           {
             header: "Ações",
-            cell: (r: any) =>
-              ["estimada", "confirmada", "atrasada", "reprogramada"].includes(r.status) ? (
-                <RevenueSettleButton revenueId={r.id} bankAccounts={bankAccounts ?? []} />
-              ) : (
-                "—"
-              ),
+            cell: (r: any) => (
+              <div className="flex gap-2">
+                <EditRevenueButton revenue={r} customers={customers ?? []} categories={categories ?? []} />
+                {["estimada", "confirmada", "atrasada", "reprogramada"].includes(r.status) && (
+                  <RevenueSettleButton revenueId={r.id} bankAccounts={bankAccounts ?? []} />
+                )}
+              </div>
+            ),
           },
         ]}
       />

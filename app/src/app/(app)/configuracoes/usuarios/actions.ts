@@ -16,6 +16,17 @@ export async function updateUserRole(userId: string, role: string) {
   return { error: null };
 }
 
+export async function updateUserName(userId: string, fullName: string) {
+  if (!fullName.trim()) return { error: "Nome não pode ficar vazio." };
+
+  const supabase = createClient();
+  const { error } = await supabase.from("profiles").update({ full_name: fullName.trim() }).eq("id", userId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/configuracoes/usuarios");
+  return { error: null };
+}
+
 export async function grantCompanyAccess(userId: string, companyId: string) {
   const supabase = createClient();
   const { error } = await supabase

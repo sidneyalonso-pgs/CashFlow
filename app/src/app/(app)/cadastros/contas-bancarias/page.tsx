@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { DataTable } from "@/components/DataTable";
 import { formatBRL } from "@/lib/calculations/money";
 import { NewBankAccountButton } from "./NewBankAccountButton";
+import { EditBankAccountButton } from "./EditBankAccountButton";
 
 const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   conta_corrente: "Conta corrente",
@@ -20,7 +21,9 @@ export default async function BankAccountsPage() {
   const [{ data: accounts }, { data: companies }] = await Promise.all([
     supabase
       .from("bank_accounts")
-      .select("id, bank_name, nickname, account_number, account_type, initial_balance, status, company_id, companies(legal_name)")
+      .select(
+        "id, bank_name, bank_code, branch, nickname, account_number, account_type, currency, initial_balance, counts_as_available_cash, status, company_id, companies(legal_name)"
+      )
       .order("bank_name"),
     supabase.from("companies").select("id, legal_name").order("legal_name"),
   ]);
@@ -47,6 +50,7 @@ export default async function BankAccountsPage() {
             cell: (a: any) => <span className="tabular-nums">{formatBRL(a.initial_balance)}</span>,
           },
           { header: "Status", cell: (a: any) => <StatusBadge status={a.status} /> },
+          { header: "Ações", cell: (a: any) => <EditBankAccountButton account={a} companies={companies ?? []} /> },
         ]}
       />
     </div>
