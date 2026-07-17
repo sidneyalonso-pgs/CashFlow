@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { assertReasonableDate } from "@/lib/validators/dateSanity";
 
 export async function createReceivedRevenue(formData: FormData) {
   const companyId = String(formData.get("company_id") || "");
@@ -17,6 +18,9 @@ export async function createReceivedRevenue(formData: FormData) {
   if (!companyId || !description || !amount || amount <= 0 || !receivedAt) {
     return { error: "Preencha empresa, descrição, valor e data do recebimento." };
   }
+
+  const dateError = assertReasonableDate(receivedAt, "Data do recebimento");
+  if (dateError) return { error: dateError };
 
   const supabase = createClient();
   const {
@@ -74,6 +78,9 @@ export async function createEstimatedRevenue(formData: FormData) {
     return { error: "Preencha empresa, descrição, valor e data prevista." };
   }
 
+  const dateError = assertReasonableDate(expectedDate, "Data prevista");
+  if (dateError) return { error: dateError };
+
   const supabase = createClient();
   const {
     data: { user },
@@ -101,6 +108,9 @@ export async function createEstimatedRevenue(formData: FormData) {
 
 export async function settleRevenue(revenueId: string, amount: number, receivedAt: string, bankAccountId: string | null) {
   if (!amount || amount <= 0) return { error: "Valor deve ser maior que zero" };
+
+  const dateError = assertReasonableDate(receivedAt, "Data do recebimento");
+  if (dateError) return { error: dateError };
 
   const supabase = createClient();
   const {

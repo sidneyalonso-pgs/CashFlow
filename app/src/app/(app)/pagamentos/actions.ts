@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { assertReasonableDate } from "@/lib/validators/dateSanity";
 
 export async function createPaidPayment(formData: FormData) {
   const companyId = String(formData.get("company_id") || "");
@@ -19,6 +20,9 @@ export async function createPaidPayment(formData: FormData) {
   if (!companyId || !supplierId || !description || !grossAmount || grossAmount <= 0 || !paidAt) {
     return { error: "Preencha empresa, fornecedor, descrição, valor e data do pagamento." };
   }
+
+  const dateError = assertReasonableDate(paidAt, "Data do pagamento");
+  if (dateError) return { error: dateError };
 
   const supabase = createClient();
   const {
@@ -83,6 +87,9 @@ export async function createScheduledPayment(formData: FormData) {
     return { error: "Preencha empresa, fornecedor, descrição, valor e data prevista." };
   }
 
+  const dateError = assertReasonableDate(expectedDate, "Data prevista de pagamento");
+  if (dateError) return { error: dateError };
+
   const supabase = createClient();
   const {
     data: { user },
@@ -116,6 +123,9 @@ export async function createScheduledPayment(formData: FormData) {
 
 export async function settlePayment(paymentId: string, amount: number, paidAt: string, bankAccountId: string | null) {
   if (!amount || amount <= 0) return { error: "Valor deve ser maior que zero" };
+
+  const dateError = assertReasonableDate(paidAt, "Data do pagamento");
+  if (dateError) return { error: dateError };
 
   const supabase = createClient();
   const {

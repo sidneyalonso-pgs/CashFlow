@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { FinancialCard } from "@/components/FinancialCard";
@@ -154,16 +155,25 @@ export default async function CashFlowPage({
               <td className="px-4 py-3 text-ps-muted">—</td>
               <td className="px-4 py-3 tabular-nums font-semibold">{formatBRL(openingBalance)}</td>
             </tr>
-            {bucketRows.map((row) => (
-              <tr key={row.label} className="border-t border-ps-navy/5">
-                <td className="px-4 py-3 font-medium text-ps-ink">{row.label}</td>
-                <td className="px-4 py-3 tabular-nums text-ps-green-700">{formatBRL(row.inflows)}</td>
-                <td className="px-4 py-3 tabular-nums text-red-600">{formatBRL(row.outflows)}</td>
-                <td className={`px-4 py-3 tabular-nums font-semibold ${row.balance.isNegative() ? "text-red-600" : ""}`}>
-                  {formatBRL(row.balance)}
-                </td>
-              </tr>
-            ))}
+            {bucketRows.map((row) => {
+              const detailHref = `/cash-flow/detalhe?start=${row.start}&end=${row.end}&label=${encodeURIComponent(row.label)}${
+                companyId ? `&company_id=${companyId}` : ""
+              }`;
+              return (
+                <tr key={row.label} className="border-t border-ps-navy/5 hover:bg-ps-bg-2/40">
+                  <td className="px-4 py-3 font-medium">
+                    <Link href={detailHref} className="text-ps-navy hover:underline">
+                      {row.label}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 tabular-nums text-ps-green-700">{formatBRL(row.inflows)}</td>
+                  <td className="px-4 py-3 tabular-nums text-red-600">{formatBRL(row.outflows)}</td>
+                  <td className={`px-4 py-3 tabular-nums font-semibold ${row.balance.isNegative() ? "text-red-600" : ""}`}>
+                    {formatBRL(row.balance)}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
