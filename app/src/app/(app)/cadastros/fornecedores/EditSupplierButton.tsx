@@ -18,15 +18,18 @@ type Supplier = {
   tax_id: string;
   cost_type: string;
   default_category_id: string | null;
+  default_cost_center_id: string | null;
   status: string;
 };
 
 export function EditSupplierButton({
   supplier,
   categories,
+  costCenters,
 }: {
   supplier: Supplier;
   categories: Array<{ id: string; name: string }>;
+  costCenters: Array<{ id: string; code: string; name: string; company_name: string }>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -89,6 +92,12 @@ export function EditSupplierButton({
             name="default_category_id"
             defaultValue={supplier.default_category_id ?? ""}
             options={categories.map((c) => ({ value: c.id, label: c.name }))}
+          />
+          <SelectField
+            label="Departamento (centro de custo)"
+            name="default_cost_center_id"
+            defaultValue={supplier.default_cost_center_id ?? ""}
+            options={costCenters.map((c) => ({ value: c.id, label: `${c.code} - ${c.name} (${c.company_name})` }))}
           />
           <SelectField
             label="Status"
