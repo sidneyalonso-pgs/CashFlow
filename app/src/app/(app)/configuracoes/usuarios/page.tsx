@@ -7,7 +7,7 @@ export default async function UsersPage() {
 
   const [{ data: profiles }, { data: companies }, { data: allAccess }] = await Promise.all([
     supabase.from("profiles").select("id, full_name, role").order("full_name"),
-    supabase.from("companies").select("id, legal_name").order("legal_name"),
+    supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
     supabase.from("user_company_access").select("id, user_id, company_id"),
   ]);
 

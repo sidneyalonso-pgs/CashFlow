@@ -1,3 +1,4 @@
+import { companyLabel } from "@/lib/format";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
@@ -15,7 +16,7 @@ export default async function MovementsPage({
   let query = supabase
     .from("payments")
     .select(
-      "id, description, gross_amount, paid_amount, due_date, effective_payment_date, status, companies(legal_name), suppliers(legal_name), categories(name)"
+      "id, description, gross_amount, paid_amount, due_date, effective_payment_date, status, companies(legal_name, trade_name), suppliers(legal_name), categories(name)"
     )
     .is("deleted_at", null)
     .order("due_date", { ascending: false });
@@ -26,7 +27,7 @@ export default async function MovementsPage({
 
   const [{ data: movements }, { data: companies }] = await Promise.all([
     query,
-    supabase.from("companies").select("id, legal_name").order("legal_name"),
+    supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
   ]);
 
   return (
@@ -45,7 +46,7 @@ export default async function MovementsPage({
           <option value="">Todas as empresas</option>
           {(companies ?? []).map((c) => (
             <option key={c.id} value={c.id}>
-              {c.legal_name}
+              {c.trade_name || c.legal_name}
             </option>
           ))}
         </select>
@@ -70,7 +71,7 @@ export default async function MovementsPage({
         rows={movements ?? []}
         rowKey={(m: any) => m.id}
         columns={[
-          { header: "Empresa", cell: (m: any) => m.companies?.legal_name ?? "—" },
+          { header: "Empresa", cell: (m: any) => companyLabel(m.companies) },
           { header: "Fornecedor", cell: (m: any) => m.suppliers?.legal_name ?? "—" },
           {
             header: "Descrição",

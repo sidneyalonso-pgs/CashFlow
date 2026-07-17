@@ -18,6 +18,7 @@ type Supplier = {
   cost_type: string;
   default_category_id: string | null;
   default_cost_center_id: string | null;
+  default_description: string | null;
   status: string;
 };
 
@@ -97,6 +98,17 @@ export function EditSupplierButton({
             defaultValue={supplier.default_cost_center_id ?? ""}
             options={costCenters.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }))}
           />
+          <div>
+            <label className="block text-sm text-ps-ink-2 mb-1">
+              Descrição padrão <span className="text-xs text-ps-muted">(serviço prestado — preenche o pagamento automaticamente)</span>
+            </label>
+            <input
+              name="default_description"
+              defaultValue={supplier.default_description ?? ""}
+              placeholder="Ex: Consultoria de TI, aluguel de escritório..."
+              className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm"
+            />
+          </div>
           <SelectField
             label="Status"
             name="status"

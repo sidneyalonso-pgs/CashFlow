@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { ReconcileRow } from "./ReconcileRow";
 import { ExportReconciliationButton } from "./ExportReconciliationButton";
+import { companyLabel } from "@/lib/format";
 
 export default async function ReconciliationPage({
   searchParams,
@@ -14,7 +15,7 @@ export default async function ReconciliationPage({
 
   const { data: bankAccounts } = await supabase
     .from("bank_accounts")
-    .select("id, bank_name, nickname, companies(legal_name)")
+    .select("id, bank_name, nickname, companies(legal_name, trade_name)")
     .order("bank_name");
 
   let entries: any[] = [];
@@ -92,7 +93,7 @@ export default async function ReconciliationPage({
           <option value="">Selecione a conta bancária...</option>
           {(bankAccounts ?? []).map((a: any) => (
             <option key={a.id} value={a.id}>
-              {a.companies?.legal_name} — {a.nickname ?? a.bank_name}
+              {companyLabel(a.companies)} — {a.nickname ?? a.bank_name}
             </option>
           ))}
         </select>

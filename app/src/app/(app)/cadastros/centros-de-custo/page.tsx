@@ -4,15 +4,16 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { DataTable } from "@/components/DataTable";
 import { NewCostCenterButton } from "./NewCostCenterButton";
 import { EditCostCenterButton } from "./EditCostCenterButton";
+import { companyLabel } from "@/lib/format";
 
 export default async function CostCentersPage() {
   const supabase = createClient();
   const [{ data: costCenters }, { data: companies }] = await Promise.all([
     supabase
       .from("cost_centers")
-      .select("id, code, name, company_id, responsible_area, manager_name, status, companies(legal_name)")
+      .select("id, code, name, company_id, responsible_area, manager_name, status, companies(legal_name, trade_name)")
       .order("code"),
-    supabase.from("companies").select("id, legal_name").order("legal_name"),
+    supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
   ]);
 
   return (
@@ -29,7 +30,7 @@ export default async function CostCentersPage() {
         columns={[
           { header: "Código", cell: (c: any) => <span className="font-mono text-xs">{c.code}</span> },
           { header: "Nome", cell: (c: any) => <span className="font-medium text-ps-ink">{c.name}</span> },
-          { header: "Empresa", cell: (c: any) => c.companies?.legal_name ?? "Grupo (todas)" },
+          { header: "Empresa", cell: (c: any) => (c.companies ? companyLabel(c.companies) : "Grupo (todas)") },
           { header: "Área", cell: (c: any) => c.responsible_area ?? "—" },
           { header: "Gestor", cell: (c: any) => c.manager_name ?? "—" },
           { header: "Status", cell: (c: any) => <StatusBadge status={c.status} /> },

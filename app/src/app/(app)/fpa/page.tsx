@@ -50,7 +50,7 @@ export default async function FpaPage({
   const [{ data: payments }, { data: revenues }, { data: companies }] = await Promise.all([
     paymentsQuery,
     revenuesQuery,
-    supabase.from("companies").select("id, legal_name").order("legal_name"),
+    supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
   ]);
 
   const totalExpenses = sumMoney((payments ?? []).map((p: any) => p.gross_amount));
@@ -91,7 +91,7 @@ export default async function FpaPage({
           <option value="">Todas as empresas</option>
           {(companies ?? []).map((c) => (
             <option key={c.id} value={c.id}>
-              {c.legal_name}
+              {c.trade_name || c.legal_name}
             </option>
           ))}
         </select>

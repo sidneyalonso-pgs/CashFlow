@@ -5,7 +5,7 @@ import { RevenueForm } from "./RevenueForm";
 export default async function NewRevenuePage() {
   const supabase = createClient();
   const [{ data: companies }, { data: categories }, { data: bankAccounts }] = await Promise.all([
-    supabase.from("companies").select("id, legal_name").order("legal_name"),
+    supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
     supabase.from("categories").select("id, name").in("allowed_direction", ["entrada", "ambas"]).order("name"),
     supabase.from("bank_accounts").select("id, bank_name, nickname").order("bank_name"),
   ]);

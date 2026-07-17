@@ -9,7 +9,7 @@ export function NewProjectButton({
   companies,
   costCenters,
 }: {
-  companies: Array<{ id: string; legal_name: string }>;
+  companies: Array<{ id: string; legal_name: string; trade_name: string | null }>;
   costCenters: Array<{ id: string; name: string; code: string }>;
 }) {
   const [open, setOpen] = useState(false);
@@ -42,7 +42,7 @@ export function NewProjectButton({
             label="Empresa"
             name="company_id"
             required
-            options={companies.map((c) => ({ value: c.id, label: c.legal_name }))}
+            options={companies.map((c) => ({ value: c.id, label: c.trade_name || c.legal_name }))}
           />
           <TextField label="Código" name="code" required />
           <TextField label="Nome" name="name" required />

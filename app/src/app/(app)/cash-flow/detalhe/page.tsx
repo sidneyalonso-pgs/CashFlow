@@ -1,3 +1,4 @@
+import { companyLabel } from "@/lib/format";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
@@ -26,14 +27,14 @@ export default async function CashFlowDetailPage({
 
   let paymentsQuery = supabase
     .from("payment_realizations")
-    .select("id, amount, paid_at, payments!inner(id, description, company_id, companies(legal_name), suppliers(legal_name))")
+    .select("id, amount, paid_at, payments!inner(id, description, company_id, companies(legal_name, trade_name), suppliers(legal_name))")
     .gte("paid_at", start)
     .lte("paid_at", end)
     .order("paid_at");
 
   let revenuesQuery = supabase
     .from("revenue_realizations")
-    .select("id, amount, received_at, revenues!inner(id, description, company_id, companies(legal_name), categories(name))")
+    .select("id, amount, received_at, revenues!inner(id, description, company_id, companies(legal_name, trade_name), categories(name))")
     .gte("received_at", start)
     .lte("received_at", end)
     .order("received_at");
@@ -79,7 +80,7 @@ export default async function CashFlowDetailPage({
                   </Link>
                 ),
               },
-              { header: "Empresa", cell: (r: any) => r.payments?.companies?.legal_name ?? "—" },
+              { header: "Empresa", cell: (r: any) => companyLabel(r.payments?.companies) },
               { header: "Fornecedor", cell: (r: any) => r.payments?.suppliers?.legal_name ?? "—" },
               { header: "Data", cell: (r: any) => r.paid_at },
               { header: "Valor", cell: (r: any) => <span className="tabular-nums text-red-600">{formatBRL(r.amount)}</span> },
@@ -95,7 +96,7 @@ export default async function CashFlowDetailPage({
             emptyMessage="Nenhuma receita recebida neste período."
             columns={[
               { header: "Descrição", cell: (r: any) => r.revenues?.description },
-              { header: "Empresa", cell: (r: any) => r.revenues?.companies?.legal_name ?? "—" },
+              { header: "Empresa", cell: (r: any) => companyLabel(r.revenues?.companies) },
               { header: "Categoria", cell: (r: any) => r.revenues?.categories?.name ?? "—" },
               { header: "Data", cell: (r: any) => r.received_at },
               { header: "Valor", cell: (r: any) => <span className="tabular-nums text-ps-green-700">{formatBRL(r.amount)}</span> },

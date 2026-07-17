@@ -24,7 +24,7 @@ export function EditProjectButton({
   costCenters,
 }: {
   project: Project;
-  companies: Array<{ id: string; legal_name: string }>;
+  companies: Array<{ id: string; legal_name: string; trade_name: string | null }>;
   costCenters: Array<{ id: string; code: string; name: string }>;
 }) {
   const router = useRouter();
@@ -57,7 +57,7 @@ export function EditProjectButton({
             name="company_id"
             required
             defaultValue={project.company_id}
-            options={companies.map((c) => ({ value: c.id, label: c.legal_name }))}
+            options={companies.map((c) => ({ value: c.id, label: c.trade_name || c.legal_name }))}
           />
           <TextField label="Código" name="code" defaultValue={project.code} required />
           <TextField label="Nome" name="name" defaultValue={project.name} required />

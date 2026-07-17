@@ -23,6 +23,7 @@ export async function createSupplier(formData: FormData) {
     person_type: "juridica",
     default_category_id: String(formData.get("default_category_id") || "") || null,
     default_cost_center_id: String(formData.get("default_cost_center_id") || "") || null,
+    default_description: String(formData.get("default_description") || "") || null,
   });
 
   if (error) return { error: error.message };
@@ -52,6 +53,7 @@ export async function updateSupplier(supplierId: string, formData: FormData) {
       tax_id: tax_id || null,
       default_category_id: String(formData.get("default_category_id") || "") || null,
       default_cost_center_id: String(formData.get("default_cost_center_id") || "") || null,
+      default_description: String(formData.get("default_description") || "") || null,
     })
     .eq("id", supplierId);
 

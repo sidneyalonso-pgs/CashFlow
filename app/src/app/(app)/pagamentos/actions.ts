@@ -31,7 +31,7 @@ export async function createPaidPayment(formData: FormData) {
 
   const { data: supplier } = await supabase
     .from("suppliers")
-    .select("legal_name, cost_type")
+    .select("legal_name, cost_type, default_description")
     .eq("id", supplierId)
     .single();
 
@@ -40,7 +40,7 @@ export async function createPaidPayment(formData: FormData) {
     .insert({
       company_id: companyId,
       supplier_id: supplierId,
-      description: description || supplier?.legal_name || "Pagamento",
+      description: description || supplier?.default_description || supplier?.legal_name || "Pagamento",
       gross_amount: grossAmount,
       currency: "BRL",
       category_id: categoryId,
@@ -104,14 +104,14 @@ export async function createScheduledPayment(formData: FormData) {
 
   const { data: supplier } = await supabase
     .from("suppliers")
-    .select("legal_name, cost_type")
+    .select("legal_name, cost_type, default_description")
     .eq("id", supplierId)
     .single();
 
   const { error } = await supabase.from("payments").insert({
     company_id: companyId,
     supplier_id: supplierId,
-    description: description || supplier?.legal_name || "Pagamento",
+    description: description || supplier?.default_description || supplier?.legal_name || "Pagamento",
     gross_amount: grossAmount,
     currency: "BRL",
     category_id: categoryId,
@@ -233,11 +233,15 @@ export async function updatePayment(paymentId: string, formData: FormData) {
 
   const { data: payment } = await supabase
     .from("payments")
-    .select("status, suppliers(legal_name)")
+    .select("status, suppliers(legal_name, default_description)")
     .eq("id", paymentId)
     .single();
 
-  const finalDescription = description || (payment as any)?.suppliers?.legal_name || "Pagamento";
+  const finalDescription =
+    description ||
+    (payment as any)?.suppliers?.default_description ||
+    (payment as any)?.suppliers?.legal_name ||
+    "Pagamento";
 
   const update: Record<string, unknown> = {
     description: finalDescription,

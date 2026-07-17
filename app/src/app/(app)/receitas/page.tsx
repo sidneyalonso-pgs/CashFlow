@@ -1,3 +1,4 @@
+import { companyLabel } from "@/lib/format";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
@@ -14,7 +15,7 @@ export default async function RevenuesPage() {
     supabase
       .from("revenues")
       .select(
-        "id, description, category_id, expected_amount, realized_amount, expected_date, status, notes, companies(legal_name), categories(name)"
+        "id, description, category_id, expected_amount, realized_amount, expected_date, status, notes, companies(legal_name, trade_name), categories(name)"
       )
       .is("deleted_at", null)
       .order("expected_date", { ascending: false }),
@@ -41,7 +42,7 @@ export default async function RevenuesPage() {
         rows={revenues ?? []}
         rowKey={(r: any) => r.id}
         columns={[
-          { header: "Empresa", cell: (r: any) => r.companies?.legal_name ?? "—" },
+          { header: "Empresa", cell: (r: any) => companyLabel(r.companies) },
           { header: "Categoria", cell: (r: any) => r.categories?.name ?? "—" },
           { header: "Descrição", cell: (r: any) => <span className="font-medium text-ps-ink">{r.description}</span> },
           { header: "Data prevista", cell: (r: any) => r.expected_date },

@@ -21,7 +21,7 @@ export function EditCostCenterButton({
   companies,
 }: {
   costCenter: CostCenter;
-  companies: Array<{ id: string; legal_name: string }>;
+  companies: Array<{ id: string; legal_name: string; trade_name: string | null }>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -52,7 +52,7 @@ export function EditCostCenterButton({
             label="Empresa (deixe em branco para o grupo todo)"
             name="company_id"
             defaultValue={costCenter.company_id ?? ""}
-            options={companies.map((c) => ({ value: c.id, label: c.legal_name }))}
+            options={companies.map((c) => ({ value: c.id, label: c.trade_name || c.legal_name }))}
           />
           <TextField label="Código" name="code" defaultValue={costCenter.code} required />
           <TextField label="Nome" name="name" defaultValue={costCenter.name} required />

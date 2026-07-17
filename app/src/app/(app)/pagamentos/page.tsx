@@ -1,3 +1,4 @@
+import { companyLabel } from "@/lib/format";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
@@ -15,7 +16,7 @@ export default async function PaymentsPage({
 
   let query = supabase
     .from("payments")
-    .select("id, description, gross_amount, due_date, status, companies(legal_name), suppliers(legal_name)")
+    .select("id, description, gross_amount, due_date, status, companies(legal_name, trade_name), suppliers(legal_name)")
     .is("deleted_at", null)
     .order("due_date", { ascending: false });
 
@@ -24,7 +25,7 @@ export default async function PaymentsPage({
 
   const [{ data: payments }, { data: companies }] = await Promise.all([
     query,
-    supabase.from("companies").select("id, legal_name").order("legal_name"),
+    supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
   ]);
 
   return (
@@ -59,7 +60,7 @@ export default async function PaymentsPage({
           <option value="">Todas as empresas</option>
           {(companies ?? []).map((c) => (
             <option key={c.id} value={c.id}>
-              {c.legal_name}
+              {c.trade_name || c.legal_name}
             </option>
           ))}
         </select>
@@ -88,7 +89,7 @@ export default async function PaymentsPage({
         rows={payments ?? []}
         rowKey={(p: any) => p.id}
         columns={[
-          { header: "Empresa", cell: (p: any) => p.companies?.legal_name ?? "—" },
+          { header: "Empresa", cell: (p: any) => companyLabel(p.companies) },
           { header: "Fornecedor", cell: (p: any) => p.suppliers?.legal_name ?? "—" },
           {
             header: "Descrição",

@@ -27,7 +27,7 @@ export function EditTemplateButton({
   bankAccounts,
 }: {
   template: Template;
-  companies: Array<{ id: string; legal_name: string }>;
+  companies: Array<{ id: string; legal_name: string; trade_name: string | null }>;
   suppliers: Array<{ id: string; legal_name: string }>;
   categories: Array<{ id: string; name: string }>;
   costCenters: Array<{ id: string; code: string; name: string }>;
@@ -64,7 +64,7 @@ export function EditTemplateButton({
             name="company_id"
             required
             defaultValue={template.company_id}
-            options={companies.map((c) => ({ value: c.id, label: c.legal_name }))}
+            options={companies.map((c) => ({ value: c.id, label: c.trade_name || c.legal_name }))}
           />
           <SelectField
             label="Fornecedor"

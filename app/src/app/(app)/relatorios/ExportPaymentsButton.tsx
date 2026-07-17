@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { companyLabel } from "@/lib/format";
 
 export function ExportPaymentsButton() {
   const [loading, setLoading] = useState(false);
@@ -11,7 +12,7 @@ export function ExportPaymentsButton() {
     const supabase = createClient();
     const { data } = await supabase
       .from("payments")
-      .select("description, gross_amount, paid_amount, due_date, status, companies(legal_name), suppliers(legal_name)")
+      .select("description, gross_amount, paid_amount, due_date, status, companies(legal_name, trade_name), suppliers(legal_name)")
       .is("deleted_at", null);
 
     const rows = data ?? [];
@@ -21,7 +22,7 @@ export function ExportPaymentsButton() {
       ...rows.map((r: any) =>
         [
           r.description,
-          r.companies?.legal_name ?? "",
+          companyLabel(r.companies),
           r.suppliers?.legal_name ?? "",
           r.gross_amount,
           r.paid_amount ?? "",

@@ -8,7 +8,7 @@ import { createCostCenter } from "./actions";
 export function NewCostCenterButton({
   companies,
 }: {
-  companies: Array<{ id: string; legal_name: string }>;
+  companies: Array<{ id: string; legal_name: string; trade_name: string | null }>;
 }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +39,7 @@ export function NewCostCenterButton({
           <SelectField
             label="Empresa (deixe em branco para o grupo todo)"
             name="company_id"
-            options={companies.map((c) => ({ value: c.id, label: c.legal_name }))}
+            options={companies.map((c) => ({ value: c.id, label: c.trade_name || c.legal_name }))}
           />
           <TextField label="Código" name="code" required />
           <TextField label="Nome" name="name" required />

@@ -11,7 +11,7 @@ export function ImportStatementWizard({
   companies,
   bankAccounts,
 }: {
-  companies: Array<{ id: string; legal_name: string }>;
+  companies: Array<{ id: string; legal_name: string; trade_name: string | null }>;
   bankAccounts: Array<{ id: string; bank_name: string; nickname: string | null; company_id: string }>;
 }) {
   const router = useRouter();
@@ -84,7 +84,7 @@ export function ImportStatementWizard({
             <option value="">Empresa...</option>
             {companies.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.legal_name}
+                {c.trade_name || c.legal_name}
               </option>
             ))}
           </select>

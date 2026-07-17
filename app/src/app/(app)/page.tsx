@@ -53,7 +53,7 @@ export default async function DashboardPage({
       overdueQuery,
       outflowsQuery,
       inflowsQuery,
-      supabase.from("companies").select("id, legal_name").order("legal_name"),
+      supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
     ]);
 
   const availableCash = sumMoney(
@@ -105,7 +105,7 @@ export default async function DashboardPage({
           <option value="">Todas as empresas</option>
           {(companies ?? []).map((c) => (
             <option key={c.id} value={c.id}>
-              {c.legal_name}
+              {c.trade_name || c.legal_name}
             </option>
           ))}
         </select>

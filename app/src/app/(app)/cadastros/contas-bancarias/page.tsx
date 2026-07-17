@@ -1,3 +1,4 @@
+import { companyLabel } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -22,10 +23,10 @@ export default async function BankAccountsPage() {
     supabase
       .from("bank_accounts")
       .select(
-        "id, bank_name, bank_code, branch, nickname, account_number, account_type, currency, initial_balance, counts_as_available_cash, status, company_id, companies(legal_name)"
+        "id, bank_name, bank_code, branch, nickname, account_number, account_type, currency, initial_balance, counts_as_available_cash, status, company_id, companies(legal_name, trade_name)"
       )
       .order("bank_name"),
-    supabase.from("companies").select("id, legal_name").order("legal_name"),
+    supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
   ]);
 
   return (
@@ -40,7 +41,7 @@ export default async function BankAccountsPage() {
         rows={accounts ?? []}
         rowKey={(a: any) => a.id}
         columns={[
-          { header: "Empresa", cell: (a: any) => a.companies?.legal_name ?? "—" },
+          { header: "Empresa", cell: (a: any) => companyLabel(a.companies) },
           { header: "Banco", cell: (a: any) => <span className="font-medium text-ps-ink">{a.bank_name}</span> },
           { header: "Apelido", cell: (a: any) => a.nickname ?? "—" },
           { header: "Conta", cell: (a: any) => <span className="font-mono text-xs">{a.account_number}</span> },

@@ -1,3 +1,4 @@
+import { companyLabel } from "@/lib/format";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
@@ -14,10 +15,10 @@ export default async function RecurringPaymentsPage() {
       supabase
         .from("recurring_payment_templates")
         .select(
-          "id, company_id, supplier_id, description, day_of_month, week_of_month, category_id, cost_center_id, paying_bank_account_id, active, companies(legal_name), suppliers(legal_name)"
+          "id, company_id, supplier_id, description, day_of_month, week_of_month, category_id, cost_center_id, paying_bank_account_id, active, companies(legal_name, trade_name), suppliers(legal_name)"
         )
         .order("day_of_month"),
-      supabase.from("companies").select("id, legal_name").order("legal_name"),
+      supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
       supabase.from("suppliers").select("id, legal_name").eq("status", "ativo").order("legal_name"),
       supabase.from("categories").select("id, name").order("name"),
       supabase.from("cost_centers").select("id, code, name").order("code"),
@@ -65,7 +66,7 @@ export default async function RecurringPaymentsPage() {
         rowKey={(t: any) => t.id}
         columns={[
           { header: "Descrição", cell: (t: any) => <span className="font-medium text-ps-ink">{t.description}</span> },
-          { header: "Empresa", cell: (t: any) => t.companies?.legal_name ?? "—" },
+          { header: "Empresa", cell: (t: any) => companyLabel(t.companies) },
           { header: "Fornecedor", cell: (t: any) => t.suppliers?.legal_name ?? "—" },
           {
             header: "Agendamento",

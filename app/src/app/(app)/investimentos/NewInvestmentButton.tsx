@@ -10,7 +10,7 @@ export function NewInvestmentButton({
   companies,
   bankAccounts,
 }: {
-  companies: Array<{ id: string; legal_name: string }>;
+  companies: Array<{ id: string; legal_name: string; trade_name: string | null }>;
   bankAccounts: Array<{ id: string; bank_name: string; nickname: string | null }>;
 }) {
   const router = useRouter();
@@ -45,7 +45,7 @@ export function NewInvestmentButton({
             label="Empresa"
             name="company_id"
             required
-            options={companies.map((c) => ({ value: c.id, label: c.legal_name }))}
+            options={companies.map((c) => ({ value: c.id, label: c.trade_name || c.legal_name }))}
           />
           <SelectField
             label="Conta de origem"

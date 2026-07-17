@@ -46,7 +46,7 @@ export default async function CashFlowPage({
       bankAccountsQuery,
       paymentRealizationsQuery,
       revenueRealizationsQuery,
-      supabase.from("companies").select("id, legal_name").order("legal_name"),
+      supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
     ]);
 
   const initialCashBalance = sumMoney(
@@ -94,7 +94,7 @@ export default async function CashFlowPage({
           <option value="">Todas as empresas</option>
           {(companies ?? []).map((c) => (
             <option key={c.id} value={c.id}>
-              {c.legal_name}
+              {c.trade_name || c.legal_name}
             </option>
           ))}
         </select>

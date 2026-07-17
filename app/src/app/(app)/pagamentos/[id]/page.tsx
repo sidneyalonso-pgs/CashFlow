@@ -7,13 +7,14 @@ import { PaymentActions } from "./PaymentActions";
 import { AttachmentUploader } from "./AttachmentUploader";
 import { AttachmentList } from "./AttachmentList";
 import { EditPaymentButton } from "./EditPaymentButton";
+import { companyLabel } from "@/lib/format";
 
 export default async function PaymentDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
 
   const { data: payment } = await supabase
     .from("payments")
-    .select("*, companies(legal_name), suppliers(legal_name), categories(name), cost_centers(name)")
+    .select("*, companies(legal_name, trade_name), suppliers(legal_name), categories(name), cost_centers(name)")
     .eq("id", params.id)
     .single();
 
@@ -35,7 +36,7 @@ export default async function PaymentDetailPage({ params }: { params: { id: stri
     <div>
       <PageHeader
         title={payment.description}
-        subtitle={`${payment.companies?.legal_name ?? ""} · ${payment.suppliers?.legal_name ?? ""}`}
+        subtitle={`${companyLabel(payment.companies)} · ${payment.suppliers?.legal_name ?? ""}`}
         actions={
           <div className="flex items-center gap-3">
             <EditPaymentButton payment={payment} categories={categories ?? []} costCenters={costCenters ?? []} />

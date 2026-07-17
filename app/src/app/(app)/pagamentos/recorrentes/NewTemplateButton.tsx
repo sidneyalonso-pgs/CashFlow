@@ -12,7 +12,7 @@ export function NewTemplateButton({
   costCenters,
   bankAccounts,
 }: {
-  companies: Array<{ id: string; legal_name: string }>;
+  companies: Array<{ id: string; legal_name: string; trade_name: string | null }>;
   suppliers: Array<{ id: string; legal_name: string }>;
   categories: Array<{ id: string; name: string }>;
   costCenters: Array<{ id: string; code: string; name: string }>;
@@ -49,7 +49,7 @@ export function NewTemplateButton({
             label="Empresa"
             name="company_id"
             required
-            options={companies.map((c) => ({ value: c.id, label: c.legal_name }))}
+            options={companies.map((c) => ({ value: c.id, label: c.trade_name || c.legal_name }))}
           />
           <SelectField
             label="Fornecedor"

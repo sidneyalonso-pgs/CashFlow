@@ -1,3 +1,4 @@
+import { companyLabel } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { FinancialCard } from "@/components/FinancialCard";
@@ -15,10 +16,10 @@ export default async function InvestmentsPage() {
     supabase
       .from("investments")
       .select(
-        "id, company_id, bank_account_id, institution, product, applied_amount, applied_date, due_date, liquidity, rate, indexer, redeemed_amount, status, companies(legal_name)"
+        "id, company_id, bank_account_id, institution, product, applied_amount, applied_date, due_date, liquidity, rate, indexer, redeemed_amount, status, companies(legal_name, trade_name)"
       )
       .order("applied_date", { ascending: false }),
-    supabase.from("companies").select("id, legal_name").order("legal_name"),
+    supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
     supabase.from("bank_accounts").select("id, bank_name, nickname").order("bank_name"),
   ]);
 
@@ -46,7 +47,7 @@ export default async function InvestmentsPage() {
         columns={[
           { header: "Instituição", cell: (i: any) => <span className="font-medium text-ps-ink">{i.institution}</span> },
           { header: "Produto", cell: (i: any) => i.product },
-          { header: "Empresa", cell: (i: any) => i.companies?.legal_name ?? "—" },
+          { header: "Empresa", cell: (i: any) => companyLabel(i.companies) },
           { header: "Aplicado em", cell: (i: any) => i.applied_date },
           {
             header: "Valor aplicado",

@@ -8,7 +8,7 @@ export function RevenueForm({
   categories,
   bankAccounts,
 }: {
-  companies: Array<{ id: string; legal_name: string }>;
+  companies: Array<{ id: string; legal_name: string; trade_name: string | null }>;
   categories: Array<{ id: string; name: string }>;
   bankAccounts: Array<{ id: string; bank_name: string; nickname: string | null }>;
 }) {
@@ -53,7 +53,7 @@ export function RevenueForm({
           <option value="">Selecione...</option>
           {companies.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.legal_name}
+              {c.trade_name || c.legal_name}
             </option>
           ))}
         </select>

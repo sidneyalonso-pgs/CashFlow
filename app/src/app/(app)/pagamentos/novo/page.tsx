@@ -6,10 +6,10 @@ export default async function NewPaymentPage() {
   const supabase = createClient();
   const [{ data: companies }, { data: suppliers }, { data: categories }, { data: costCenters }, { data: bankAccounts }] =
     await Promise.all([
-      supabase.from("companies").select("id, legal_name").order("legal_name"),
+      supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
       supabase
         .from("suppliers")
-        .select("id, legal_name, default_category_id, default_cost_center_id")
+        .select("id, legal_name, default_category_id, default_cost_center_id, default_description")
         .eq("status", "ativo")
         .order("legal_name"),
       supabase.from("categories").select("id, name").order("name"),

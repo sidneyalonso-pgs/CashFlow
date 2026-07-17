@@ -8,6 +8,7 @@ type Supplier = {
   legal_name: string;
   default_category_id: string | null;
   default_cost_center_id: string | null;
+  default_description: string | null;
 };
 
 export function PaymentForm({
@@ -17,7 +18,7 @@ export function PaymentForm({
   costCenters,
   bankAccounts,
 }: {
-  companies: Array<{ id: string; legal_name: string }>;
+  companies: Array<{ id: string; legal_name: string; trade_name: string | null }>;
   suppliers: Supplier[];
   categories: Array<{ id: string; name: string }>;
   costCenters: Array<{ id: string; code: string; name: string }>;
@@ -28,6 +29,7 @@ export function PaymentForm({
   const [supplierId, setSupplierId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [costCenterId, setCostCenterId] = useState("");
+  const [description, setDescription] = useState("");
   const [mode, setMode] = useState<"pago" | "programado">("pago");
 
   const suppliersById = useMemo(() => new Map(suppliers.map((s) => [s.id, s])), [suppliers]);
@@ -37,6 +39,7 @@ export function PaymentForm({
     const supplier = suppliersById.get(id);
     setCategoryId(supplier?.default_category_id ?? "");
     setCostCenterId(supplier?.default_cost_center_id ?? "");
+    setDescription(supplier?.default_description ?? "");
   }
 
   function handleSubmit(formData: FormData) {
@@ -80,7 +83,7 @@ export function PaymentForm({
           <option value="">Selecione...</option>
           {companies.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.legal_name}
+              {c.trade_name || c.legal_name}
             </option>
           ))}
         </select>
@@ -110,6 +113,8 @@ export function PaymentForm({
         </label>
         <input
           name="description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
           placeholder="Ex: Consultoria de TI, aluguel de escritório..."
           className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm"
         />

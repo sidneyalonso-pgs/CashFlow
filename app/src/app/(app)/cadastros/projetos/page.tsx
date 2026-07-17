@@ -1,3 +1,4 @@
+import { companyLabel } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -10,9 +11,9 @@ export default async function ProjectsPage() {
   const [{ data: projects }, { data: companies }, { data: costCenters }] = await Promise.all([
     supabase
       .from("projects")
-      .select("id, code, name, company_id, cost_center_id, responsible_name, start_date, end_date, status, companies(legal_name)")
+      .select("id, code, name, company_id, cost_center_id, responsible_name, start_date, end_date, status, companies(legal_name, trade_name)")
       .order("code"),
-    supabase.from("companies").select("id, legal_name").order("legal_name"),
+    supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
     supabase.from("cost_centers").select("id, code, name").order("code"),
   ]);
 
@@ -30,7 +31,7 @@ export default async function ProjectsPage() {
         columns={[
           { header: "Código", cell: (p: any) => <span className="font-mono text-xs">{p.code}</span> },
           { header: "Nome", cell: (p: any) => <span className="font-medium text-ps-ink">{p.name}</span> },
-          { header: "Empresa", cell: (p: any) => p.companies?.legal_name ?? "—" },
+          { header: "Empresa", cell: (p: any) => companyLabel(p.companies) },
           { header: "Responsável", cell: (p: any) => p.responsible_name ?? "—" },
           { header: "Início", cell: (p: any) => p.start_date ?? "—" },
           { header: "Fim", cell: (p: any) => p.end_date ?? "—" },

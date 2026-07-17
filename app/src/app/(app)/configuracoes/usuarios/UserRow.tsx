@@ -19,7 +19,7 @@ export function UserRow({
   access,
 }: {
   profile: { id: string; full_name: string; role: string };
-  companies: Array<{ id: string; legal_name: string }>;
+  companies: Array<{ id: string; legal_name: string; trade_name: string | null }>;
   access: Array<{ id: string; company_id: string }>;
 }) {
   const router = useRouter();
@@ -95,7 +95,7 @@ export function UserRow({
                 key={a.id}
                 className="inline-flex items-center gap-1 bg-ps-bg-2 text-ps-ink text-xs px-2 py-1 rounded-full"
               >
-                {company?.legal_name ?? a.company_id}
+                {company ? company.trade_name || company.legal_name : a.company_id}
                 <button onClick={() => handleRevoke(a.id)} className="text-ps-muted hover:text-red-600">
                   ✕
                 </button>
@@ -113,7 +113,7 @@ export function UserRow({
               <option value="">Adicionar empresa...</option>
               {availableCompanies.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.legal_name}
+                  {c.trade_name || c.legal_name}
                 </option>
               ))}
             </select>

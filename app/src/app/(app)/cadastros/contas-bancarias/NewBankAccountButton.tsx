@@ -18,7 +18,7 @@ const ACCOUNT_TYPES = [
 export function NewBankAccountButton({
   companies,
 }: {
-  companies: Array<{ id: string; legal_name: string }>;
+  companies: Array<{ id: string; legal_name: string; trade_name: string | null }>;
 }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +50,7 @@ export function NewBankAccountButton({
             label="Empresa"
             name="company_id"
             required
-            options={companies.map((c) => ({ value: c.id, label: c.legal_name }))}
+            options={companies.map((c) => ({ value: c.id, label: c.trade_name || c.legal_name }))}
           />
           <TextField label="Banco" name="bank_name" required />
           <div className="grid grid-cols-2 gap-3">
