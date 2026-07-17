@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { DataTable } from "@/components/DataTable";
 import { NewSupplierButton } from "./NewSupplierButton";
 import { EditSupplierButton } from "./EditSupplierButton";
+import { ExportSuppliersButton } from "./ExportSuppliersButton";
 
 const COST_TYPE_LABELS: Record<string, string> = {
   despesas: "Despesas",
@@ -33,7 +34,12 @@ export default async function SuppliersPage() {
       <PageHeader
         title="Fornecedores"
         subtitle="Razão social, classificação de custo e departamento"
-        actions={<NewSupplierButton categories={categories ?? []} costCenters={costCenters ?? []} />}
+        actions={
+          <div className="flex gap-2">
+            <ExportSuppliersButton />
+            <NewSupplierButton categories={categories ?? []} costCenters={costCenters ?? []} />
+          </div>
+        }
       />
 
       <DataTable
