@@ -192,7 +192,7 @@ export function PaymentForm({
 
       <label className="flex items-center gap-2 text-sm text-ps-ink-2">
         <input type="checkbox" name="recurring" className="rounded" />
-        Isso é um pagamento recorrente (só para referência — pagamentos fixos automáticos ficam em "Pagamentos fixos")
+        Isso é um pagamento recorrente (só para referência — o agendamento automático fica em "Pagamentos recorrentes")
       </label>
 
       <div>

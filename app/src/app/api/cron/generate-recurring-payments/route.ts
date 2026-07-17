@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/serviceRole";
+import { getWeekBuckets } from "@/lib/calculations/cashflowPeriods";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +15,20 @@ export async function GET(request: NextRequest) {
   const dayOfMonth = today.getDate();
   const dueDate = today.toISOString().slice(0, 10);
 
+  // Semana do mês cujo início (segunda-feira) cai hoje — para templates agendados por semana.
+  const weekBuckets = getWeekBuckets(today.getFullYear(), today.getMonth() + 1);
+  const matchingWeekIndex = weekBuckets.findIndex((b) => b.start === dueDate);
+  const weekOfMonthToday = matchingWeekIndex >= 0 ? matchingWeekIndex + 1 : null;
+
   const { data: templates, error: templatesError } = await supabase
     .from("recurring_payment_templates")
     .select("*")
     .eq("active", true)
-    .eq("day_of_month", dayOfMonth);
+    .or(
+      [`day_of_month.eq.${dayOfMonth}`, weekOfMonthToday ? `week_of_month.eq.${weekOfMonthToday}` : null]
+        .filter(Boolean)
+        .join(",")
+    );
 
   if (templatesError) {
     return NextResponse.json({ error: templatesError.message }, { status: 500 });
@@ -51,5 +61,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ date: dueDate, created, skipped });
+  return NextResponse.json({ date: dueDate, weekOfMonthToday, created, skipped });
 }

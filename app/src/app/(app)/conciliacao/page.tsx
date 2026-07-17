@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { ReconcileRow } from "./ReconcileRow";
+import { ExportReconciliationButton } from "./ExportReconciliationButton";
 
 export default async function ReconciliationPage({
   searchParams,
@@ -70,12 +71,15 @@ export default async function ReconciliationPage({
         title="Conciliação"
         subtitle="Concilie o extrato bancário com pagamentos e receitas lançados"
         actions={
-          <Link
-            href="/conciliacao/importar"
-            className="bg-ps-navy text-white text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-navy-700 transition-colors"
-          >
-            Importar extrato
-          </Link>
+          <div className="flex gap-2">
+            <ExportReconciliationButton bankAccountId={bankAccountId} />
+            <Link
+              href="/conciliacao/importar"
+              className="bg-ps-navy text-white text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-navy-700 transition-colors"
+            >
+              Importar extrato
+            </Link>
+          </div>
         }
       />
 

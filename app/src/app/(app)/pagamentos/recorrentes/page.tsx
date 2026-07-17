@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { DataTable } from "@/components/DataTable";
@@ -11,7 +12,7 @@ export default async function RecurringPaymentsPage() {
     await Promise.all([
       supabase
         .from("recurring_payment_templates")
-        .select("id, description, day_of_month, active, companies(legal_name), suppliers(legal_name)")
+        .select("id, description, day_of_month, week_of_month, active, companies(legal_name), suppliers(legal_name)")
         .order("day_of_month"),
       supabase.from("companies").select("id, legal_name").order("legal_name"),
       supabase.from("suppliers").select("id, legal_name").eq("status", "ativo").order("legal_name"),
@@ -23,23 +24,37 @@ export default async function RecurringPaymentsPage() {
   return (
     <div>
       <PageHeader
-        title="Pagamentos fixos"
-        subtitle="Pagamentos recorrentes (aluguel, assinaturas) gerados automaticamente todo mês"
+        title="Pagamentos recorrentes"
+        subtitle="95% do volume — aluguel, assinaturas, folha — gerados automaticamente todo mês"
         actions={
-          <NewTemplateButton
-            companies={companies ?? []}
-            suppliers={suppliers ?? []}
-            categories={categories ?? []}
-            costCenters={costCenters ?? []}
-            bankAccounts={bankAccounts ?? []}
-          />
+          <div className="flex gap-2">
+            <Link
+              href="/pagamentos/baixa-em-massa"
+              className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
+            >
+              Baixa em massa
+            </Link>
+            <Link
+              href="/pagamentos/recorrentes/importar"
+              className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
+            >
+              Importar em massa
+            </Link>
+            <NewTemplateButton
+              companies={companies ?? []}
+              suppliers={suppliers ?? []}
+              categories={categories ?? []}
+              costCenters={costCenters ?? []}
+              bankAccounts={bankAccounts ?? []}
+            />
+          </div>
         }
       />
 
       <p className="text-sm text-ps-muted mb-4">
-        Todo dia, o sistema verifica os pagamentos fixos ativos e gera um lançamento pendente em{" "}
-        <strong>Pagamentos</strong> no dia do mês configurado — sem valor, para você preencher e dar baixa
-        quando a fatura chegar.
+        Todo dia, o sistema verifica os pagamentos recorrentes ativos e gera um lançamento pendente em{" "}
+        <strong>Pagamentos</strong> na semana ou no dia do mês configurado — sem valor, para você preencher e
+        dar baixa (com a data exata) quando a fatura chegar.
       </p>
 
       <DataTable
@@ -49,7 +64,10 @@ export default async function RecurringPaymentsPage() {
           { header: "Descrição", cell: (t: any) => <span className="font-medium text-ps-ink">{t.description}</span> },
           { header: "Empresa", cell: (t: any) => t.companies?.legal_name ?? "—" },
           { header: "Fornecedor", cell: (t: any) => t.suppliers?.legal_name ?? "—" },
-          { header: "Dia do mês", cell: (t: any) => t.day_of_month },
+          {
+            header: "Agendamento",
+            cell: (t: any) => (t.week_of_month ? `Semana ${t.week_of_month}` : `Dia ${t.day_of_month}`),
+          },
           { header: "Status", cell: (t: any) => <TemplateActiveToggle templateId={t.id} active={t.active} /> },
         ]}
       />

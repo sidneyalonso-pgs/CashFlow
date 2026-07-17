@@ -7,13 +7,21 @@ export async function createTemplate(formData: FormData) {
   const companyId = String(formData.get("company_id") || "");
   const supplierId = String(formData.get("supplier_id") || "");
   const description = String(formData.get("description") || "");
-  const dayOfMonth = Number(formData.get("day_of_month"));
+  const scheduleMode = String(formData.get("schedule_mode") || "dia");
+  const dayOfMonth = scheduleMode === "dia" ? Number(formData.get("day_of_month")) : null;
+  const weekOfMonth = scheduleMode === "semana" ? Number(formData.get("week_of_month")) : null;
   const categoryId = String(formData.get("category_id") || "") || null;
   const costCenterId = String(formData.get("cost_center_id") || "") || null;
   const bankAccountId = String(formData.get("paying_bank_account_id") || "") || null;
 
-  if (!companyId || !supplierId || !description || !dayOfMonth || dayOfMonth < 1 || dayOfMonth > 28) {
-    return { error: "Preencha empresa, fornecedor, descrição e um dia do mês entre 1 e 28." };
+  if (!companyId || !supplierId || !description) {
+    return { error: "Preencha empresa, fornecedor e descrição." };
+  }
+  if (scheduleMode === "dia" && (!dayOfMonth || dayOfMonth < 1 || dayOfMonth > 28)) {
+    return { error: "Informe um dia do mês entre 1 e 28." };
+  }
+  if (scheduleMode === "semana" && (!weekOfMonth || weekOfMonth < 1 || weekOfMonth > 5)) {
+    return { error: "Informe uma semana do mês entre 1 e 5." };
   }
 
   const supabase = createClient();
@@ -26,6 +34,7 @@ export async function createTemplate(formData: FormData) {
     supplier_id: supplierId,
     description,
     day_of_month: dayOfMonth,
+    week_of_month: weekOfMonth,
     category_id: categoryId,
     cost_center_id: costCenterId,
     paying_bank_account_id: bankAccountId,
@@ -34,7 +43,7 @@ export async function createTemplate(formData: FormData) {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/pagamentos/fixos");
+  revalidatePath("/pagamentos/recorrentes");
   return { error: null };
 }
 
@@ -46,6 +55,6 @@ export async function toggleTemplateActive(templateId: string, active: boolean) 
     .eq("id", templateId);
 
   if (error) return { error: error.message };
-  revalidatePath("/pagamentos/fixos");
+  revalidatePath("/pagamentos/recorrentes");
   return { error: null };
 }

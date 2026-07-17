@@ -19,6 +19,7 @@ export function NewTemplateButton({
   bankAccounts: Array<{ id: string; bank_name: string; nickname: string | null }>;
 }) {
   const [open, setOpen] = useState(false);
+  const [scheduleMode, setScheduleMode] = useState<"semana" | "dia">("semana");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -39,10 +40,10 @@ export function NewTemplateButton({
         onClick={() => setOpen(true)}
         className="bg-ps-navy text-white text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-navy-700 transition-colors"
       >
-        Novo pagamento fixo
+        Novo pagamento recorrente
       </button>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Novo pagamento fixo">
+      <Modal open={open} onClose={() => setOpen(false)} title="Novo pagamento recorrente">
         <form action={handleSubmit} className="space-y-3">
           <SelectField
             label="Empresa"
@@ -57,7 +58,50 @@ export function NewTemplateButton({
             options={suppliers.map((s) => ({ value: s.id, label: s.legal_name }))}
           />
           <TextField label="Descrição" name="description" placeholder="Ex: Aluguel escritório" required />
-          <TextField label="Dia do mês (1-28)" name="day_of_month" type="number" required />
+
+          <div>
+            <label className="block text-sm text-ps-ink-2 mb-1">Agendar por</label>
+            <div className="flex gap-2 p-1 bg-ps-bg-2 rounded-ps-sm w-fit">
+              <button
+                type="button"
+                onClick={() => setScheduleMode("semana")}
+                className={`px-3 py-1.5 rounded-ps-sm text-sm font-medium transition-colors ${
+                  scheduleMode === "semana" ? "bg-white shadow-ps-sm text-ps-ink" : "text-ps-muted"
+                }`}
+              >
+                Semana do mês
+              </button>
+              <button
+                type="button"
+                onClick={() => setScheduleMode("dia")}
+                className={`px-3 py-1.5 rounded-ps-sm text-sm font-medium transition-colors ${
+                  scheduleMode === "dia" ? "bg-white shadow-ps-sm text-ps-ink" : "text-ps-muted"
+                }`}
+              >
+                Dia fixo
+              </button>
+            </div>
+          </div>
+
+          <input type="hidden" name="schedule_mode" value={scheduleMode} />
+
+          {scheduleMode === "semana" ? (
+            <SelectField
+              label="Semana do mês"
+              name="week_of_month"
+              required
+              options={[
+                { value: "1", label: "Semana 1" },
+                { value: "2", label: "Semana 2" },
+                { value: "3", label: "Semana 3" },
+                { value: "4", label: "Semana 4" },
+                { value: "5", label: "Semana 5" },
+              ]}
+            />
+          ) : (
+            <TextField label="Dia do mês (1-28)" name="day_of_month" type="number" required />
+          )}
+
           <SelectField
             label="Categoria"
             name="category_id"

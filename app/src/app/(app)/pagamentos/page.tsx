@@ -30,26 +30,14 @@ export default async function PaymentsPage({
     <div>
       <PageHeader
         title="Pagamentos"
-        subtitle="Pagamentos já realizados e pagamentos fixos"
+        subtitle="Lance pagamentos avulsos ou gerencie os pagamentos recorrentes"
         actions={
           <div className="flex gap-2">
             <Link
-              href="/pagamentos/fixos"
+              href="/pagamentos/recorrentes"
               className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
             >
-              Pagamentos fixos
-            </Link>
-            <Link
-              href="/pagamentos/baixa-em-massa"
-              className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
-            >
-              Baixa em massa
-            </Link>
-            <Link
-              href="/importacao/pagamentos"
-              className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
-            >
-              Importar
+              Pagamentos recorrentes
             </Link>
             <Link
               href="/pagamentos/novo"
