@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { UserRow } from "./UserRow";
+import { InviteUserButton } from "./InviteUserButton";
 
 export default async function UsersPage() {
   const supabase = createClient();
@@ -13,7 +14,11 @@ export default async function UsersPage() {
 
   return (
     <div>
-      <PageHeader title="Usuários" subtitle="Perfis de acesso e empresas autorizadas" />
+      <PageHeader
+        title="Usuários"
+        subtitle="Perfis de acesso e empresas autorizadas"
+        actions={<InviteUserButton />}
+      />
 
       <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">

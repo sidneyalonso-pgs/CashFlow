@@ -2,8 +2,26 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/serviceRole";
 
 const VALID_ROLES = ["administrador", "tesouraria", "aprovador", "conciliacao", "fpa", "visualizador"];
+
+export async function inviteUser(formData: FormData) {
+  const fullName = String(formData.get("full_name") || "").trim();
+  const email = String(formData.get("email") || "").trim();
+
+  if (!fullName || !email) return { error: "Preencha nome e e-mail." };
+
+  const serviceRole = createServiceRoleClient();
+  const { error } = await serviceRole.auth.admin.inviteUserByEmail(email, {
+    data: { full_name: fullName },
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/configuracoes/usuarios");
+  return { error: null };
+}
 
 export async function updateUserRole(userId: string, role: string) {
   if (!VALID_ROLES.includes(role)) return { error: "Perfil inválido" };
