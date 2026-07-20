@@ -13,6 +13,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/login");
   }
 
+  const { data: factorsData } = await supabase.auth.mfa.listFactors();
+  const hasVerifiedFactor = factorsData?.totp?.some((f) => f.status === "verified");
+  if (!hasVerifiedFactor) {
+    redirect("/login");
+  }
+
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   if (aal && aal.nextLevel === "aal2" && aal.nextLevel !== aal.currentLevel) {
     redirect("/login");

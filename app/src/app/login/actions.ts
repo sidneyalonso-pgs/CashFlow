@@ -6,6 +6,24 @@ import { createServiceRoleClient } from "@/lib/supabase/serviceRole";
 const MAX_ATTEMPTS = 3;
 const LOCK_MINUTES = 15;
 
+async function startEnrollment(supabase: ReturnType<typeof createClient>) {
+  const { data: factorsData } = await supabase.auth.mfa.listFactors();
+  const unverified = factorsData?.totp?.filter((f) => f.status !== "verified") ?? [];
+  for (const f of unverified) {
+    await supabase.auth.mfa.unenroll({ factorId: f.id });
+  }
+
+  const { data: enrollData, error: enrollError } = await supabase.auth.mfa.enroll({ factorType: "totp" });
+  if (enrollError) return { error: enrollError.message };
+
+  return {
+    step: "enroll" as const,
+    factorId: enrollData.id,
+    qrCode: enrollData.totp.qr_code,
+    secret: enrollData.totp.secret,
+  };
+}
+
 export async function signInAction(formData: FormData) {
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
@@ -42,11 +60,25 @@ export async function signInAction(formData: FormData) {
 
   await svc.from("login_attempts").delete().eq("email", email);
 
-  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (aal && aal.nextLevel === "aal2" && aal.nextLevel !== aal.currentLevel) {
-    return { mfaRequired: true };
+  const { data: factorsData } = await supabase.auth.mfa.listFactors();
+  const verified = factorsData?.totp?.find((f) => f.status === "verified");
+
+  if (!verified) {
+    return startEnrollment(supabase);
   }
 
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal && aal.nextLevel === "aal2" && aal.nextLevel !== aal.currentLevel) {
+    return { step: "challenge" as const };
+  }
+
+  return { success: true };
+}
+
+export async function verifyEnrollAction(factorId: string, code: string) {
+  const supabase = createClient();
+  const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code });
+  if (error) return { error: "Código inválido. Tente novamente." };
   return { success: true };
 }
 
@@ -55,7 +87,7 @@ export async function verifyMfaAction(code: string) {
   const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
   if (factorsError) return { error: factorsError.message };
 
-  const factor = factorsData?.totp?.[0];
+  const factor = factorsData?.totp?.find((f) => f.status === "verified");
   if (!factor) return { error: "Nenhum fator de segurança encontrado para esta conta." };
 
   const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code });

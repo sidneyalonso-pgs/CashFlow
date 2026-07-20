@@ -8,14 +8,30 @@ export default async function LoginPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let initialStep: "password" | "mfa" = "password";
+  let initialStep: "password" | "enroll" | "challenge" = "password";
+  let initialEnroll: { factorId: string; qrCode: string; secret: string } | null = null;
 
   if (user) {
-    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (aal && aal.nextLevel === "aal2" && aal.nextLevel !== aal.currentLevel) {
-      initialStep = "mfa";
+    const { data: factorsData } = await supabase.auth.mfa.listFactors();
+    const verified = factorsData?.totp?.find((f) => f.status === "verified");
+
+    if (!verified) {
+      const unverified = factorsData?.totp?.filter((f) => f.status !== "verified") ?? [];
+      for (const f of unverified) {
+        await supabase.auth.mfa.unenroll({ factorId: f.id });
+      }
+      const { data: enrollData, error } = await supabase.auth.mfa.enroll({ factorType: "totp" });
+      if (!error) {
+        initialStep = "enroll";
+        initialEnroll = { factorId: enrollData.id, qrCode: enrollData.totp.qr_code, secret: enrollData.totp.secret };
+      }
     } else {
-      redirect("/");
+      const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aal && aal.nextLevel === "aal2" && aal.nextLevel !== aal.currentLevel) {
+        initialStep = "challenge";
+      } else {
+        redirect("/");
+      }
     }
   }
 
@@ -26,7 +42,7 @@ export default async function LoginPage() {
         <h1 className="text-xl font-bold text-ps-ink mb-1">PagSmile Treasury</h1>
         <p className="text-sm text-ps-muted mb-6">Gestão de caixa, pagamentos e conciliação</p>
 
-        <LoginForm initialStep={initialStep} />
+        <LoginForm initialStep={initialStep} initialEnroll={initialEnroll} />
       </div>
     </div>
   );
