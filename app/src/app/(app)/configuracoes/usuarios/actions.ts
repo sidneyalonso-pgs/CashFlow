@@ -6,21 +6,34 @@ import { createServiceRoleClient } from "@/lib/supabase/serviceRole";
 
 const VALID_ROLES = ["administrador", "tesouraria", "aprovador", "conciliacao", "fpa", "visualizador"];
 
+function generateTempPassword() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  let password = "";
+  for (let i = 0; i < 10; i++) {
+    password += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return password;
+}
+
 export async function inviteUser(formData: FormData) {
   const fullName = String(formData.get("full_name") || "").trim();
   const email = String(formData.get("email") || "").trim();
 
-  if (!fullName || !email) return { error: "Preencha nome e e-mail." };
+  if (!fullName || !email) return { error: "Preencha nome e e-mail.", tempPassword: null };
 
+  const tempPassword = generateTempPassword();
   const serviceRole = createServiceRoleClient();
-  const { error } = await serviceRole.auth.admin.inviteUserByEmail(email, {
-    data: { full_name: fullName },
+  const { error } = await serviceRole.auth.admin.createUser({
+    email,
+    password: tempPassword,
+    email_confirm: true,
+    user_metadata: { full_name: fullName },
   });
 
-  if (error) return { error: error.message };
+  if (error) return { error: error.message, tempPassword: null };
 
   revalidatePath("/configuracoes/usuarios");
-  return { error: null };
+  return { error: null, tempPassword };
 }
 
 export async function updateUserRole(userId: string, role: string) {

@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 
 const SETTINGS = [
   { href: "/configuracoes/usuarios", label: "Usuários", description: "Perfis de acesso e vínculo com empresas" },
+  { href: "/configuracoes/senha", label: "Minha senha", description: "Alterar a senha da sua conta" },
   { href: "/configuracoes/auditoria", label: "Auditoria", description: "Histórico de alterações do sistema" },
 ];
 
