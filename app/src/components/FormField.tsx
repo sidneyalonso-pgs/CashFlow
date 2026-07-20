@@ -25,7 +25,7 @@ export function TextField({
         defaultValue={defaultValue}
         placeholder={placeholder}
         step={step}
-        className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ps-green"
+        className="w-full h-11 rounded-ps-sm border border-ps-navy/15 px-3 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-ps-green focus:border-ps-green"
       />
     </div>
   );
@@ -51,7 +51,7 @@ export function SelectField({
         name={name}
         required={required}
         defaultValue={defaultValue}
-        className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ps-green"
+        className="w-full h-11 rounded-ps-sm border border-ps-navy/15 px-3 text-sm bg-white transition-shadow focus:outline-none focus:ring-2 focus:ring-ps-green focus:border-ps-green"
       >
         <option value="">Selecione...</option>
         {options.map((o) => (
@@ -75,7 +75,7 @@ export function CheckboxField({
 }) {
   return (
     <label className="flex items-center gap-2 text-sm text-ps-ink-2">
-      <input type="checkbox" name={name} defaultChecked={defaultChecked} className="rounded" />
+      <input type="checkbox" name={name} defaultChecked={defaultChecked} className="rounded accent-ps-green" />
       {label}
     </label>
   );

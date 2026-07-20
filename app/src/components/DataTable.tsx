@@ -23,7 +23,7 @@ export function DataTable<T>({
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={rowKey(row)} className="border-t border-ps-navy/5">
+            <tr key={rowKey(row)} className="border-t border-ps-navy/5 transition-colors hover:bg-ps-bg-2/60">
               {columns.map((c) => (
                 <td key={c.header} className="px-4 py-3 whitespace-nowrap">
                   {c.cell(row)}
