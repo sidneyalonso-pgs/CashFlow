@@ -1,0 +1,123 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { signInAction, verifyMfaAction } from "./actions";
+
+export function LoginForm({ initialStep }: { initialStep: "password" | "mfa" }) {
+  const router = useRouter();
+  const [step, setStep] = useState<"password" | "mfa">(initialStep);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handlePasswordSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    const formData = new FormData();
+    formData.set("email", email);
+    formData.set("password", password);
+
+    const result = await signInAction(formData);
+    setLoading(false);
+
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    if (result.mfaRequired) {
+      setStep("mfa");
+      return;
+    }
+
+    router.replace("/");
+    router.refresh();
+  }
+
+  async function handleMfaSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    const result = await verifyMfaAction(code);
+    setLoading(false);
+
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+
+    router.replace("/");
+    router.refresh();
+  }
+
+  if (step === "mfa") {
+    return (
+      <form onSubmit={handleMfaSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm text-ps-ink-2 mb-1">Código de autenticação</label>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoFocus
+            required
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="000000"
+            className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-ps-green"
+          />
+          <p className="text-xs text-ps-muted mt-1">Digite o código do seu aplicativo autenticador.</p>
+        </div>
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm py-2 text-sm hover:bg-ps-green-700 hover:text-white transition-colors disabled:opacity-60"
+        >
+          {loading ? "Verificando..." : "Confirmar"}
+        </button>
+      </form>
+    );
+  }
+
+  return (
+    <form onSubmit={handlePasswordSubmit} className="space-y-4">
+      <div>
+        <label className="block text-sm text-ps-ink-2 mb-1">E-mail</label>
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ps-green"
+        />
+      </div>
+      <div>
+        <label className="block text-sm text-ps-ink-2 mb-1">Senha</label>
+        <input
+          type="password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ps-green"
+        />
+      </div>
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm py-2 text-sm hover:bg-ps-green-700 hover:text-white transition-colors disabled:opacity-60"
+      >
+        {loading ? "Entrando..." : "Entrar"}
+      </button>
+    </form>
+  );
+}

@@ -13,6 +13,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/login");
   }
 
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal && aal.nextLevel === "aal2" && aal.nextLevel !== aal.currentLevel) {
+    redirect("/login");
+  }
+
   return (
     <div className="flex min-h-screen bg-ps-bg">
       <Sidebar />

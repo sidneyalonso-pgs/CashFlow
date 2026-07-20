@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/PageHeader";
 const SETTINGS = [
   { href: "/configuracoes/usuarios", label: "Usuários", description: "Perfis de acesso e vínculo com empresas" },
   { href: "/configuracoes/senha", label: "Minha senha", description: "Alterar a senha da sua conta" },
+  { href: "/configuracoes/2fa", label: "Autenticação em duas etapas", description: "Ativar segundo fator de segurança" },
   { href: "/configuracoes/auditoria", label: "Auditoria", description: "Histórico de alterações do sistema" },
 ];
 
