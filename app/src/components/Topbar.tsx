@@ -1,3 +1,5 @@
+import { SignOutButton } from "./SignOutButton";
+
 export function Topbar({ userEmail }: { userEmail?: string }) {
   return (
     <header className="h-16 border-b border-ps-navy/10 bg-white flex items-center justify-between px-6">
@@ -7,6 +9,7 @@ export function Topbar({ userEmail }: { userEmail?: string }) {
       </div>
       <div className="flex items-center gap-4">
         <span className="text-sm text-ps-muted">{userEmail}</span>
+        <SignOutButton />
       </div>
     </header>
   );
