@@ -12,3 +12,202 @@ html, body {
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- Login page ---------- */
+
+.login-page {
+  position: relative;
+  min-height: 100svh;
+  overflow: hidden;
+  background: radial-gradient(120% 140% at 15% 10%, #00335c 0%, #002443 45%, #00142a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (min-width: 1024px) {
+  .login-page {
+    justify-content: flex-end;
+    padding-right: 8vw;
+  }
+}
+
+.login-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  color: #5cf7cf;
+}
+
+.login-bg-icons {
+  position: absolute;
+  inset: -5% -10%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  transform: translate3d(calc(var(--mx, 0) * -6px), calc(var(--my, 0) * -6px), 0);
+  transition: transform 0.4s ease-out;
+}
+
+.login-bg-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(28px, 4vw, 56px);
+  width: max-content;
+  opacity: 0.16;
+  animation: login-bg-scroll 90s linear infinite;
+  will-change: transform;
+}
+
+.login-bg-row--reverse {
+  animation-direction: reverse;
+  animation-duration: 120s;
+  opacity: 0.1;
+}
+
+.login-bg-row svg {
+  width: clamp(28px, 3vw, 44px);
+  height: clamp(28px, 3vw, 44px);
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .login-bg-row:nth-child(4),
+  .login-bg-row:nth-child(5) {
+    display: none;
+  }
+}
+
+@keyframes login-bg-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.login-bg-glow {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(80px);
+  opacity: 0.35;
+  animation: login-bg-drift 22s ease-in-out infinite alternate;
+}
+
+.login-bg-glow--1 {
+  top: -10%;
+  left: -8%;
+  width: 42vw;
+  height: 42vw;
+  background: #2bc196;
+}
+
+.login-bg-glow--2 {
+  bottom: -15%;
+  right: -10%;
+  width: 46vw;
+  height: 46vw;
+  background: #00567a;
+  animation-delay: 4s;
+}
+
+@keyframes login-bg-drift {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(3%, 4%) scale(1.08); }
+}
+
+.login-bg-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(60% 60% at 30% 40%, transparent 0%, rgba(0, 20, 42, 0.35) 100%);
+  pointer-events: none;
+}
+
+.login-card {
+  position: relative;
+  animation: login-card-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.login-card--shake {
+  animation: login-card-shake 0.4s ease-in-out;
+}
+
+@keyframes login-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes login-card-shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
+
+.login-input {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.login-input:focus-within {
+  border-color: #2bc196;
+  box-shadow: 0 0 0 3px rgba(43, 193, 150, 0.18);
+  background-color: #ffffff;
+}
+
+.login-button {
+  background: linear-gradient(135deg, #2bc196 0%, #1aa380 100%);
+  transition: filter 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  box-shadow: 0 8px 20px rgba(26, 163, 128, 0.28);
+}
+
+.login-button:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(26, 163, 128, 0.36);
+}
+
+.login-button:active:not(:disabled) {
+  transform: translateY(0);
+  filter: brightness(0.98);
+}
+
+.login-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.login-spinner {
+  animation: login-spin 0.8s linear infinite;
+}
+
+@keyframes login-spin {
+  to { transform: rotate(360deg); }
+}
+
+.login-logo-in {
+  animation: login-logo-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.1s;
+}
+
+@keyframes login-logo-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-bg-row,
+  .login-bg-glow,
+  .login-card,
+  .login-card--shake,
+  .login-logo-in,
+  .login-spinner {
+    animation: none !important;
+  }
+  .login-bg-icons {
+    transform: none !important;
+    transition: none !important;
+  }
+}

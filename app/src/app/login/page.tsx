@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LoginForm } from "./LoginForm";
+import { LoginBackground } from "./LoginBackground";
 
 export default async function LoginPage() {
   const supabase = createClient();
@@ -39,11 +40,17 @@ export default async function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-ps-navy flex items-center justify-center px-4">
-      <div className="w-full max-w-sm bg-white rounded-ps shadow-ps p-8">
-        <img src="/logos/pagsmile-logo-navy.png" alt="PagSmile" className="h-8 mb-6" />
-        <h1 className="text-xl font-bold text-ps-ink mb-1">PagSmile Treasury</h1>
-        <p className="text-sm text-ps-muted mb-6">Gestão de caixa, pagamentos e conciliação</p>
+    <div className="login-page px-4 py-10">
+      <LoginBackground />
+
+      <div className="relative w-full max-w-[420px] bg-white/95 backdrop-blur-sm rounded-ps-lg shadow-ps border border-white/60 p-8 sm:p-10">
+        <img
+          src="/logos/pagsmile-logo-navy.png"
+          alt="PagSmile"
+          className="login-logo-in h-8 mb-7"
+        />
+        <h1 className="text-2xl font-bold text-ps-ink mb-1 tracking-tight">Treasury</h1>
+        <p className="text-sm text-ps-muted mb-7">Gestão de caixa, pagamentos e conciliação</p>
 
         <LoginForm initialStep={initialStep} initialEnroll={initialEnroll} />
       </div>
