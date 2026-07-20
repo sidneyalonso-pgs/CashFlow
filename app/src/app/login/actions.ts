@@ -13,7 +13,10 @@ async function startEnrollment(supabase: ReturnType<typeof createClient>) {
     await supabase.auth.mfa.unenroll({ factorId: f.id });
   }
 
-  const { data: enrollData, error: enrollError } = await supabase.auth.mfa.enroll({ factorType: "totp" });
+  const { data: enrollData, error: enrollError } = await supabase.auth.mfa.enroll({
+    factorType: "totp",
+    issuer: "PagSmile Treasury",
+  });
   if (enrollError) return { error: enrollError.message };
 
   return {

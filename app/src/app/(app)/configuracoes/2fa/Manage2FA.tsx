@@ -29,7 +29,7 @@ export function Manage2FA() {
   async function handleEnroll() {
     setError(null);
     setLoading(true);
-    const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp" });
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", issuer: "PagSmile Treasury" });
     setLoading(false);
 
     if (error) {

@@ -20,7 +20,10 @@ export default async function LoginPage() {
       for (const f of unverified) {
         await supabase.auth.mfa.unenroll({ factorId: f.id });
       }
-      const { data: enrollData, error } = await supabase.auth.mfa.enroll({ factorType: "totp" });
+      const { data: enrollData, error } = await supabase.auth.mfa.enroll({
+        factorType: "totp",
+        issuer: "PagSmile Treasury",
+      });
       if (!error) {
         initialStep = "enroll";
         initialEnroll = { factorId: enrollData.id, qrCode: enrollData.totp.qr_code, secret: enrollData.totp.secret };
