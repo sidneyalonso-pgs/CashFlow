@@ -4,6 +4,21 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { supplierSchema } from "@/lib/validators/registrations";
 
+export async function updateSupplierRecurring(
+  supplierId: string,
+  data: { recurring_amount: number | null; recurring_day_of_month: number | null }
+) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("suppliers")
+    .update(data)
+    .eq("id", supplierId);
+  if (error) return { error: error.message };
+  revalidatePath("/cadastros/fornecedores");
+  revalidatePath("/pagamentos/recorrentes");
+  return { error: null };
+}
+
 export async function createSupplier(formData: FormData) {
   const parsed = supplierSchema.safeParse({
     legal_name: formData.get("legal_name"),
@@ -89,7 +104,9 @@ export async function updateSupplier(supplierId: string, formData: FormData) {
 export async function generateRecurringProvisions(
   supplierId: string,
   companyId: string,
-  months: number = 3
+  months: number = 3,
+  overrideAmount?: number,
+  overrideDay?: number
 ) {
   const supabase = createClient();
   const {
@@ -102,15 +119,18 @@ export async function generateRecurringProvisions(
     .eq("id", supplierId)
     .single();
 
-  if (!supplier?.is_recurring || !supplier.recurring_amount || !supplier.recurring_day_of_month) {
-    return { error: "Fornecedor não configurado como recorrente." };
+  const effectiveAmount = overrideAmount ?? supplier?.recurring_amount;
+  const effectiveDay = overrideDay ?? supplier?.recurring_day_of_month;
+
+  if (!effectiveAmount || !effectiveDay) {
+    return { error: "Informe o valor e o dia de vencimento." };
   }
 
   const today = new Date();
   const created: string[] = [];
 
   for (let m = 0; m < months; m++) {
-    const target = new Date(today.getFullYear(), today.getMonth() + m, supplier.recurring_day_of_month);
+    const target = new Date(today.getFullYear(), today.getMonth() + m, effectiveDay);
     const dueDate = target.toISOString().split("T")[0];
 
     // Verificar se já existe pagamento para esse fornecedor nesse mês
@@ -136,7 +156,7 @@ export async function generateRecurringProvisions(
       company_id: companyId,
       supplier_id: supplierId,
       description,
-      gross_amount: supplier.recurring_amount,
+      gross_amount: effectiveAmount,
       currency: "BRL",
       category_id: supplier.default_category_id,
       cost_center_id: supplier.default_cost_center_id,
