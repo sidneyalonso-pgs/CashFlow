@@ -17,7 +17,7 @@ export function ImportHistory({ imports }: { imports: ImportRecord[] }) {
   const [isPending, startTransition] = useTransition();
 
   function handleDelete(importId: string) {
-    if (!confirm("Excluir este extrato? As entradas pendentes serão removidas. Entradas já conciliadas não serão afetadas.")) return;
+    if (!confirm("Excluir este extrato por completo? Todas as entradas serão removidas e as conciliações vinculadas serão desfeitas. Os pagamentos voltam a ficar como 'Pendente' de conciliação.")) return;
     startTransition(async () => {
       const res = await deleteStatementImport(importId);
       if (res.error) setErrors((prev) => ({ ...prev, [importId]: res.error! }));

@@ -97,7 +97,7 @@ export default async function MovementsPage({
             header: "Conciliação",
             cell: (m: any) => {
               const s = m.reconciliation_status;
-              if (s === "conciliado") return <span className="text-xs font-medium text-ps-green">Conciliado</span>;
+              if (s === "conciliado_manualmente" || s === "conciliado") return <span className="text-xs font-medium text-ps-green">Conciliado</span>;
               if (s === "pendente") return <span className="text-xs text-ps-muted">Pendente</span>;
               return <span className="text-xs text-ps-muted">—</span>;
             },

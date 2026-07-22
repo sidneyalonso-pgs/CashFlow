@@ -73,21 +73,38 @@ export async function importBankStatement(
 export async function deleteStatementImport(importId: string) {
   const supabase = createClient();
 
-  // Verificar se há entradas já conciliadas nesse import
-  const { count: reconciled } = await supabase
+  // Buscar todas as entradas deste import
+  const { data: entries } = await supabase
     .from("bank_statement_entries")
-    .select("id", { count: "exact", head: true })
-    .eq("import_id", importId)
-    .neq("reconciliation_status", "pendente");
+    .select("id")
+    .eq("import_id", importId);
 
-  if (reconciled && reconciled > 0) {
-    return { error: `Este extrato possui ${reconciled} lançamento(s) já conciliado(s) que não podem ser removidos.` };
+  const entryIds = (entries ?? []).map((e: any) => e.id);
+
+  if (entryIds.length > 0) {
+    // Buscar reconciliações vinculadas a essas entradas
+    const { data: reconciliations } = await supabase
+      .from("reconciliations")
+      .select("entity_type, entity_id")
+      .in("bank_statement_entry_id", entryIds);
+
+    // Reverter reconciliation_status nos pagamentos/receitas vinculados
+    for (const rec of reconciliations ?? []) {
+      const table = rec.entity_type === "payment" ? "payments" : "revenues";
+      await supabase
+        .from(table)
+        .update({ reconciliation_status: "pendente" })
+        .eq("id", rec.entity_id);
+    }
+
+    // Excluir os registros de reconciliação
+    await supabase.from("reconciliations").delete().in("bank_statement_entry_id", entryIds);
+
+    // Excluir as entradas do extrato
+    await supabase.from("bank_statement_entries").delete().in("id", entryIds);
   }
 
-  // Remover entradas pendentes e o registro de importação
-  await supabase.from("bank_statement_entries").delete().eq("import_id", importId).eq("reconciliation_status", "pendente");
   const { error } = await supabase.from("bank_statement_imports").delete().eq("id", importId);
-
   if (error) return { error: error.message };
 
   revalidatePath("/conciliacao");
