@@ -46,6 +46,7 @@ function SupplierRow({
   const [costCenterId, setCostCenterId] = useState(supplier.default_cost_center_id ?? "");
   const [description, setDescription] = useState(supplier.default_description ?? "");
   const [status, setStatus] = useState(supplier.status);
+  const [isRecurring, setIsRecurring] = useState(supplier.is_recurring ?? false);
 
   function mark(setter: (v: any) => void, value: any) {
     setter(value);
@@ -62,6 +63,7 @@ function SupplierRow({
     fd.set("default_description", description);
     fd.set("status", status);
     fd.set("tax_id", "");
+    if (isRecurring) fd.set("is_recurring", "on");
 
     startTransition(async () => {
       const result = await updateSupplier(supplier.id, fd);
@@ -82,12 +84,7 @@ function SupplierRow({
     <tr className={`border-t border-ps-navy/5 transition-colors ${dirty ? "bg-amber-50/60" : "hover:bg-ps-bg-2/40"}`}>
       {/* Razão social */}
       <td className="px-3 py-2 min-w-[200px]">
-        <span className="text-sm font-medium text-ps-ink leading-tight">
-          {supplier.legal_name}
-          {supplier.is_recurring && (
-            <span className="ml-2 text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">recorrente</span>
-          )}
-        </span>
+        <span className="text-sm font-medium text-ps-ink leading-tight">{supplier.legal_name}</span>
       </td>
 
       {/* Tipo de custo */}
@@ -128,6 +125,21 @@ function SupplierRow({
           placeholder="Descrição padrão..."
           className={cellCls}
         />
+      </td>
+
+      {/* Recorrente */}
+      <td className="px-3 py-2 text-center">
+        <button
+          type="button"
+          onClick={() => mark(setIsRecurring, !isRecurring)}
+          className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-colors ${
+            isRecurring
+              ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+              : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+          }`}
+        >
+          {isRecurring ? "Sim" : "Não"}
+        </button>
       </td>
 
       {/* Status */}
@@ -179,6 +191,7 @@ export function SuppliersTable({
             <th className={thCls}>Categoria</th>
             <th className={thCls}>Departamento</th>
             <th className={thCls}>Descrição padrão</th>
+            <th className={thCls}>Recorrente</th>
             <th className={thCls}>Status</th>
             <th className={thCls}></th>
           </tr>
