@@ -6,7 +6,7 @@ import { supplierSchema } from "@/lib/validators/registrations";
 
 export async function updateSupplierRecurring(
   supplierId: string,
-  data: { recurring_amount: number | null; recurring_day_of_month: number | null }
+  data: { recurring_amount: number | null; recurring_week_of_month: number | null }
 ) {
   const supabase = createClient();
   const { error } = await supabase
@@ -101,12 +101,15 @@ export async function updateSupplier(supplierId: string, formData: FormData) {
   return { error: null };
 }
 
+// Semana → dia âncora (ajuste fino via lápis de vencimento)
+const WEEK_TO_DAY: Record<number, number> = { 1: 7, 2: 14, 3: 21, 4: 28, 5: 28 };
+
 export async function generateRecurringProvisions(
   supplierId: string,
   companyId: string,
   months: number = 3,
   overrideAmount?: number,
-  overrideDay?: number
+  overrideWeek?: number
 ) {
   const supabase = createClient();
   const {
@@ -115,15 +118,16 @@ export async function generateRecurringProvisions(
 
   const { data: supplier } = await supabase
     .from("suppliers")
-    .select("legal_name, cost_type, default_category_id, default_cost_center_id, default_description, recurring_amount, recurring_day_of_month, is_recurring")
+    .select("legal_name, cost_type, default_category_id, default_cost_center_id, default_description, recurring_amount, recurring_week_of_month, is_recurring")
     .eq("id", supplierId)
     .single();
 
   const effectiveAmount = overrideAmount ?? supplier?.recurring_amount;
-  const effectiveDay = overrideDay ?? supplier?.recurring_day_of_month;
+  const effectiveWeek = overrideWeek ?? supplier?.recurring_week_of_month;
+  const effectiveDay = WEEK_TO_DAY[effectiveWeek ?? 0] ?? null;
 
   if (!effectiveAmount || !effectiveDay) {
-    return { error: "Informe o valor e o dia de vencimento." };
+    return { error: "Informe o valor e a semana de vencimento." };
   }
 
   const today = new Date();

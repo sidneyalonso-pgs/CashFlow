@@ -7,7 +7,7 @@ type RecurringSupplier = {
   id: string;
   legal_name: string;
   recurring_amount: number | null;
-  recurring_day_of_month: number | null;
+  recurring_week_of_month: number | null;
   default_description: string | null;
 };
 
@@ -29,17 +29,17 @@ function SupplierProvisionRow({
   const [genResult, setGenResult] = useState<string | null>(null);
 
   const [amount, setAmount] = useState(supplier.recurring_amount?.toString() ?? "");
-  const [day, setDay] = useState(supplier.recurring_day_of_month?.toString() ?? "");
+  const [week, setWeek] = useState(supplier.recurring_week_of_month?.toString() ?? "");
   const [configDirty, setConfigDirty] = useState(false);
   const [savedOk, setSavedOk] = useState(false);
 
-  const canGenerate = !!amount && !!day && !!companyId;
+  const canGenerate = !!amount && !!week && !!companyId;
 
   function handleSaveConfig() {
     startTransition(async () => {
       const res = await updateSupplierRecurring(supplier.id, {
         recurring_amount: amount ? Number(amount) : null,
-        recurring_day_of_month: day ? Number(day) : null,
+        recurring_week_of_month: week ? Number(week) : null,
       });
       if (!res.error) {
         setConfigDirty(false);
@@ -56,7 +56,7 @@ function SupplierProvisionRow({
       if (configDirty) {
         await updateSupplierRecurring(supplier.id, {
           recurring_amount: amount ? Number(amount) : null,
-          recurring_day_of_month: day ? Number(day) : null,
+          recurring_week_of_month: week ? Number(week) : null,
         });
         setConfigDirty(false);
       }
@@ -65,7 +65,7 @@ function SupplierProvisionRow({
         companyId,
         months,
         amount ? Number(amount) : undefined,
-        day ? Number(day) : undefined
+        week ? Number(week) : undefined
       );
       if (res.error) {
         setGenResult(`Erro: ${res.error}`);
@@ -102,20 +102,19 @@ function SupplierProvisionRow({
         </div>
       </td>
 
-      {/* Dia do vencimento */}
-      <td className="px-4 py-3 min-w-[100px]">
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-ps-muted">Dia</span>
-          <input
-            type="number"
-            min="1"
-            max="28"
-            value={day}
-            onChange={(e) => { setDay(e.target.value); setConfigDirty(true); setSavedOk(false); }}
-            placeholder="—"
-            className={`${inputCls} w-14 text-center`}
-          />
-        </div>
+      {/* Semana do mês */}
+      <td className="px-4 py-3 min-w-[130px]">
+        <select
+          value={week}
+          onChange={(e) => { setWeek(e.target.value); setConfigDirty(true); setSavedOk(false); }}
+          className={`${inputCls} w-full`}
+        >
+          <option value="">— semana</option>
+          <option value="1">Semana 1 (até dia 7)</option>
+          <option value="2">Semana 2 (até dia 14)</option>
+          <option value="3">Semana 3 (até dia 21)</option>
+          <option value="4">Semana 4 (até dia 28)</option>
+        </select>
       </td>
 
       {/* Salvar config */}
@@ -264,7 +263,7 @@ export function RecurringSupplierPanel({
             <tr>
               <th className="text-left px-4 py-3">Fornecedor</th>
               <th className="text-left px-4 py-3">Valor mensal</th>
-              <th className="text-left px-4 py-3">Vencimento</th>
+              <th className="text-left px-4 py-3">Semana</th>
               <th className="px-4 py-3"></th>
               <th className="text-left px-4 py-3">Empresa</th>
               <th className="text-left px-4 py-3">Período</th>
