@@ -16,7 +16,7 @@ export default async function MovementsPage({
   let query = supabase
     .from("payments")
     .select(
-      "id, description, gross_amount, paid_amount, due_date, effective_payment_date, status, companies(legal_name, trade_name), suppliers(legal_name), categories(name)"
+      "id, description, gross_amount, paid_amount, due_date, effective_payment_date, status, reconciliation_status, companies(legal_name, trade_name), suppliers(legal_name), categories(name)"
     )
     .is("deleted_at", null)
     .order("due_date", { ascending: false });
@@ -85,16 +85,23 @@ export default async function MovementsPage({
           { header: "Direção", cell: () => "Saída" },
           { header: "Vencimento", cell: (m: any) => m.due_date },
           {
-            header: "Valor previsto",
-            cell: (m: any) => <span className="tabular-nums">{formatBRL(m.gross_amount)}</span>,
-          },
-          {
-            header: "Valor realizado",
+            header: "Valor",
             cell: (m: any) => (
-              <span className="tabular-nums">{m.paid_amount ? formatBRL(m.paid_amount) : "—"}</span>
+              <span className="tabular-nums">
+                {m.paid_amount ? formatBRL(m.paid_amount) : formatBRL(m.gross_amount)}
+              </span>
             ),
           },
           { header: "Status", cell: (m: any) => <StatusBadge status={m.status} /> },
+          {
+            header: "Conciliação",
+            cell: (m: any) => {
+              const s = m.reconciliation_status;
+              if (s === "conciliado") return <span className="text-xs font-medium text-ps-green">Conciliado</span>;
+              if (s === "pendente") return <span className="text-xs text-ps-muted">Pendente</span>;
+              return <span className="text-xs text-ps-muted">—</span>;
+            },
+          },
         ]}
       />
     </div>

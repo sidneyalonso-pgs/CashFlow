@@ -108,7 +108,7 @@ export function PaymentActions({
         disabled={isPending}
         className="w-full text-sm text-red-600 hover:underline"
       >
-        Cancelar
+        Cancelar pagamento
       </button>
     </div>
   );
