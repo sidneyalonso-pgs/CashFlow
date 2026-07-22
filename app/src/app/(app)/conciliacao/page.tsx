@@ -5,13 +5,33 @@ import { ReconcileRow } from "./ReconcileRow";
 import { ExportReconciliationButton } from "./ExportReconciliationButton";
 import { companyLabel } from "@/lib/format";
 
+function monthOptions() {
+  const options: { value: string; label: string }[] = [];
+  const now = new Date();
+  for (let i = -2; i <= 3; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const label = d.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+    options.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) });
+  }
+  return options;
+}
+
 export default async function ReconciliationPage({
   searchParams,
 }: {
-  searchParams: { bank_account_id?: string };
+  searchParams: { bank_account_id?: string; month?: string };
 }) {
   const supabase = createClient();
   const bankAccountId = searchParams.bank_account_id;
+
+  const now = new Date();
+  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const month = searchParams.month ?? defaultMonth;
+
+  const monthStart = `${month}-01`;
+  const [year, mon] = month.split("-").map(Number);
+  const monthEnd = new Date(year, mon, 0).toISOString().split("T")[0];
 
   const { data: bankAccounts } = await supabase
     .from("bank_accounts")
@@ -21,31 +41,49 @@ export default async function ReconciliationPage({
   let entries: any[] = [];
   let payments: any[] = [];
   let revenues: any[] = [];
+  let totalEntries = 0;
+  let totalPending = 0;
 
   if (bankAccountId) {
-    const [{ data: entriesData }, { data: paymentsData }, { data: revenuesData }] = await Promise.all([
-      supabase
-        .from("bank_statement_entries")
-        .select("id, entry_date, bank_description, amount, direction")
-        .eq("bank_account_id", bankAccountId)
-        .eq("reconciliation_status", "pendente")
-        .order("entry_date"),
-      supabase
-        .from("payments")
-        .select("id, description, gross_amount, effective_payment_date")
-        .eq("paying_bank_account_id", bankAccountId)
-        .eq("status", "pago")
-        .eq("reconciliation_status", "pendente"),
-      supabase
-        .from("revenues")
-        .select("id, description, realized_amount, realized_date")
-        .eq("receiving_bank_account_id", bankAccountId)
-        .eq("status", "recebida")
-        .eq("reconciliation_status", "pendente"),
-    ]);
+    const [{ data: entriesData }, { data: paymentsData }, { data: revenuesData }, { count: allCount }] =
+      await Promise.all([
+        supabase
+          .from("bank_statement_entries")
+          .select("id, entry_date, bank_description, amount, direction")
+          .eq("bank_account_id", bankAccountId)
+          .eq("reconciliation_status", "pendente")
+          .gte("entry_date", monthStart)
+          .lte("entry_date", monthEnd)
+          .order("entry_date"),
+        supabase
+          .from("payments")
+          .select("id, description, gross_amount, effective_payment_date, due_date")
+          .eq("paying_bank_account_id", bankAccountId)
+          .eq("status", "pago")
+          .eq("reconciliation_status", "pendente")
+          .gte("effective_payment_date", monthStart)
+          .lte("effective_payment_date", monthEnd),
+        supabase
+          .from("revenues")
+          .select("id, description, realized_amount, realized_date")
+          .eq("receiving_bank_account_id", bankAccountId)
+          .eq("status", "recebida")
+          .eq("reconciliation_status", "pendente")
+          .gte("realized_date", monthStart)
+          .lte("realized_date", monthEnd),
+        supabase
+          .from("bank_statement_entries")
+          .select("id", { count: "exact", head: true })
+          .eq("bank_account_id", bankAccountId)
+          .gte("entry_date", monthStart)
+          .lte("entry_date", monthEnd),
+      ]);
+
     entries = entriesData ?? [];
     payments = paymentsData ?? [];
     revenues = revenuesData ?? [];
+    totalEntries = allCount ?? 0;
+    totalPending = entries.length;
   }
 
   const paymentCandidates = payments.map((p) => ({
@@ -66,6 +104,11 @@ export default async function ReconciliationPage({
     date: r.realized_date,
   }));
 
+  const months = monthOptions();
+  const currentMonthLabel = months.find((m) => m.value === month)?.label ?? month;
+  const conciliado = totalEntries - totalPending;
+  const pct = totalEntries > 0 ? Math.round((conciliado / totalEntries) * 100) : 0;
+
   return (
     <div>
       <PageHeader
@@ -84,7 +127,8 @@ export default async function ReconciliationPage({
         }
       />
 
-      <form className="flex gap-3 mb-4">
+      {/* Filtros */}
+      <form className="flex flex-wrap gap-3 mb-5">
         <select
           name="bank_account_id"
           defaultValue={bankAccountId ?? ""}
@@ -97,43 +141,80 @@ export default async function ReconciliationPage({
             </option>
           ))}
         </select>
+
+        <select
+          name="month"
+          defaultValue={month}
+          className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+        >
+          {months.map((m) => (
+            <option key={m.value} value={m.value}>{m.label}</option>
+          ))}
+        </select>
+
         <button className="text-sm text-ps-navy underline" type="submit">
-          Selecionar
+          Filtrar
         </button>
       </form>
 
       {!bankAccountId ? (
         <p className="text-sm text-ps-muted">Selecione uma conta bancária para ver as pendências de conciliação.</p>
       ) : (
-        <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 overflow-hidden overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-ps-bg-2 text-ps-muted text-xs uppercase tracking-wide">
-              <tr>
-                <th className="text-left px-4 py-3">Data</th>
-                <th className="text-left px-4 py-3">Descrição do banco</th>
-                <th className="text-left px-4 py-3">Valor</th>
-                <th className="text-left px-4 py-3">Corresponder a</th>
-                <th className="text-left px-4 py-3">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((entry: any) => (
-                <ReconcileRow
-                  key={entry.id}
-                  entry={entry}
-                  candidates={entry.direction === "entrada" ? revenueCandidates : paymentCandidates}
+        <>
+          {/* Progresso do mês */}
+          {totalEntries > 0 && (
+            <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-4 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-ps-ink">{currentMonthLabel}</span>
+                <span className="text-sm text-ps-muted">
+                  <span className="font-semibold text-ps-green">{conciliado}</span> de {totalEntries} conciliados
+                  {" "}<span className="text-xs">({pct}%)</span>
+                </span>
+              </div>
+              <div className="h-2 bg-ps-bg-2 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-ps-green rounded-full transition-all"
+                  style={{ width: `${pct}%` }}
                 />
-              ))}
-              {entries.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-ps-muted">
-                    Nenhuma pendência de conciliação para esta conta.
-                  </td>
-                </tr>
+              </div>
+              {totalPending === 0 && (
+                <p className="text-xs text-ps-green font-medium mt-2">✓ Todos os lançamentos deste mês foram conciliados!</p>
               )}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          )}
+
+          <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 overflow-hidden overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-ps-bg-2 text-ps-muted text-xs uppercase tracking-wide">
+                <tr>
+                  <th className="text-left px-4 py-3">Data</th>
+                  <th className="text-left px-4 py-3">Descrição do banco</th>
+                  <th className="text-left px-4 py-3">Valor</th>
+                  <th className="text-left px-4 py-3">Corresponder a</th>
+                  <th className="text-left px-4 py-3">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map((entry: any) => (
+                  <ReconcileRow
+                    key={entry.id}
+                    entry={entry}
+                    candidates={entry.direction === "entrada" ? revenueCandidates : paymentCandidates}
+                  />
+                ))}
+                {entries.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-ps-muted">
+                      {totalEntries === 0
+                        ? "Nenhum extrato importado para este mês. Importe o extrato do banco para começar."
+                        : "Todos os lançamentos deste mês já foram conciliados."}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

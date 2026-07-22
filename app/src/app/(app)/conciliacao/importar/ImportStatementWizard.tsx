@@ -65,7 +65,11 @@ export function ImportStatementWizard({
       return;
     }
     setResult({ imported: res.imported ?? 0, total: res.total ?? 0 });
-    router.refresh();
+
+    // Detectar mês do extrato e redirecionar para conciliação filtrada
+    const detectedMonth = rows[0]?.date?.slice(0, 7); // "YYYY-MM"
+    const monthParam = detectedMonth ? `&month=${detectedMonth}` : "";
+    router.push(`/conciliacao?bank_account_id=${bankAccountId}${monthParam}`);
   }
 
   return (
