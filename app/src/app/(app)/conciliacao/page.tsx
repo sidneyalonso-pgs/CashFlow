@@ -44,46 +44,84 @@ export default async function ReconciliationPage({
   let totalEntries = 0;
   let totalPending = 0;
 
-  if (bankAccountId) {
-    const [{ data: entriesData }, { data: paymentsData }, { data: revenuesData }, { count: allCount }] =
-      await Promise.all([
-        supabase
-          .from("bank_statement_entries")
-          .select("id, entry_date, bank_description, amount, direction")
-          .eq("bank_account_id", bankAccountId)
-          .eq("reconciliation_status", "pendente")
-          .gte("entry_date", monthStart)
-          .lte("entry_date", monthEnd)
-          .order("entry_date"),
-        supabase
-          .from("payments")
-          .select("id, description, gross_amount, effective_payment_date, due_date")
-          .eq("paying_bank_account_id", bankAccountId)
-          .eq("status", "pago")
-          .eq("reconciliation_status", "pendente")
-          .gte("effective_payment_date", monthStart)
-          .lte("effective_payment_date", monthEnd),
-        supabase
-          .from("revenues")
-          .select("id, description, realized_amount, realized_date")
-          .eq("receiving_bank_account_id", bankAccountId)
-          .eq("status", "recebida")
-          .eq("reconciliation_status", "pendente")
-          .gte("realized_date", monthStart)
-          .lte("realized_date", monthEnd),
-        supabase
-          .from("bank_statement_entries")
-          .select("id", { count: "exact", head: true })
-          .eq("bank_account_id", bankAccountId)
-          .gte("entry_date", monthStart)
-          .lte("entry_date", monthEnd),
-      ]);
+  let reconciledEntries: any[] = [];
+  let reconciledMap: Record<string, { key: string; label: string; amount: number; date: string }> = {};
 
-    entries = entriesData ?? [];
+  if (bankAccountId) {
+    const [
+      { data: pendingData },
+      { data: reconciledData },
+      { data: paymentsData },
+      { data: revenuesData },
+      { count: allCount },
+    ] = await Promise.all([
+      supabase
+        .from("bank_statement_entries")
+        .select("id, entry_date, bank_description, amount, direction")
+        .eq("bank_account_id", bankAccountId)
+        .eq("reconciliation_status", "pendente")
+        .gte("entry_date", monthStart)
+        .lte("entry_date", monthEnd)
+        .order("entry_date"),
+      supabase
+        .from("bank_statement_entries")
+        .select("id, entry_date, bank_description, amount, direction, reconciliations(entity_type, entity_id, payments(description, gross_amount, effective_payment_date), revenues(description, realized_amount, realized_date))")
+        .eq("bank_account_id", bankAccountId)
+        .eq("reconciliation_status", "conciliado_manualmente")
+        .gte("entry_date", monthStart)
+        .lte("entry_date", monthEnd)
+        .order("entry_date"),
+      supabase
+        .from("payments")
+        .select("id, description, gross_amount, effective_payment_date, due_date")
+        .eq("paying_bank_account_id", bankAccountId)
+        .eq("status", "pago")
+        .eq("reconciliation_status", "pendente")
+        .gte("effective_payment_date", monthStart)
+        .lte("effective_payment_date", monthEnd),
+      supabase
+        .from("revenues")
+        .select("id, description, realized_amount, realized_date")
+        .eq("receiving_bank_account_id", bankAccountId)
+        .eq("status", "recebida")
+        .eq("reconciliation_status", "pendente")
+        .gte("realized_date", monthStart)
+        .lte("realized_date", monthEnd),
+      supabase
+        .from("bank_statement_entries")
+        .select("id", { count: "exact", head: true })
+        .eq("bank_account_id", bankAccountId)
+        .gte("entry_date", monthStart)
+        .lte("entry_date", monthEnd),
+    ]);
+
+    entries = pendingData ?? [];
+    reconciledEntries = reconciledData ?? [];
     payments = paymentsData ?? [];
     revenues = revenuesData ?? [];
     totalEntries = allCount ?? 0;
     totalPending = entries.length;
+
+    // Montar mapa de conciliados para passar ao ReconcileRow
+    for (const e of reconciledEntries) {
+      const rec = (e.reconciliations as any)?.[0];
+      if (!rec) continue;
+      if (rec.entity_type === "payment" && rec.payments) {
+        reconciledMap[e.id] = {
+          key: `payment:${rec.entity_id}`,
+          label: rec.payments.description,
+          amount: Number(rec.payments.gross_amount),
+          date: rec.payments.effective_payment_date,
+        };
+      } else if (rec.entity_type === "revenue" && rec.revenues) {
+        reconciledMap[e.id] = {
+          key: `revenue:${rec.entity_id}`,
+          label: rec.revenues.description,
+          amount: Number(rec.revenues.realized_amount),
+          date: rec.revenues.realized_date,
+        };
+      }
+    }
   }
 
   const paymentCandidates = payments.map((p) => ({
@@ -202,12 +240,18 @@ export default async function ReconciliationPage({
                     candidates={entry.direction === "entrada" ? revenueCandidates : paymentCandidates}
                   />
                 ))}
-                {entries.length === 0 && (
+                {reconciledEntries.map((entry: any) => (
+                  <ReconcileRow
+                    key={entry.id}
+                    entry={entry}
+                    candidates={[]}
+                    reconciled={reconciledMap[entry.id] ?? null}
+                  />
+                ))}
+                {totalEntries === 0 && (
                   <tr>
                     <td colSpan={5} className="px-4 py-8 text-center text-ps-muted">
-                      {totalEntries === 0
-                        ? "Nenhum extrato importado para este mês. Importe o extrato do banco para começar."
-                        : "Todos os lançamentos deste mês já foram conciliados."}
+                      Nenhum extrato importado para este mês. Importe o extrato do banco para começar.
                     </td>
                   </tr>
                 )}

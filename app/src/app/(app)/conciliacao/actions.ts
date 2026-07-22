@@ -50,3 +50,28 @@ export async function ignoreEntry(bankEntryId: string) {
   revalidatePath("/conciliacao");
   return { error: null };
 }
+
+export async function unreconcileEntry(bankEntryId: string) {
+  const supabase = createClient();
+
+  // Buscar reconciliação vinculada
+  const { data: rec } = await supabase
+    .from("reconciliations")
+    .select("entity_type, entity_id")
+    .eq("bank_statement_entry_id", bankEntryId)
+    .single();
+
+  if (rec) {
+    const table = rec.entity_type === "payment" ? "payments" : "revenues";
+    await supabase.from(table).update({ reconciliation_status: "pendente" }).eq("id", rec.entity_id);
+    await supabase.from("reconciliations").delete().eq("bank_statement_entry_id", bankEntryId);
+  }
+
+  await supabase
+    .from("bank_statement_entries")
+    .update({ reconciliation_status: "pendente" })
+    .eq("id", bankEntryId);
+
+  revalidatePath("/conciliacao");
+  return { error: null };
+}
