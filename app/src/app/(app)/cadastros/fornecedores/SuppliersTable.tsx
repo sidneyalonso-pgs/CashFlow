@@ -65,6 +65,8 @@ function SupplierRow({
     fd.set("status", status);
     fd.set("tax_id", "");
     if (isRecurring) fd.set("is_recurring", "on");
+    // Sempre propaga descrição para pagamentos futuros ao salvar pela tabela
+    if (description) fd.set("propagate_description", "on");
 
     startTransition(async () => {
       const result = await updateSupplier(supplier.id, fd);
