@@ -41,6 +41,8 @@ export default async function ReconciliationPage({
   let entries: any[] = [];
   let payments: any[] = [];
   let revenues: any[] = [];
+  let investmentApplications: any[] = [];
+  let investmentRedemptions: any[] = [];
   let totalEntries = 0;
   let totalPending = 0;
 
@@ -53,6 +55,7 @@ export default async function ReconciliationPage({
       { data: reconciledData },
       { data: paymentsData },
       { data: revenuesData },
+      { data: investmentsData },
       { count: allCount },
     ] = await Promise.all([
       supabase
@@ -65,7 +68,7 @@ export default async function ReconciliationPage({
         .order("entry_date"),
       supabase
         .from("bank_statement_entries")
-        .select("id, entry_date, bank_description, amount, direction, reconciliations(entity_type, entity_id, payments(description, gross_amount, effective_payment_date), revenues(description, realized_amount, realized_date))")
+        .select("id, entry_date, bank_description, amount, direction, reconciliations(entity_type, entity_id, payments(description, gross_amount, effective_payment_date), revenues(description, realized_amount, realized_date), investments(institution, product, applied_amount, applied_date, redeemed_amount, redeemed_date))")
         .eq("bank_account_id", bankAccountId)
         .eq("reconciliation_status", "conciliado_manualmente")
         .gte("entry_date", monthStart)
@@ -87,6 +90,13 @@ export default async function ReconciliationPage({
         .eq("reconciliation_status", "pendente")
         .gte("realized_date", monthStart)
         .lte("realized_date", monthEnd),
+      // Investimentos do mês nessa conta (aplicações e resgates)
+      supabase
+        .from("investments")
+        .select("id, institution, product, applied_amount, applied_date, redeemed_amount, redeemed_date, status")
+        .eq("bank_account_id", bankAccountId)
+        .or(`applied_date.gte.${monthStart},redeemed_date.gte.${monthStart}`)
+        .or(`applied_date.lte.${monthEnd},redeemed_date.lte.${monthEnd}`),
       supabase
         .from("bank_statement_entries")
         .select("id", { count: "exact", head: true })
@@ -101,6 +111,33 @@ export default async function ReconciliationPage({
     revenues = revenuesData ?? [];
     totalEntries = allCount ?? 0;
     totalPending = entries.length;
+
+    // Buscar IDs de investimentos já conciliados neste período para excluir dos candidatos
+    const reconciledInvestmentIds = new Set(
+      (reconciledData ?? [])
+        .flatMap((e: any) => e.reconciliations ?? [])
+        .filter((r: any) => r.entity_type === "investment_application" || r.entity_type === "investment_redemption")
+        .map((r: any) => r.entity_id)
+    );
+
+    // Separar aplicações e resgates elegíveis (dentro do mês e não conciliados)
+    for (const inv of investmentsData ?? []) {
+      if (
+        inv.applied_date >= monthStart &&
+        inv.applied_date <= monthEnd &&
+        !reconciledInvestmentIds.has(`app:${inv.id}`)
+      ) {
+        investmentApplications.push(inv);
+      }
+      if (
+        inv.redeemed_date &&
+        inv.redeemed_date >= monthStart &&
+        inv.redeemed_date <= monthEnd &&
+        !reconciledInvestmentIds.has(`red:${inv.id}`)
+      ) {
+        investmentRedemptions.push(inv);
+      }
+    }
 
     // Montar mapa de conciliados para passar ao ReconcileRow
     for (const e of reconciledEntries) {
@@ -119,6 +156,20 @@ export default async function ReconciliationPage({
           label: rec.revenues.description,
           amount: Number(rec.revenues.realized_amount),
           date: rec.revenues.realized_date,
+        };
+      } else if (rec.entity_type === "investment_application" && rec.investments) {
+        reconciledMap[e.id] = {
+          key: `investment_application:${rec.entity_id}`,
+          label: `Aplicação: ${rec.investments.product} — ${rec.investments.institution}`,
+          amount: Number(rec.investments.applied_amount),
+          date: rec.investments.applied_date,
+        };
+      } else if (rec.entity_type === "investment_redemption" && rec.investments) {
+        reconciledMap[e.id] = {
+          key: `investment_redemption:${rec.entity_id}`,
+          label: `Resgate: ${rec.investments.product} — ${rec.investments.institution}`,
+          amount: Number(rec.investments.redeemed_amount),
+          date: rec.investments.redeemed_date,
         };
       }
     }
@@ -140,6 +191,26 @@ export default async function ReconciliationPage({
     label: r.description,
     amount: Number(r.realized_amount),
     date: r.realized_date,
+  }));
+
+  // Aplicações = saída (dinheiro sai da conta para o investimento)
+  const investmentApplicationCandidates = investmentApplications.map((i) => ({
+    key: `investment_application:${i.id}`,
+    entityType: "investment_application" as const,
+    entityId: i.id,
+    label: `Aplicação: ${i.product} — ${i.institution}`,
+    amount: Number(i.applied_amount),
+    date: i.applied_date,
+  }));
+
+  // Resgates = entrada (dinheiro volta para a conta)
+  const investmentRedemptionCandidates = investmentRedemptions.map((i) => ({
+    key: `investment_redemption:${i.id}`,
+    entityType: "investment_redemption" as const,
+    entityId: i.id,
+    label: `Resgate: ${i.product} — ${i.institution}`,
+    amount: Number(i.redeemed_amount),
+    date: i.redeemed_date,
   }));
 
   const months = monthOptions();
@@ -237,7 +308,11 @@ export default async function ReconciliationPage({
                   <ReconcileRow
                     key={entry.id}
                     entry={entry}
-                    candidates={entry.direction === "entrada" ? revenueCandidates : paymentCandidates}
+                    candidates={
+                      entry.direction === "entrada"
+                        ? [...revenueCandidates, ...investmentRedemptionCandidates]
+                        : [...paymentCandidates, ...investmentApplicationCandidates]
+                    }
                   />
                 ))}
                 {reconciledEntries.map((entry: any) => (

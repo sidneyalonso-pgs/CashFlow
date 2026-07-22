@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function reconcileEntry(
   bankEntryId: string,
-  entityType: "payment" | "revenue",
+  entityType: "payment" | "revenue" | "investment_application" | "investment_redemption",
   entityId: string
 ) {
   const supabase = createClient();
@@ -28,12 +28,14 @@ export async function reconcileEntry(
     .eq("id", bankEntryId);
   if (entryError) return { error: entryError.message };
 
-  const table = entityType === "payment" ? "payments" : "revenues";
-  const { error: entityError } = await supabase
-    .from(table)
-    .update({ reconciliation_status: "conciliado_manualmente" })
-    .eq("id", entityId);
-  if (entityError) return { error: entityError.message };
+  // Atualiza reconciliation_status só em pagamentos e receitas (investimentos não têm o campo)
+  if (entityType === "payment" || entityType === "revenue") {
+    const table = entityType === "payment" ? "payments" : "revenues";
+    await supabase
+      .from(table)
+      .update({ reconciliation_status: "conciliado_manualmente" })
+      .eq("id", entityId);
+  }
 
   revalidatePath("/conciliacao");
   return { error: null };

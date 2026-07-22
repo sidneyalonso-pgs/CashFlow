@@ -1,6 +1,6 @@
 export type Candidate = {
   key: string;
-  entityType: "payment" | "revenue";
+  entityType: "payment" | "revenue" | "investment_application" | "investment_redemption";
   entityId: string;
   label: string;
   amount: number;
