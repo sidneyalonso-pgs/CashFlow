@@ -9,13 +9,12 @@ import { scoreCandidates, confidenceLabel, type Candidate } from "@/lib/reconcil
 const CONFIDENCE_STYLES = {
   alta: "bg-green-100 text-green-700",
   média: "bg-yellow-100 text-yellow-700",
-  baixa: "bg-gray-100 text-gray-500",
 };
 
 export function ReconcileRow({
   entry,
   candidates,
-  reconciled,
+  reconciled: initialReconciled,
 }: {
   entry: { id: string; entry_date: string; bank_description: string; amount: number; direction: string };
   candidates: Candidate[];
@@ -24,25 +23,48 @@ export function ReconcileRow({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Controla o estado conciliado localmente — evita sumir da tela ao confirmar
+  const [reconciledState, setReconciledState] = useState(initialReconciled ?? null);
 
-  // Scoring — roda no cliente, sem custo de rede
   const scored = useMemo(
     () => scoreCandidates(entry.amount, entry.entry_date, entry.bank_description, candidates),
     [entry, candidates]
   );
 
+  // Só pré-seleciona se confiança for alta ou média (não baixa)
   const topSuggestion = scored[0] ?? null;
-  const confidence = topSuggestion ? confidenceLabel(topSuggestion.score) : null;
+  const topConfidence = topSuggestion ? confidenceLabel(topSuggestion.score) : null;
+  const shouldPreselect = topConfidence === "alta" || topConfidence === "média";
 
-  const [selected, setSelected] = useState(topSuggestion?.key ?? "");
+  const [selected, setSelected] = useState(shouldPreselect ? (topSuggestion?.key ?? "") : "");
+
+  const selectedCandidate = candidates.find((c) => c.key === selected) ?? null;
+  const selectedScore = scored.find((s) => s.key === selected) ?? null;
+  const selectedConfidence = selectedScore ? confidenceLabel(selectedScore.score) : null;
+
+  // Sugestões: apenas alta e média
+  const goodSuggestions = scored.filter((c) => {
+    const conf = confidenceLabel(c.score);
+    return conf === "alta" || conf === "média";
+  });
+  const others = candidates.filter((c) => !goodSuggestions.find((s) => s.key === c.key));
 
   function handleReconcile() {
-    const candidate = candidates.find((c) => c.key === selected);
-    if (!candidate) { setError("Selecione um lançamento para conciliar."); return; }
+    if (!selectedCandidate) { setError("Selecione um lançamento para conciliar."); return; }
     startTransition(async () => {
-      const result = await reconcileEntry(entry.id, candidate.entityType, candidate.entityId);
-      if (result.error) setError(result.error);
-      else router.refresh();
+      const result = await reconcileEntry(entry.id, selectedCandidate.entityType, selectedCandidate.entityId);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        // Transição local: mantém na tela como conciliado sem sumir
+        setReconciledState({
+          key: selectedCandidate.key,
+          label: selectedCandidate.label,
+          amount: selectedCandidate.amount,
+          date: selectedCandidate.date,
+        });
+        router.refresh(); // atualiza barra de progresso em background
+      }
     });
   }
 
@@ -51,23 +73,29 @@ export function ReconcileRow({
   }
 
   function handleUnreconcile() {
-    startTransition(async () => { await unreconcileEntry(entry.id); router.refresh(); });
+    startTransition(async () => {
+      await unreconcileEntry(entry.id);
+      setReconciledState(null);
+      router.refresh();
+    });
   }
 
-  // Linha já conciliada
-  if (reconciled) {
+  // Linha conciliada
+  if (reconciledState) {
     return (
       <tr className="border-t border-ps-navy/5 bg-green-50/40">
-        <td className="px-4 py-3 text-ps-muted">{entry.entry_date}</td>
-        <td className="px-4 py-3 text-ps-muted">{entry.bank_description}</td>
-        <td className="px-4 py-3">
+        <td className="px-4 py-3 text-sm text-ps-muted">{entry.entry_date}</td>
+        <td className="px-4 py-3 text-sm text-ps-muted">{entry.bank_description}</td>
+        <td className="px-4 py-3 text-sm">
           <span className={entry.direction === "entrada" ? "text-ps-green-700" : "text-red-600"}>
             {entry.direction === "entrada" ? "+" : "-"}{formatBRL(entry.amount)}
           </span>
         </td>
         <td className="px-4 py-3 text-sm">
-          <span className="text-ps-green font-medium">✓ Conciliado:</span>{" "}
-          <span className="text-ps-muted text-xs">{reconciled.date} — {reconciled.label} — {formatBRL(reconciled.amount)}</span>
+          <span className="text-ps-green font-medium text-xs">✓ Conciliado:</span>{" "}
+          <span className="text-ps-muted text-xs">
+            {reconciledState.date} — {reconciledState.label} — {formatBRL(reconciledState.amount)}
+          </span>
         </td>
         <td className="px-4 py-3">
           <button
@@ -100,48 +128,47 @@ export function ReconcileRow({
               className="rounded-ps-sm border border-ps-navy/15 px-2 py-1 text-xs bg-white max-w-xs"
             >
               <option value="">Selecione um lançamento...</option>
-              {/* Sugestões primeiro, depois os demais */}
-              {scored.length > 0 && (
+              {goodSuggestions.length > 0 && (
                 <optgroup label="— Sugestões —">
-                  {scored.map((c) => (
+                  {goodSuggestions.map((c) => (
                     <option key={c.key} value={c.key}>
                       {c.date} — {c.label} — {formatBRL(c.amount)}
                     </option>
                   ))}
                 </optgroup>
               )}
-              {candidates.filter((c) => !scored.find((s) => s.key === c.key)).length > 0 && (
+              {others.length > 0 && (
                 <optgroup label="— Outros —">
-                  {candidates
-                    .filter((c) => !scored.find((s) => s.key === c.key))
-                    .map((c) => (
-                      <option key={c.key} value={c.key}>
-                        {c.date} — {c.label} — {formatBRL(c.amount)}
-                      </option>
-                    ))}
+                  {others.map((c) => (
+                    <option key={c.key} value={c.key}>
+                      {c.date} — {c.label} — {formatBRL(c.amount)}
+                    </option>
+                  ))}
                 </optgroup>
               )}
             </select>
 
-            {/* Badge de confiança da sugestão atual */}
-            {selected === topSuggestion?.key && confidence && (
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${CONFIDENCE_STYLES[confidence]}`}>
-                {confidence}
+            {selectedConfidence && selectedConfidence !== "baixa" && (
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${CONFIDENCE_STYLES[selectedConfidence]}`}>
+                {selectedConfidence}
               </span>
             )}
           </div>
 
-          {/* Motivo da sugestão */}
-          {selected === topSuggestion?.key && topSuggestion.reason && (
-            <p className="text-xs text-ps-muted">{topSuggestion.reason}</p>
+          {selectedScore && selectedConfidence !== "baixa" && selectedScore.reason && (
+            <p className="text-xs text-ps-muted">{selectedScore.reason}</p>
           )}
 
           {error && <p className="text-xs text-red-600">{error}</p>}
         </div>
       </td>
       <td className="px-4 py-3 whitespace-nowrap">
-        <button onClick={handleReconcile} disabled={isPending || !selected} className="text-xs text-ps-navy underline mr-3 disabled:opacity-40">
-          Conciliar
+        <button
+          onClick={handleReconcile}
+          disabled={isPending || !selected}
+          className="text-xs text-ps-navy underline mr-3 disabled:opacity-40"
+        >
+          {isPending ? "..." : "Conciliar"}
         </button>
         <button onClick={handleIgnore} disabled={isPending} className="text-xs text-ps-muted underline">
           Ignorar
