@@ -150,7 +150,7 @@ export async function generateRecurringProvisions(
     if (existing && existing.length > 0) continue;
 
     const description =
-      supplier.default_description || supplier.legal_name || "Pagamento";
+      supplier?.default_description || supplier?.legal_name || "Pagamento";
 
     const { error } = await supabase.from("payments").insert({
       company_id: companyId,
