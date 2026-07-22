@@ -9,7 +9,17 @@ export type Candidate = {
 
 type ScoredCandidate = Candidate & { score: number; reason: string };
 
-// Similaridade simples entre duas strings (0-1): proporção de tokens em comum
+// Termos genéricos que não identificam um fornecedor — ignorados na comparação
+const STOPWORDS = new Set([
+  "ltda", "sa", "s/a", "s.a", "eireli", "me", "epp", "ss", "inc",
+  "servicos", "servico", "comercio", "comercial", "industria", "industrial",
+  "solucoes", "solucao", "tecnologia", "tech", "group", "grupo",
+  "brasil", "brazil", "do", "da", "de", "dos", "das", "e", "em", "ti",
+  "pix", "ted", "doc", "pgto", "pagamento", "transferencia", "enviado", "recebido",
+  "cp", "cnpj", "cpf",
+]);
+
+// Similaridade entre duas strings (0-1): proporção de tokens significativos em comum
 function stringSimilarity(a: string, b: string): number {
   const normalize = (s: string) =>
     s
@@ -18,7 +28,7 @@ function stringSimilarity(a: string, b: string): number {
       .replace(/[̀-ͯ]/g, "")
       .replace(/[^a-z0-9 ]/g, " ")
       .split(/\s+/)
-      .filter(Boolean);
+      .filter((t) => t.length > 1 && !STOPWORDS.has(t)); // ignora stopwords e letras soltas
 
   const ta = new Set(normalize(a));
   const tb = new Set(normalize(b));
