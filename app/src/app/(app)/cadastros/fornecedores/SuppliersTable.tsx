@@ -41,6 +41,7 @@ function SupplierRow({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [legalName, setLegalName] = useState(supplier.legal_name);
   const [costType, setCostType] = useState(supplier.cost_type);
   const [categoryId, setCategoryId] = useState(supplier.default_category_id ?? "");
   const [costCenterId, setCostCenterId] = useState(supplier.default_cost_center_id ?? "");
@@ -56,7 +57,7 @@ function SupplierRow({
 
   function handleSave() {
     const fd = new FormData();
-    fd.set("legal_name", supplier.legal_name);
+    fd.set("legal_name", legalName);
     fd.set("cost_type", costType);
     fd.set("default_category_id", categoryId);
     fd.set("default_cost_center_id", costCenterId);
@@ -84,7 +85,12 @@ function SupplierRow({
     <tr className={`border-t border-ps-navy/5 transition-colors ${dirty ? "bg-amber-50/60" : "hover:bg-ps-bg-2/40"}`}>
       {/* Razão social */}
       <td className="px-3 py-2 min-w-[200px]">
-        <span className="text-sm font-medium text-ps-ink leading-tight">{supplier.legal_name}</span>
+        <input
+          type="text"
+          value={legalName}
+          onChange={(e) => mark(setLegalName, e.target.value)}
+          className={`${cellCls} font-medium`}
+        />
       </td>
 
       {/* Tipo de custo */}
