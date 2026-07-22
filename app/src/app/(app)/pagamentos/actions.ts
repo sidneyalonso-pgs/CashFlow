@@ -337,3 +337,137 @@ export async function cancelPayment(paymentId: string) {
   revalidatePath("/pagamentos");
   return { error: null };
 }
+
+export async function deletePayment(paymentId: string) {
+  const supabase = createClient();
+  await supabase.from("payment_realizations").delete().eq("payment_id", paymentId);
+  const { error } = await supabase
+    .from("payments")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", paymentId);
+  if (error) return { error: error.message };
+  revalidatePath("/pagamentos");
+  revalidatePath("/cash-flow");
+  return { error: null };
+}
+
+export async function quickMarkPaid(paymentId: string, paidAt: string, amount: number) {
+  const dateError = assertReasonableDate(paidAt, "Data do pagamento");
+  if (dateError) return { error: dateError };
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  await supabase.from("payment_realizations").delete().eq("payment_id", paymentId);
+
+  const { error: re } = await supabase.from("payment_realizations").insert({
+    payment_id: paymentId,
+    amount,
+    paid_at: paidAt,
+    created_by: user?.id,
+  });
+  if (re) return { error: re.message };
+
+  const { error } = await supabase
+    .from("payments")
+    .update({
+      status: "pago",
+      paid_amount: amount,
+      effective_payment_date: paidAt,
+      due_date: paidAt,
+    })
+    .eq("id", paymentId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/pagamentos");
+  revalidatePath("/cash-flow");
+  return { error: null };
+}
+
+export async function markPaymentAsOpen(paymentId: string) {
+  const supabase = createClient();
+  await supabase.from("payment_realizations").delete().eq("payment_id", paymentId);
+  const { error } = await supabase
+    .from("payments")
+    .update({ status: "agendado", paid_amount: null, effective_payment_date: null })
+    .eq("id", paymentId);
+  if (error) return { error: error.message };
+  revalidatePath("/pagamentos");
+  revalidatePath("/cash-flow");
+  return { error: null };
+}
+
+export async function createBulkPayments(rows: Array<{
+  company_id: string;
+  supplier_id: string;
+  description: string;
+  gross_amount: number;
+  date: string;
+  mode: "pago" | "programado";
+  category_id?: string | null;
+  cost_center_id?: string | null;
+}>) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const errors: string[] = [];
+
+  for (const row of rows) {
+    if (!row.company_id || !row.supplier_id || !row.gross_amount || row.gross_amount <= 0 || !row.date) {
+      errors.push(`Linha inválida: preencha empresa, fornecedor, valor e data.`);
+      continue;
+    }
+    const dateError = assertReasonableDate(row.date, "Data");
+    if (dateError) { errors.push(dateError); continue; }
+
+    const { data: supplier } = await supabase
+      .from("suppliers")
+      .select("legal_name, cost_type, default_description")
+      .eq("id", row.supplier_id)
+      .single();
+
+    const description = row.description || supplier?.default_description || supplier?.legal_name || "Pagamento";
+    const isPaid = row.mode === "pago";
+
+    const { data: payment, error } = await supabase
+      .from("payments")
+      .insert({
+        company_id: row.company_id,
+        supplier_id: row.supplier_id,
+        description,
+        gross_amount: row.gross_amount,
+        currency: "BRL",
+        category_id: row.category_id || null,
+        cost_center_id: row.cost_center_id || null,
+        cost_type: supplier?.cost_type ?? "despesas",
+        document_date: row.date,
+        due_date: row.date,
+        expected_payment_date: row.date,
+        competence_date: row.date,
+        ...(isPaid ? { effective_payment_date: row.date, paid_amount: row.gross_amount, status: "pago" } : { status: "agendado" }),
+        created_by: user?.id,
+        updated_by: user?.id,
+      })
+      .select("id")
+      .single();
+
+    if (error) { errors.push(error.message); continue; }
+
+    if (isPaid && payment) {
+      await supabase.from("payment_realizations").insert({
+        payment_id: payment.id,
+        amount: row.gross_amount,
+        paid_at: row.date,
+        created_by: user?.id,
+      });
+    }
+  }
+
+  revalidatePath("/pagamentos");
+  revalidatePath("/cash-flow");
+  return { errors };
+}

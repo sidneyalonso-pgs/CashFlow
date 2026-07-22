@@ -1,4 +1,6 @@
 const STATUS_STYLES: Record<string, string> = {
+  provisionado: "bg-blue-100 text-blue-700",
+  em_aberto: "bg-orange-100 text-orange-700",
   rascunho: "bg-gray-100 text-gray-600",
   pendente_aprovacao: "bg-yellow-100 text-yellow-800",
   aprovado: "bg-ps-green-200 text-ps-green-700",
@@ -28,6 +30,8 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
+  provisionado: "Provisionado",
+  em_aberto: "Em aberto",
   rascunho: "Rascunho",
   pendente_aprovacao: "Pendente de aprovação",
   aprovado: "Aprovado",
