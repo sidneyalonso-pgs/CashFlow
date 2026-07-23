@@ -13,7 +13,7 @@ export default async function MovementsPage({
 }) {
   const supabase = createClient();
 
-  let query = supabase
+  let payQuery = supabase
     .from("payments")
     .select(
       "id, description, gross_amount, paid_amount, due_date, effective_payment_date, status, reconciliation_status, companies(legal_name, trade_name), suppliers(legal_name), categories(name)"
@@ -21,12 +21,27 @@ export default async function MovementsPage({
     .is("deleted_at", null)
     .order("due_date", { ascending: false });
 
-  if (searchParams.company_id) query = query.eq("company_id", searchParams.company_id);
-  if (searchParams.from) query = query.gte("due_date", searchParams.from);
-  if (searchParams.to) query = query.lte("due_date", searchParams.to);
+  let invQuery = supabase
+    .from("investments")
+    .select("id, tipo, product, applied_amount, applied_date, companies(legal_name, trade_name), bank_accounts(bank_name, nickname)")
+    .order("applied_date", { ascending: false });
 
-  const [{ data: movements }, { data: companies }] = await Promise.all([
-    query,
+  if (searchParams.company_id) {
+    payQuery = payQuery.eq("company_id", searchParams.company_id);
+    invQuery = invQuery.eq("company_id", searchParams.company_id);
+  }
+  if (searchParams.from) {
+    payQuery = payQuery.gte("due_date", searchParams.from);
+    invQuery = invQuery.gte("applied_date", searchParams.from);
+  }
+  if (searchParams.to) {
+    payQuery = payQuery.lte("due_date", searchParams.to);
+    invQuery = invQuery.lte("applied_date", searchParams.to);
+  }
+
+  const [{ data: movements }, { data: investments }, { data: companies }] = await Promise.all([
+    payQuery,
+    invQuery,
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
   ]);
 
@@ -67,6 +82,7 @@ export default async function MovementsPage({
         </button>
       </form>
 
+      {/* Pagamentos */}
       <DataTable
         rows={movements ?? []}
         rowKey={(m: any) => m.id}
@@ -104,6 +120,41 @@ export default async function MovementsPage({
           },
         ]}
       />
+
+      {/* Investimentos */}
+      {(investments ?? []).length > 0 && (
+        <div className="mt-6">
+          <h3 className="text-sm font-semibold text-ps-ink mb-2">Investimentos</h3>
+          <DataTable
+            rows={investments ?? []}
+            rowKey={(i: any) => `inv-${i.id}`}
+            columns={[
+              { header: "Empresa", cell: (i: any) => companyLabel(i.companies) },
+              { header: "Conta", cell: (i: any) => i.bank_accounts?.nickname ?? i.bank_accounts?.bank_name ?? "—" },
+              { header: "Produto", cell: (i: any) => <span className="font-medium">{i.product}</span> },
+              {
+                header: "Direção",
+                cell: (i: any) => (
+                  <span className={`text-xs font-medium ${i.tipo === "resgate" ? "text-ps-green-700" : "text-red-600"}`}>
+                    {i.tipo === "resgate" ? "Entrada (resgate)" : "Saída (aplicação)"}
+                  </span>
+                ),
+              },
+              { header: "Data", cell: (i: any) => i.applied_date },
+              {
+                header: "Valor",
+                cell: (i: any) => (
+                  <span className={`tabular-nums font-medium ${i.tipo === "resgate" ? "text-ps-green-700" : "text-red-600"}`}>
+                    {i.tipo === "resgate" ? "+" : "-"}{formatBRL(i.applied_amount)}
+                  </span>
+                ),
+              },
+              { header: "Status", cell: () => <span className="text-xs text-ps-muted">—</span> },
+              { header: "Conciliação", cell: () => <span className="text-xs text-ps-muted">—</span> },
+            ]}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -6,104 +6,87 @@ import { createClient } from "@/lib/supabase/server";
 export async function createInvestment(formData: FormData) {
   const companyId = String(formData.get("company_id") || "");
   const bankAccountId = String(formData.get("bank_account_id") || "") || null;
-  const institution = String(formData.get("institution") || "");
   const product = String(formData.get("product") || "");
-  const appliedAmount = Number(formData.get("applied_amount"));
-  const appliedDate = String(formData.get("applied_date") || "");
-  const dueDate = String(formData.get("due_date") || "") || null;
-  const liquidity = String(formData.get("liquidity") || "") || null;
-  const rate = String(formData.get("rate") || "") || null;
-  const indexer = String(formData.get("indexer") || "") || null;
+  const amount = Number(formData.get("applied_amount"));
+  const date = String(formData.get("applied_date") || "");
+  const tipo = String(formData.get("tipo") || "aplicacao") as "aplicacao" | "resgate";
 
-  if (!companyId || !institution || !product || !appliedAmount || appliedAmount <= 0 || !appliedDate) {
-    return { error: "Preencha empresa, instituição, produto, valor aplicado e data da aplicação." };
+  if (!companyId || !product || !amount || amount <= 0 || !date) {
+    return { error: "Preencha empresa, produto, valor e data." };
   }
 
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
   const { error } = await supabase.from("investments").insert({
     company_id: companyId,
     bank_account_id: bankAccountId,
-    institution,
+    institution: product, // reutilizando campo institution para compatibilidade
     product,
-    applied_amount: appliedAmount,
-    applied_date: appliedDate,
-    due_date: dueDate,
-    liquidity,
-    rate,
-    indexer,
+    tipo,
+    applied_amount: amount,
+    applied_date: date,
+    // Resgates: marcar campos herdados para compatibilidade
+    ...(tipo === "resgate" ? {
+      redeemed_amount: amount,
+      redeemed_date: date,
+      status: "resgatado",
+    } : {
+      status: "ativo",
+    }),
     created_by: user?.id,
   });
 
   if (error) return { error: error.message };
 
   revalidatePath("/investimentos");
+  revalidatePath("/cash-flow");
+  revalidatePath("/movimentacoes");
   return { error: null };
 }
 
+export async function deleteInvestment(investmentId: string) {
+  const supabase = createClient();
+  const { error } = await supabase.from("investments").delete().eq("id", investmentId);
+  if (error) return { error: error.message };
+  revalidatePath("/investimentos");
+  revalidatePath("/cash-flow");
+  revalidatePath("/movimentacoes");
+  return { error: null };
+}
+
+// Mantido para compatibilidade com código legado
 export async function updateInvestment(investmentId: string, formData: FormData) {
+  const product = String(formData.get("product") || "");
+  const amount = Number(formData.get("applied_amount"));
+  const date = String(formData.get("applied_date") || "");
   const companyId = String(formData.get("company_id") || "");
   const bankAccountId = String(formData.get("bank_account_id") || "") || null;
-  const institution = String(formData.get("institution") || "");
-  const product = String(formData.get("product") || "");
-  const appliedAmount = Number(formData.get("applied_amount"));
-  const appliedDate = String(formData.get("applied_date") || "");
-  const dueDate = String(formData.get("due_date") || "") || null;
-  const liquidity = String(formData.get("liquidity") || "") || null;
-  const rate = String(formData.get("rate") || "") || null;
-  const indexer = String(formData.get("indexer") || "") || null;
 
-  if (!companyId || !institution || !product || !appliedAmount || appliedAmount <= 0 || !appliedDate) {
-    return { error: "Preencha empresa, instituição, produto, valor aplicado e data da aplicação." };
+  if (!companyId || !product || !amount || amount <= 0 || !date) {
+    return { error: "Preencha empresa, produto, valor e data." };
   }
 
   const supabase = createClient();
   const { error } = await supabase
     .from("investments")
-    .update({
-      company_id: companyId,
-      bank_account_id: bankAccountId,
-      institution,
-      product,
-      applied_amount: appliedAmount,
-      applied_date: appliedDate,
-      due_date: dueDate,
-      liquidity,
-      rate,
-      indexer,
-    })
+    .update({ company_id: companyId, bank_account_id: bankAccountId, institution: product, product, applied_amount: amount, applied_date: date })
     .eq("id", investmentId);
 
   if (error) return { error: error.message };
-
   revalidatePath("/investimentos");
+  revalidatePath("/cash-flow");
   return { error: null };
 }
 
 export async function redeemInvestment(investmentId: string, amount: number, redeemedDate: string) {
   const supabase = createClient();
-
-  const { data: investment, error: fetchError } = await supabase
-    .from("investments")
-    .select("applied_amount, redeemed_amount")
-    .eq("id", investmentId)
-    .single();
-
-  if (fetchError || !investment) return { error: fetchError?.message ?? "Investimento não encontrado" };
-
-  const newRedeemed = Number(investment.redeemed_amount) + amount;
-  const status = newRedeemed >= Number(investment.applied_amount) ? "resgatado" : "parcialmente_resgatado";
-
-  const { error } = await supabase
-    .from("investments")
-    .update({ redeemed_amount: newRedeemed, redeemed_date: redeemedDate, status })
-    .eq("id", investmentId);
-
+  const { data: inv } = await supabase.from("investments").select("applied_amount, redeemed_amount").eq("id", investmentId).single();
+  if (!inv) return { error: "Investimento não encontrado" };
+  const newRedeemed = Number(inv.redeemed_amount) + amount;
+  const status = newRedeemed >= Number(inv.applied_amount) ? "resgatado" : "parcialmente_resgatado";
+  const { error } = await supabase.from("investments").update({ redeemed_amount: newRedeemed, redeemed_date: redeemedDate, status }).eq("id", investmentId);
   if (error) return { error: error.message };
-
   revalidatePath("/investimentos");
   return { error: null };
 }

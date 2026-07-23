@@ -36,18 +36,23 @@ export default async function CashFlowPage({
     .from("revenue_realizations")
     .select("amount, received_at, revenues!inner(company_id)")
     .is("revenues.deleted_at", null);
+  let investmentsQuery = supabase
+    .from("investments")
+    .select("tipo, applied_amount, applied_date, company_id");
 
   if (companyId) {
     bankAccountsQuery = bankAccountsQuery.eq("company_id", companyId);
     paymentRealizationsQuery = paymentRealizationsQuery.eq("payments.company_id", companyId);
     revenueRealizationsQuery = revenueRealizationsQuery.eq("revenues.company_id", companyId);
+    investmentsQuery = investmentsQuery.eq("company_id", companyId);
   }
 
-  const [{ data: bankAccounts }, { data: paymentRealizations }, { data: revenueRealizations }, { data: companies }] =
+  const [{ data: bankAccounts }, { data: paymentRealizations }, { data: revenueRealizations }, { data: investmentsData }, { data: companies }] =
     await Promise.all([
       bankAccountsQuery,
       paymentRealizationsQuery,
       revenueRealizationsQuery,
+      investmentsQuery,
       supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
     ]);
 
@@ -55,8 +60,22 @@ export default async function CashFlowPage({
     (bankAccounts ?? []).filter((a: any) => a.counts_as_available_cash).map((a: any) => a.initial_balance)
   );
 
-  const outflows = (paymentRealizations ?? []) as Array<{ amount: number; paid_at: string }>;
-  const inflows = (revenueRealizations ?? []) as Array<{ amount: number; received_at: string }>;
+  // Aplicações = saída de caixa; resgates = entrada de caixa
+  const investmentOutflows = (investmentsData ?? [])
+    .filter((i: any) => i.tipo === "aplicacao" || !i.tipo)
+    .map((i: any) => ({ amount: Number(i.applied_amount), paid_at: i.applied_date }));
+  const investmentInflows = (investmentsData ?? [])
+    .filter((i: any) => i.tipo === "resgate")
+    .map((i: any) => ({ amount: Number(i.applied_amount), received_at: i.applied_date }));
+
+  const outflows = [
+    ...((paymentRealizations ?? []) as Array<{ amount: number; paid_at: string }>),
+    ...investmentOutflows,
+  ];
+  const inflows = [
+    ...((revenueRealizations ?? []) as Array<{ amount: number; received_at: string }>),
+    ...investmentInflows,
+  ];
 
   const sumInRange = (items: Array<{ amount: number }>, dates: string[], from: string, to: string) =>
     sumMoney(items.filter((_, i) => dates[i] >= from && dates[i] <= to).map((it) => it.amount));

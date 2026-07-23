@@ -1,13 +1,9 @@
 import { companyLabel } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
-import { FinancialCard } from "@/components/FinancialCard";
-import { StatusBadge } from "@/components/StatusBadge";
-import { DataTable } from "@/components/DataTable";
-import { formatBRL, sumMoney } from "@/lib/calculations/money";
+import { formatBRL } from "@/lib/calculations/money";
 import { NewInvestmentButton } from "./NewInvestmentButton";
-import { EditInvestmentButton } from "./EditInvestmentButton";
-import { RedeemButton } from "./RedeemButton";
+import { DeleteInvestmentButton } from "./DeleteInvestmentButton";
 
 export default async function InvestmentsPage() {
   const supabase = createClient();
@@ -15,62 +11,98 @@ export default async function InvestmentsPage() {
   const [{ data: investments }, { data: companies }, { data: bankAccounts }] = await Promise.all([
     supabase
       .from("investments")
-      .select(
-        "id, company_id, bank_account_id, institution, product, applied_amount, applied_date, due_date, liquidity, rate, indexer, redeemed_amount, status, companies(legal_name, trade_name)"
-      )
+      .select("id, tipo, product, applied_amount, applied_date, companies(legal_name, trade_name), bank_accounts(bank_name, nickname)")
       .order("applied_date", { ascending: false }),
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
-    supabase.from("bank_accounts").select("id, bank_name, nickname").order("bank_name"),
+    supabase.from("bank_accounts").select("id, bank_name, nickname, company_id").order("bank_name"),
   ]);
 
-  const totalPosition = sumMoney(
-    (investments ?? [])
-      .filter((i: any) => i.status !== "resgatado")
-      .map((i: any) => Number(i.applied_amount) - Number(i.redeemed_amount))
-  );
+  const aplicacoes = (investments ?? []).filter((i: any) => i.tipo === "aplicacao" || !i.tipo);
+  const resgates = (investments ?? []).filter((i: any) => i.tipo === "resgate");
+
+  const totalAplicado = aplicacoes.reduce((s: number, i: any) => s + Number(i.applied_amount), 0);
+  const totalResgatado = resgates.reduce((s: number, i: any) => s + Number(i.applied_amount), 0);
+  const posicao = totalAplicado - totalResgatado;
+
+  const thCls = "text-left px-4 py-3 text-xs uppercase tracking-wide text-ps-muted whitespace-nowrap";
+
+  function InvTable({ rows, tipo }: { rows: any[]; tipo: "aplicacao" | "resgate" }) {
+    if (rows.length === 0) return <p className="text-sm text-ps-muted px-4 pb-4">Nenhum lançamento.</p>;
+    return (
+      <table className="w-full text-sm">
+        <thead className="bg-ps-bg-2">
+          <tr>
+            <th className={thCls}>Empresa</th>
+            <th className={thCls}>Conta</th>
+            <th className={thCls}>Produto</th>
+            <th className={thCls}>Valor</th>
+            <th className={thCls}>Data</th>
+            <th className={thCls}></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((i: any) => (
+            <tr key={i.id} className="border-t border-ps-navy/5 hover:bg-ps-bg-2/40">
+              <td className="px-4 py-3">{companyLabel(i.companies)}</td>
+              <td className="px-4 py-3 text-ps-muted">{i.bank_accounts?.nickname ?? i.bank_accounts?.bank_name ?? "—"}</td>
+              <td className="px-4 py-3 font-medium">{i.product}</td>
+              <td className={`px-4 py-3 tabular-nums font-medium ${tipo === "resgate" ? "text-ps-green-700" : "text-red-600"}`}>
+                {tipo === "resgate" ? "+" : "-"}{formatBRL(i.applied_amount)}
+              </td>
+              <td className="px-4 py-3 text-ps-muted">{i.applied_date}</td>
+              <td className="px-4 py-3">
+                <DeleteInvestmentButton investmentId={i.id} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
 
   return (
     <div>
       <PageHeader
         title="Investimentos"
-        subtitle="Aplicações financeiras e posição investida"
+        subtitle="Aplicações e resgates financeiros"
         actions={<NewInvestmentButton companies={companies ?? []} bankAccounts={bankAccounts ?? []} />}
       />
 
-      <div className="mb-6 max-w-xs">
-        <FinancialCard label="Posição investida atual" value={formatBRL(totalPosition)} />
+      {/* Cards de resumo */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-4">
+          <p className="text-xs text-ps-muted mb-1">Total aplicado</p>
+          <p className="text-lg font-semibold text-red-600 tabular-nums">-{formatBRL(totalAplicado)}</p>
+        </div>
+        <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-4">
+          <p className="text-xs text-ps-muted mb-1">Total resgatado</p>
+          <p className="text-lg font-semibold text-ps-green-700 tabular-nums">+{formatBRL(totalResgatado)}</p>
+        </div>
+        <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-4">
+          <p className="text-xs text-ps-muted mb-1">Posição líquida</p>
+          <p className={`text-lg font-semibold tabular-nums ${posicao > 0 ? "text-ps-ink" : "text-ps-green-700"}`}>
+            {posicao > 0 ? "-" : "+"}{formatBRL(Math.abs(posicao))}
+          </p>
+        </div>
       </div>
 
-      <DataTable
-        rows={investments ?? []}
-        rowKey={(i: any) => i.id}
-        columns={[
-          { header: "Instituição", cell: (i: any) => <span className="font-medium text-ps-ink">{i.institution}</span> },
-          { header: "Produto", cell: (i: any) => i.product },
-          { header: "Empresa", cell: (i: any) => companyLabel(i.companies) },
-          { header: "Aplicado em", cell: (i: any) => i.applied_date },
-          {
-            header: "Valor aplicado",
-            cell: (i: any) => <span className="tabular-nums">{formatBRL(i.applied_amount)}</span>,
-          },
-          {
-            header: "Saldo atual",
-            cell: (i: any) => (
-              <span className="tabular-nums">{formatBRL(Number(i.applied_amount) - Number(i.redeemed_amount))}</span>
-            ),
-          },
-          { header: "Status", cell: (i: any) => <StatusBadge status={i.status} /> },
-          {
-            header: "Ações",
-            cell: (i: any) => (
-              <div className="flex gap-2">
-                <EditInvestmentButton investment={i} companies={companies ?? []} bankAccounts={bankAccounts ?? []} />
-                {i.status !== "resgatado" && <RedeemButton investmentId={i.id} />}
-              </div>
-            ),
-          },
-        ]}
-      />
+      <div className="space-y-4">
+        <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 overflow-hidden">
+          <div className="px-4 pt-4 pb-2 flex items-center gap-2">
+            <span className="text-sm font-semibold text-ps-ink">Aplicações</span>
+            <span className="text-xs text-ps-muted">(saída de caixa)</span>
+          </div>
+          <InvTable rows={aplicacoes} tipo="aplicacao" />
+        </div>
+
+        <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 overflow-hidden">
+          <div className="px-4 pt-4 pb-2 flex items-center gap-2">
+            <span className="text-sm font-semibold text-ps-ink">Resgates</span>
+            <span className="text-xs text-ps-muted">(entrada de caixa)</span>
+          </div>
+          <InvTable rows={resgates} tipo="resgate" />
+        </div>
+      </div>
     </div>
   );
 }
