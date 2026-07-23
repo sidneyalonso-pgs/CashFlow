@@ -58,13 +58,21 @@ export function NewInvestmentButton({
 
       <Modal open={open} onClose={() => setOpen(false)} title={isResgate ? "Registrar resgate" : "Nova aplicação"}>
         <form action={handleSubmit} className="space-y-3">
-          <SelectField
-            label="Empresa"
-            name="company_id"
-            required
-            options={companies.map((c) => ({ value: c.id, label: c.trade_name || c.legal_name }))}
-            onChange={(e: any) => setCompanyId(e.target.value)}
-          />
+          <div>
+            <label className="block text-sm text-ps-ink-2 mb-1">Empresa *</label>
+            <select
+              name="company_id"
+              required
+              value={companyId}
+              onChange={(e) => setCompanyId(e.target.value)}
+              className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+            >
+              <option value="">Selecione...</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>{c.trade_name || c.legal_name}</option>
+              ))}
+            </select>
+          </div>
           <SelectField
             label={isResgate ? "Conta de destino (onde entra o dinheiro)" : "Conta de origem (de onde sai o dinheiro)"}
             name="bank_account_id"
