@@ -41,15 +41,27 @@ export default async function CashFlowDetailPage({
     .lte("received_at", end)
     .order("received_at");
 
+  let investmentsQuery = supabase
+    .from("investments")
+    .select("id, tipo, product, applied_amount, applied_date, is_opening_balance, companies(legal_name, trade_name)")
+    .gte("applied_date", start)
+    .lte("applied_date", end)
+    .order("applied_date");
+
   if (companyId) {
     paymentsQuery = paymentsQuery.eq("payments.company_id", companyId);
     revenuesQuery = revenuesQuery.eq("revenues.company_id", companyId);
+    investmentsQuery = investmentsQuery.eq("company_id", companyId);
   }
 
-  const [{ data: paymentRealizations }, { data: revenueRealizations }] = await Promise.all([
+  const [{ data: paymentRealizations }, { data: revenueRealizations }, { data: investments }] = await Promise.all([
     paymentsQuery,
     revenuesQuery,
+    investmentsQuery,
   ]);
+
+  const resgates = (investments ?? []).filter((i: any) => i.tipo === "resgate");
+  const aplicacoes = (investments ?? []).filter((i: any) => i.tipo === "aplicacao" && !i.is_opening_balance);
 
   return (
     <div>
@@ -90,6 +102,22 @@ export default async function CashFlowDetailPage({
           />
         </div>
 
+        {aplicacoes.length > 0 && (
+          <div>
+            <h3 className="font-semibold text-ps-ink mb-2">Saídas (aplicações em investimentos)</h3>
+            <DataTable
+              rows={aplicacoes}
+              rowKey={(r: any) => r.id}
+              columns={[
+                { header: "Produto", cell: (r: any) => r.product },
+                { header: "Empresa", cell: (r: any) => companyLabel(r.companies) },
+                { header: "Data", cell: (r: any) => r.applied_date },
+                { header: "Valor", cell: (r: any) => <span className="tabular-nums text-red-600">{formatBRL(r.applied_amount)}</span> },
+              ]}
+            />
+          </div>
+        )}
+
         <div>
           <h3 className="font-semibold text-ps-ink mb-2">Entradas (receitas recebidas)</h3>
           <DataTable
@@ -105,6 +133,22 @@ export default async function CashFlowDetailPage({
             ]}
           />
         </div>
+
+        {resgates.length > 0 && (
+          <div>
+            <h3 className="font-semibold text-ps-ink mb-2">Entradas (resgates de investimentos)</h3>
+            <DataTable
+              rows={resgates}
+              rowKey={(r: any) => r.id}
+              columns={[
+                { header: "Produto", cell: (r: any) => r.product },
+                { header: "Empresa", cell: (r: any) => companyLabel(r.companies) },
+                { header: "Data", cell: (r: any) => r.applied_date },
+                { header: "Valor", cell: (r: any) => <span className="tabular-nums text-ps-green-700">{formatBRL(r.applied_amount)}</span> },
+              ]}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
