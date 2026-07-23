@@ -46,8 +46,8 @@ export default async function InvestmentsPage() {
               <td className="px-4 py-3">{companyLabel(i.companies)}</td>
               <td className="px-4 py-3 text-ps-muted">{i.bank_accounts?.nickname ?? i.bank_accounts?.bank_name ?? "—"}</td>
               <td className="px-4 py-3 font-medium">{i.product}</td>
-              <td className={`px-4 py-3 tabular-nums font-medium ${tipo === "resgate" ? "text-ps-green-700" : "text-red-600"}`}>
-                {tipo === "resgate" ? "+" : "-"}{formatBRL(i.applied_amount)}
+              <td className="px-4 py-3 tabular-nums font-medium">
+                {formatBRL(i.applied_amount)}
               </td>
               <td className="px-4 py-3 text-ps-muted">{i.applied_date}</td>
               <td className="px-4 py-3">
@@ -72,7 +72,7 @@ export default async function InvestmentsPage() {
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-4">
           <p className="text-xs text-ps-muted mb-1">Total aplicado</p>
-          <p className="text-lg font-semibold text-red-600 tabular-nums">-{formatBRL(totalAplicado)}</p>
+          <p className="text-lg font-semibold tabular-nums">{formatBRL(totalAplicado)}</p>
         </div>
         <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-4">
           <p className="text-xs text-ps-muted mb-1">Total resgatado</p>
@@ -80,8 +80,8 @@ export default async function InvestmentsPage() {
         </div>
         <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-4">
           <p className="text-xs text-ps-muted mb-1">Posição líquida</p>
-          <p className={`text-lg font-semibold tabular-nums ${posicao > 0 ? "text-ps-ink" : "text-ps-green-700"}`}>
-            {posicao > 0 ? "-" : "+"}{formatBRL(Math.abs(posicao))}
+          <p className="text-lg font-semibold tabular-nums">
+            {formatBRL(Math.abs(posicao))}
           </p>
         </div>
       </div>

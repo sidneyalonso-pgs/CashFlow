@@ -60,22 +60,11 @@ export default async function CashFlowPage({
     (bankAccounts ?? []).filter((a: any) => a.counts_as_available_cash).map((a: any) => a.initial_balance)
   );
 
-  // Aplicações = saída de caixa; resgates = entrada de caixa
-  const investmentOutflows = (investmentsData ?? [])
-    .filter((i: any) => i.tipo === "aplicacao" || !i.tipo)
-    .map((i: any) => ({ amount: Number(i.applied_amount), paid_at: i.applied_date }));
-  const investmentInflows = (investmentsData ?? [])
-    .filter((i: any) => i.tipo === "resgate")
-    .map((i: any) => ({ amount: Number(i.applied_amount), received_at: i.applied_date }));
+  // Investimentos ficam em coluna separada (não afetam saldo C/C)
+  const allInvestments = (investmentsData ?? []) as Array<{ tipo: string; applied_amount: number; applied_date: string }>;
 
-  const outflows = [
-    ...((paymentRealizations ?? []) as Array<{ amount: number; paid_at: string }>),
-    ...investmentOutflows,
-  ];
-  const inflows = [
-    ...((revenueRealizations ?? []) as Array<{ amount: number; received_at: string }>),
-    ...investmentInflows,
-  ];
+  const outflows = (paymentRealizations ?? []) as Array<{ amount: number; paid_at: string }>;
+  const inflows = (revenueRealizations ?? []) as Array<{ amount: number; received_at: string }>;
 
   const sumInRange = (items: Array<{ amount: number }>, dates: string[], from: string, to: string) =>
     sumMoney(items.filter((_, i) => dates[i] >= from && dates[i] <= to).map((it) => it.amount));
@@ -89,16 +78,32 @@ export default async function CashFlowPage({
   let runningBalance = initialCashBalance.plus(inflowsBefore).minus(outflowsBefore);
   const openingBalance = runningBalance;
 
+  // Saldo de investimentos acumulado até cada bucket
+  const invDates = allInvestments.map((i) => i.applied_date);
+  const totalInvBefore = allInvestments
+    .filter((_, idx) => invDates[idx] < rangeStart)
+    .reduce((acc, i) => acc + (i.tipo === "aplicacao" ? Number(i.applied_amount) : -Number(i.applied_amount)), 0);
+
+  let runningInvBalance = totalInvBefore;
+  const openingInvBalance = runningInvBalance;
+
   const bucketRows = buckets.map((b) => {
     const bucketInflows = sumInRange(inflows, inflowDates, b.start, b.end);
     const bucketOutflows = sumInRange(outflows, outflowDates, b.start, b.end);
     runningBalance = runningBalance.plus(bucketInflows).minus(bucketOutflows);
-    return { ...b, inflows: bucketInflows, outflows: bucketOutflows, balance: runningBalance };
+
+    const bucketInvDelta = allInvestments
+      .filter((_, idx) => invDates[idx] >= b.start && invDates[idx] <= b.end)
+      .reduce((acc, i) => acc + (i.tipo === "aplicacao" ? Number(i.applied_amount) : -Number(i.applied_amount)), 0);
+    runningInvBalance += bucketInvDelta;
+
+    return { ...b, inflows: bucketInflows, outflows: bucketOutflows, balance: runningBalance, invBalance: runningInvBalance };
   });
 
   const totalInflows = sumMoney(bucketRows.map((r) => r.inflows));
   const totalOutflows = sumMoney(bucketRows.map((r) => r.outflows));
   const closingBalance = runningBalance;
+  const closingInvBalance = runningInvBalance;
 
   const monthOptions = Array.from({ length: 12 }, (_, i) => ({
     value: i + 1,
@@ -146,11 +151,11 @@ export default async function CashFlowPage({
       </form>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <FinancialCard label={`Saldo Inicial (${formatShort(rangeStart)})`} value={formatBRL(openingBalance)} />
+        <FinancialCard label={`Saldo C/C Inicial (${formatShort(rangeStart)})`} value={formatBRL(openingBalance)} />
         <FinancialCard label="Total de Entradas" value={formatBRL(totalInflows)} tone="positive" />
         <FinancialCard label="Total de Saídas" value={formatBRL(totalOutflows)} tone="negative" />
         <FinancialCard
-          label={`Saldo Final (${formatShort(rangeEnd)})`}
+          label={`Saldo C/C (${formatShort(rangeEnd)})`}
           value={formatBRL(closingBalance)}
           tone={closingBalance.isNegative() ? "negative" : "neutral"}
         />
@@ -166,7 +171,8 @@ export default async function CashFlowPage({
               <th className="text-left px-4 py-3">Período</th>
               <th className="text-left px-4 py-3">Entradas</th>
               <th className="text-left px-4 py-3">Saídas</th>
-              <th className="text-left px-4 py-3">Saldo Final</th>
+              <th className="text-left px-4 py-3">Saldo C/C</th>
+              <th className="text-left px-4 py-3 text-ps-navy/70">Saldo C/C + Invest</th>
             </tr>
           </thead>
           <tbody>
@@ -175,11 +181,13 @@ export default async function CashFlowPage({
               <td className="px-4 py-3 text-ps-muted">—</td>
               <td className="px-4 py-3 text-ps-muted">—</td>
               <td className="px-4 py-3 tabular-nums font-semibold">{formatBRL(openingBalance)}</td>
+              <td className="px-4 py-3 tabular-nums font-semibold text-ps-navy/70">{formatBRL(openingBalance.toNumber() + openingInvBalance)}</td>
             </tr>
             {bucketRows.map((row) => {
               const detailHref = `/cash-flow/detalhe?start=${row.start}&end=${row.end}&label=${encodeURIComponent(row.label)}${
                 companyId ? `&company_id=${companyId}` : ""
               }`;
+              const totalWithInv = row.balance.toNumber() + row.invBalance;
               return (
                 <tr key={row.label} className="border-t border-ps-navy/5 hover:bg-ps-bg-2/40">
                   <td className="px-4 py-3 font-medium">
@@ -191,6 +199,9 @@ export default async function CashFlowPage({
                   <td className="px-4 py-3 tabular-nums text-red-600">{formatBRL(row.outflows)}</td>
                   <td className={`px-4 py-3 tabular-nums font-semibold ${row.balance.isNegative() ? "text-red-600" : ""}`}>
                     {formatBRL(row.balance)}
+                  </td>
+                  <td className={`px-4 py-3 tabular-nums font-semibold text-ps-navy/70 ${totalWithInv < 0 ? "text-red-600" : ""}`}>
+                    {formatBRL(totalWithInv)}
                   </td>
                 </tr>
               );

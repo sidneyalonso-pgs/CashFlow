@@ -133,10 +133,10 @@ export default async function MovementsPage({
               { header: "Conta", cell: (i: any) => i.bank_accounts?.nickname ?? i.bank_accounts?.bank_name ?? "—" },
               { header: "Produto", cell: (i: any) => <span className="font-medium">{i.product}</span> },
               {
-                header: "Direção",
+                header: "Tipo",
                 cell: (i: any) => (
-                  <span className={`text-xs font-medium ${i.tipo === "resgate" ? "text-ps-green-700" : "text-red-600"}`}>
-                    {i.tipo === "resgate" ? "Entrada (resgate)" : "Saída (aplicação)"}
+                  <span className="text-xs text-ps-muted">
+                    {i.tipo === "resgate" ? "Resgate" : "Aplicação"}
                   </span>
                 ),
               },
@@ -144,8 +144,8 @@ export default async function MovementsPage({
               {
                 header: "Valor",
                 cell: (i: any) => (
-                  <span className={`tabular-nums font-medium ${i.tipo === "resgate" ? "text-ps-green-700" : "text-red-600"}`}>
-                    {i.tipo === "resgate" ? "+" : "-"}{formatBRL(i.applied_amount)}
+                  <span className="tabular-nums font-medium">
+                    {formatBRL(i.applied_amount)}
                   </span>
                 ),
               },
