@@ -48,6 +48,7 @@ export default async function PaymentsPage({
 }: {
   searchParams: {
     company_id?: string;
+    supplier_id?: string;
     status?: string;
     date_from?: string;
     date_to?: string;
@@ -58,7 +59,7 @@ export default async function PaymentsPage({
   const supabase = createClient();
   const today = new Date().toISOString().split("T")[0];
 
-  const sortBy = searchParams.sort_by === "gross_amount" ? "gross_amount" : "due_date";
+  const sortBy = searchParams.sort_by === "gross_amount" ? "gross_amount" : searchParams.sort_by === "supplier" ? "supplier_id" : "due_date";
   const sortDir = searchParams.sort_dir === "asc";
 
   let query = supabase
@@ -68,6 +69,7 @@ export default async function PaymentsPage({
     .order(sortBy, { ascending: sortDir });
 
   if (searchParams.company_id) query = query.eq("company_id", searchParams.company_id);
+  if (searchParams.supplier_id) query = query.eq("supplier_id", searchParams.supplier_id);
 
   // Filtro de status — mapeando para os valores reais do banco
   if (searchParams.status === "pago") {
@@ -83,9 +85,10 @@ export default async function PaymentsPage({
   if (searchParams.date_from) query = query.gte("due_date", searchParams.date_from);
   if (searchParams.date_to) query = query.lte("due_date", searchParams.date_to);
 
-  const [{ data: payments }, { data: companies }] = await Promise.all([
+  const [{ data: payments }, { data: companies }, { data: suppliers }] = await Promise.all([
     query,
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
+    supabase.from("suppliers").select("id, legal_name").eq("status", "ativo").order("legal_name"),
   ]);
 
   const rows = (payments ?? []).map((p: any) => ({
@@ -141,6 +144,17 @@ export default async function PaymentsPage({
         </select>
 
         <select
+          name="supplier_id"
+          defaultValue={searchParams.supplier_id ?? ""}
+          className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+        >
+          <option value="">Todos os fornecedores</option>
+          {(suppliers ?? []).map((s: any) => (
+            <option key={s.id} value={s.id}>{s.legal_name}</option>
+          ))}
+        </select>
+
+        <select
           name="status"
           defaultValue={searchParams.status ?? ""}
           className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
@@ -176,7 +190,7 @@ export default async function PaymentsPage({
         <button className="text-sm text-ps-navy underline" type="submit">
           Filtrar
         </button>
-        {(searchParams.company_id || searchParams.status || searchParams.date_from || searchParams.date_to) && (
+        {(searchParams.company_id || searchParams.supplier_id || searchParams.status || searchParams.date_from || searchParams.date_to) && (
           <Link href="/pagamentos" className="text-sm text-ps-muted underline">
             Limpar
           </Link>
@@ -189,7 +203,9 @@ export default async function PaymentsPage({
           <thead className="bg-ps-bg-2 text-ps-muted text-xs uppercase tracking-wide">
             <tr>
               <th className="text-left px-4 py-3 whitespace-nowrap">Empresa</th>
-              <th className="text-left px-4 py-3 whitespace-nowrap">Fornecedor</th>
+              <th className="text-left px-4 py-3 whitespace-nowrap">
+                <SortLink label="Fornecedor" field="supplier" {...sortArgs} />
+              </th>
               <th className="text-left px-4 py-3 whitespace-nowrap">Descrição</th>
               <th className="text-left px-4 py-3 whitespace-nowrap">
                 <SortLink label="Vencimento" field="due_date" {...sortArgs} />
