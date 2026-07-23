@@ -100,6 +100,13 @@ export function NewInvestmentButton({
             />
           </div>
 
+          {!isResgate && (
+            <label className="flex items-center gap-2 text-sm text-ps-ink-2 cursor-pointer">
+              <input type="checkbox" name="is_opening_balance" value="true" className="rounded" />
+              Saldo pré-existente (não debita conta corrente)
+            </label>
+          )}
+
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="flex justify-end gap-2 pt-2">

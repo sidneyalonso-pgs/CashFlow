@@ -38,7 +38,7 @@ export default async function CashFlowPage({
     .is("revenues.deleted_at", null);
   let investmentsQuery = supabase
     .from("investments")
-    .select("tipo, applied_amount, applied_date, company_id");
+    .select("tipo, applied_amount, applied_date, company_id, is_opening_balance");
 
   if (companyId) {
     bankAccountsQuery = bankAccountsQuery.eq("company_id", companyId);
@@ -60,11 +60,27 @@ export default async function CashFlowPage({
     (bankAccounts ?? []).filter((a: any) => a.counts_as_available_cash).map((a: any) => a.initial_balance)
   );
 
-  // Investimentos ficam em coluna separada (não afetam saldo C/C)
-  const allInvestments = (investmentsData ?? []) as Array<{ tipo: string; applied_amount: number; applied_date: string }>;
+  type InvRow = { tipo: string; applied_amount: number; applied_date: string; is_opening_balance: boolean };
+  const allInvestments = (investmentsData ?? []) as InvRow[];
 
-  const outflows = (paymentRealizations ?? []) as Array<{ amount: number; paid_at: string }>;
-  const inflows = (revenueRealizations ?? []) as Array<{ amount: number; received_at: string }>;
+  // Aplicações que debitam C/C (excluindo saldo inicial pré-existente)
+  const invOutflows = allInvestments
+    .filter((i) => i.tipo === "aplicacao" && !i.is_opening_balance)
+    .map((i) => ({ amount: Number(i.applied_amount), paid_at: i.applied_date }));
+
+  // Resgates creditam C/C
+  const invInflows = allInvestments
+    .filter((i) => i.tipo === "resgate")
+    .map((i) => ({ amount: Number(i.applied_amount), received_at: i.applied_date }));
+
+  const outflows = [
+    ...((paymentRealizations ?? []) as Array<{ amount: number; paid_at: string }>),
+    ...invOutflows,
+  ];
+  const inflows = [
+    ...((revenueRealizations ?? []) as Array<{ amount: number; received_at: string }>),
+    ...invInflows,
+  ];
 
   const sumInRange = (items: Array<{ amount: number }>, dates: string[], from: string, to: string) =>
     sumMoney(items.filter((_, i) => dates[i] >= from && dates[i] <= to).map((it) => it.amount));

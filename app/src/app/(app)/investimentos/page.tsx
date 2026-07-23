@@ -11,7 +11,7 @@ export default async function InvestmentsPage() {
   const [{ data: investments }, { data: companies }, { data: bankAccounts }] = await Promise.all([
     supabase
       .from("investments")
-      .select("id, tipo, product, applied_amount, applied_date, companies(legal_name, trade_name), bank_accounts(bank_name, nickname)")
+      .select("id, tipo, product, applied_amount, applied_date, is_opening_balance, companies(legal_name, trade_name), bank_accounts(bank_name, nickname)")
       .order("applied_date", { ascending: false }),
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
     supabase.from("bank_accounts").select("id, bank_name, nickname, company_id").order("bank_name"),
@@ -45,7 +45,12 @@ export default async function InvestmentsPage() {
             <tr key={i.id} className="border-t border-ps-navy/5 hover:bg-ps-bg-2/40">
               <td className="px-4 py-3">{companyLabel(i.companies)}</td>
               <td className="px-4 py-3 text-ps-muted">{i.bank_accounts?.nickname ?? i.bank_accounts?.bank_name ?? "—"}</td>
-              <td className="px-4 py-3 font-medium">{i.product}</td>
+              <td className="px-4 py-3 font-medium">
+                {i.product}
+                {tipo === "aplicacao" && i.is_opening_balance && (
+                  <span className="ml-2 text-xs text-ps-muted border border-ps-navy/20 rounded px-1">saldo inicial</span>
+                )}
+              </td>
               <td className="px-4 py-3 tabular-nums font-medium">
                 {formatBRL(i.applied_amount)}
               </td>

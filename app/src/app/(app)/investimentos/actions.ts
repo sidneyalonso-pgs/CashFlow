@@ -10,6 +10,7 @@ export async function createInvestment(formData: FormData) {
   const amount = Number(formData.get("applied_amount"));
   const date = String(formData.get("applied_date") || "");
   const tipo = String(formData.get("tipo") || "aplicacao") as "aplicacao" | "resgate";
+  const isOpeningBalance = formData.get("is_opening_balance") === "true";
 
   if (!companyId || !product || !amount || amount <= 0 || !date) {
     return { error: "Preencha empresa, produto, valor e data." };
@@ -26,6 +27,7 @@ export async function createInvestment(formData: FormData) {
     tipo,
     applied_amount: amount,
     applied_date: date,
+    is_opening_balance: tipo === "aplicacao" ? isOpeningBalance : false,
     // Resgates: marcar campos herdados para compatibilidade
     ...(tipo === "resgate" ? {
       redeemed_amount: amount,
