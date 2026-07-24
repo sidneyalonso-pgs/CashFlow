@@ -10,12 +10,16 @@ type Granularity = "semana" | "mes" | "trimestre";
 export default async function CashFlowPage({
   searchParams,
 }: {
-  searchParams: { company_id?: string; visao?: string; ano?: string; mes?: string };
+  searchParams: { company_id?: string; visao?: string; ano?: string; mes?: string; pagamentos?: string };
 }) {
   const supabase = createClient();
   const companyId = searchParams.company_id;
   const granularity: Granularity =
     searchParams.visao === "mes" || searchParams.visao === "trimestre" ? (searchParams.visao as Granularity) : "semana";
+  // realizados = só baixados; provisionados = só futuros/pendentes; ambos = os dois
+  const pagamentosFiltro = searchParams.pagamentos === "provisionados" ? "provisionados"
+    : searchParams.pagamentos === "ambos" ? "ambos"
+    : "realizados";
 
   const today = new Date();
   const year = Number(searchParams.ano) || today.getFullYear();
@@ -32,6 +36,11 @@ export default async function CashFlowPage({
     .from("payment_realizations")
     .select("amount, paid_at, payments!inner(company_id)")
     .is("payments.deleted_at", null);
+  let provisionedQuery = supabase
+    .from("payments")
+    .select("gross_amount, due_date, company_id")
+    .is("deleted_at", null)
+    .not("status", "in", '("pago","cancelado")');
   let revenueRealizationsQuery = supabase
     .from("revenue_realizations")
     .select("amount, received_at, revenues!inner(company_id)")
@@ -43,14 +52,16 @@ export default async function CashFlowPage({
   if (companyId) {
     bankAccountsQuery = bankAccountsQuery.eq("company_id", companyId);
     paymentRealizationsQuery = paymentRealizationsQuery.eq("payments.company_id", companyId);
+    provisionedQuery = provisionedQuery.eq("company_id", companyId);
     revenueRealizationsQuery = revenueRealizationsQuery.eq("revenues.company_id", companyId);
     investmentsQuery = investmentsQuery.eq("company_id", companyId);
   }
 
-  const [{ data: bankAccounts }, { data: paymentRealizations }, { data: revenueRealizations }, { data: investmentsData }, { data: companies }] =
+  const [{ data: bankAccounts }, { data: paymentRealizations }, { data: provisionedPayments }, { data: revenueRealizations }, { data: investmentsData }, { data: companies }] =
     await Promise.all([
       bankAccountsQuery,
-      paymentRealizationsQuery,
+      pagamentosFiltro !== "provisionados" ? paymentRealizationsQuery : Promise.resolve({ data: [] }),
+      pagamentosFiltro !== "realizados" ? provisionedQuery : Promise.resolve({ data: [] }),
       revenueRealizationsQuery,
       investmentsQuery,
       supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
@@ -73,8 +84,14 @@ export default async function CashFlowPage({
     .filter((i) => i.tipo === "resgate")
     .map((i) => ({ amount: Number(i.applied_amount), received_at: i.applied_date }));
 
+  const provisionedOutflows = (provisionedPayments ?? []).map((p: any) => ({
+    amount: Number(p.gross_amount),
+    paid_at: p.due_date,
+  }));
+
   const outflows = [
     ...((paymentRealizations ?? []) as Array<{ amount: number; paid_at: string }>),
+    ...provisionedOutflows,
     ...invOutflows,
   ];
   const inflows = [
@@ -145,6 +162,11 @@ export default async function CashFlowPage({
           <option value="mes">Por mês</option>
           <option value="trimestre">Por trimestre</option>
         </select>
+        <select name="pagamentos" defaultValue={pagamentosFiltro} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+          <option value="realizados">Pagamentos realizados</option>
+          <option value="provisionados">Pagamentos provisionados</option>
+          <option value="ambos">Realizados + Provisionados</option>
+        </select>
         {granularity === "semana" && (
           <select name="mes" defaultValue={month} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
             {monthOptions.map((m) => (
@@ -177,9 +199,17 @@ export default async function CashFlowPage({
         />
       </div>
 
-      <h3 className="font-semibold text-ps-ink mb-2">
-        Evolução do Saldo — {granularity === "semana" ? "Semanal" : granularity === "mes" ? "Mensal" : "Trimestral"}
-      </h3>
+      <div className="flex items-center gap-3 mb-2">
+        <h3 className="font-semibold text-ps-ink">
+          Evolução do Saldo — {granularity === "semana" ? "Semanal" : granularity === "mes" ? "Mensal" : "Trimestral"}
+        </h3>
+        {pagamentosFiltro === "provisionados" && (
+          <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 rounded px-2 py-0.5">Projeção (provisionados)</span>
+        )}
+        {pagamentosFiltro === "ambos" && (
+          <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded px-2 py-0.5">Realizados + Projeção</span>
+        )}
+      </div>
       <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-ps-bg-2 text-ps-muted text-xs uppercase tracking-wide">
