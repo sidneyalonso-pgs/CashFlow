@@ -8,10 +8,13 @@ import { WeeklyFlowChart, ExpensesByCategoryChart } from "./DashboardCharts";
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: { company_id?: string; mes?: string };
+  searchParams: { company_id?: string; mes?: string; pagamentos?: string };
 }) {
   const supabase = createClient();
   const companyId = searchParams.company_id;
+  const pagamentosFiltro = searchParams.pagamentos === "provisionados" ? "provisionados"
+    : searchParams.pagamentos === "ambos" ? "ambos"
+    : "realizados";
 
   const today = new Date();
   const [refYear, refMonth] = (searchParams.mes ?? `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`)
@@ -29,6 +32,13 @@ export default async function DashboardPage({
     .is("payments.deleted_at", null)
     .gte("paid_at", monthStartStr)
     .lte("paid_at", monthEndStr);
+  let provisionedQuery = supabase
+    .from("payments")
+    .select("gross_amount, due_date, company_id, category_id, categories(name)")
+    .is("deleted_at", null)
+    .not("status", "in", '("pago","cancelado")')
+    .gte("due_date", monthStartStr)
+    .lte("due_date", monthEndStr);
   let inflowsQuery = supabase
     .from("revenue_realizations")
     .select("amount, received_at, revenues!inner(company_id)")
@@ -39,15 +49,25 @@ export default async function DashboardPage({
   if (companyId) {
     bankAccountsQuery = bankAccountsQuery.eq("company_id", companyId);
     outflowsQuery = outflowsQuery.eq("payments.company_id", companyId);
+    provisionedQuery = provisionedQuery.eq("company_id", companyId);
     inflowsQuery = inflowsQuery.eq("revenues.company_id", companyId);
   }
 
-  const [{ data: bankAccounts }, { data: outflows }, { data: inflows }, { data: companies }] = await Promise.all([
+  const [{ data: bankAccounts }, { data: realizedOutflows }, { data: provisionedPayments }, { data: inflows }, { data: companies }] = await Promise.all([
     bankAccountsQuery,
-    outflowsQuery,
+    pagamentosFiltro !== "provisionados" ? outflowsQuery : Promise.resolve({ data: [] }),
+    pagamentosFiltro !== "realizados" ? provisionedQuery : Promise.resolve({ data: [] }),
     inflowsQuery,
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
   ]);
+
+  // Normaliza provisionados para o mesmo formato dos realizados
+  const provisionedOutflows = (provisionedPayments ?? []).map((p: any) => ({
+    amount: Number(p.gross_amount),
+    paid_at: p.due_date,
+    payments: { categories: p.categories },
+  }));
+  const outflows = [...(realizedOutflows ?? []), ...provisionedOutflows];
 
   const availableCash = sumMoney(
     (bankAccounts ?? []).filter((a: any) => a.counts_as_available_cash).map((a: any) => a.initial_balance)
@@ -109,6 +129,11 @@ export default async function DashboardPage({
             </option>
           ))}
         </select>
+        <select name="pagamentos" defaultValue={pagamentosFiltro} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+          <option value="realizados">Pagamentos realizados</option>
+          <option value="provisionados">Pagamentos provisionados</option>
+          <option value="ambos">Realizados + Provisionados</option>
+        </select>
         <button className="text-sm text-ps-navy underline" type="submit">
           Filtrar
         </button>
@@ -117,7 +142,11 @@ export default async function DashboardPage({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <FinancialCard label="Caixa disponível hoje" value={formatBRL(availableCash)} />
         <FinancialCard label="Entradas realizadas (mês)" value={formatBRL(inflowsThisMonth)} tone="positive" />
-        <FinancialCard label="Saídas realizadas (mês)" value={formatBRL(outflowsThisMonth)} tone="negative" />
+        <FinancialCard
+          label={pagamentosFiltro === "provisionados" ? "Saídas provisionadas (mês)" : pagamentosFiltro === "ambos" ? "Saídas realizadas + provisionadas (mês)" : "Saídas realizadas (mês)"}
+          value={formatBRL(outflowsThisMonth)}
+          tone="negative"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
