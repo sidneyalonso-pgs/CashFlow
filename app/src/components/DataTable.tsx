@@ -4,7 +4,7 @@ export function DataTable<T>({
   rowKey,
   emptyMessage = "Nenhum registro encontrado.",
 }: {
-  columns: Array<{ header: string; cell: (row: T) => React.ReactNode }>;
+  columns: Array<{ header: React.ReactNode; cell: (row: T) => React.ReactNode }>;
   rows: T[];
   rowKey: (row: T) => string;
   emptyMessage?: string;
@@ -14,8 +14,8 @@ export function DataTable<T>({
       <table className="w-full text-sm">
         <thead className="bg-ps-bg-2 text-ps-muted text-xs uppercase tracking-wide">
           <tr>
-            {columns.map((c) => (
-              <th key={c.header} className="text-left px-4 py-3 whitespace-nowrap">
+            {columns.map((c, i) => (
+              <th key={i} className="text-left px-4 py-3 whitespace-nowrap">
                 {c.header}
               </th>
             ))}
@@ -24,8 +24,8 @@ export function DataTable<T>({
         <tbody>
           {rows.map((row) => (
             <tr key={rowKey(row)} className="border-t border-ps-navy/5 transition-colors hover:bg-ps-bg-2/60">
-              {columns.map((c) => (
-                <td key={c.header} className="px-4 py-3 whitespace-nowrap">
+              {columns.map((c, i) => (
+                <td key={i} className="px-4 py-3 whitespace-nowrap">
                   {c.cell(row)}
                 </td>
               ))}
