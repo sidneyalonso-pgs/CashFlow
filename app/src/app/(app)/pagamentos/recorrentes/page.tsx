@@ -8,46 +8,75 @@ export default async function RecurringPaymentsPage() {
   const today = new Date();
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split("T")[0];
   const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split("T")[0];
+  const prevMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split("T")[0];
 
-  const [{ data: companies }, { data: recurringSuppliers }, { data: recentPayments }] = await Promise.all([
+  const [{ data: companies }, { data: recurringPayments }, { data: allSuppliers }] = await Promise.all([
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
+    // Pagamentos marcados como recorrentes nos últimos 2 meses
+    supabase
+      .from("payments")
+      .select("id, supplier_id, company_id, gross_amount, due_date, status")
+      .eq("recurring", true)
+      .is("deleted_at", null)
+      .gte("due_date", prevMonthStart)
+      .order("due_date", { ascending: false }),
+    // Dados dos fornecedores para exibição
     supabase
       .from("suppliers")
       .select("id, legal_name, recurring_amount, recurring_week_of_month, default_description")
-      .eq("status", "ativo")
-      .eq("is_recurring", true)
-      .order("legal_name"),
-    // Busca pagamentos dos últimos 2 meses para cada fornecedor recorrente
-    supabase
-      .from("payments")
-      .select("supplier_id, company_id, gross_amount, due_date, status")
-      .is("deleted_at", null)
-      .gte("due_date", new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split("T")[0])
-      .order("due_date", { ascending: false }),
+      .eq("status", "ativo"),
   ]);
 
-  // Para cada fornecedor+empresa: último valor pago e se já foi lançado no mês atual
-  type SupplierCompanyInfo = {
+  const suppliersById = new Map((allSuppliers ?? []).map((s) => [s.id, s]));
+
+  // Monta estrutura por empresa: quais fornecedores têm pagamentos recorrentes + último valor + status do mês
+  type SupplierInfo = {
+    supplierId: string;
     lastAmount: number | null;
     launchedThisMonth: boolean;
     lastStatus: string | null;
   };
-  const paymentInfoMap = new Map<string, SupplierCompanyInfo>();
 
-  for (const p of recentPayments ?? []) {
-    const key = `${p.supplier_id}__${p.company_id}`;
-    if (!paymentInfoMap.has(key)) {
-      const launchedThisMonth = p.due_date >= monthStart && p.due_date <= monthEnd;
-      paymentInfoMap.set(key, {
+  const companySupplierMap = new Map<string, Map<string, SupplierInfo>>();
+
+  for (const p of recurringPayments ?? []) {
+    if (!companySupplierMap.has(p.company_id)) {
+      companySupplierMap.set(p.company_id, new Map());
+    }
+    const supplierMap = companySupplierMap.get(p.company_id)!;
+
+    if (!supplierMap.has(p.supplier_id)) {
+      // Primeiro registro = o mais recente (já ordenado desc)
+      supplierMap.set(p.supplier_id, {
+        supplierId: p.supplier_id,
         lastAmount: Number(p.gross_amount),
-        launchedThisMonth,
-        lastStatus: p.status,
+        launchedThisMonth: p.due_date >= monthStart && p.due_date <= monthEnd,
+        lastStatus: p.due_date >= monthStart && p.due_date <= monthEnd ? p.status : null,
       });
     } else if (p.due_date >= monthStart && p.due_date <= monthEnd) {
-      // Atualiza flag se encontrou lançamento do mês atual
-      const existing = paymentInfoMap.get(key)!;
+      // Atualiza flag de mês atual se encontrar lançamento deste mês
+      const existing = supplierMap.get(p.supplier_id)!;
       existing.launchedThisMonth = true;
       existing.lastStatus = p.status;
+    }
+  }
+
+  // Serializa para passar ao client component
+  const paymentInfoMap: Record<string, { lastAmount: number | null; launchedThisMonth: boolean; lastStatus: string | null }> = {};
+  const companySuppliersMap: Record<string, typeof allSuppliers> = {};
+
+  for (const [companyId, supplierMap] of companySupplierMap.entries()) {
+    companySuppliersMap[companyId] = [];
+    for (const info of supplierMap.values()) {
+      const supplier = suppliersById.get(info.supplierId);
+      if (supplier) {
+        (companySuppliersMap[companyId] as any[]).push(supplier);
+        paymentInfoMap[`${info.supplierId}__${companyId}`] = {
+          lastAmount: info.lastAmount,
+          launchedThisMonth: info.launchedThisMonth,
+          lastStatus: info.lastStatus,
+        };
+      }
     }
   }
 
@@ -55,7 +84,7 @@ export default async function RecurringPaymentsPage() {
     <div>
       <PageHeader
         title="Pagamentos recorrentes"
-        subtitle="Provisione pagamentos futuros para todos os fornecedores recorrentes com um clique"
+        subtitle="Fornecedores com pagamentos marcados como recorrentes, por empresa"
         actions={
           <a
             href="/cadastros/fornecedores"
@@ -67,9 +96,9 @@ export default async function RecurringPaymentsPage() {
       />
 
       <RecurringSupplierPanel
-        suppliers={recurringSuppliers ?? []}
         companies={companies ?? []}
-        paymentInfoMap={Object.fromEntries(paymentInfoMap)}
+        companySuppliersMap={companySuppliersMap as any}
+        paymentInfoMap={paymentInfoMap}
       />
     </div>
   );

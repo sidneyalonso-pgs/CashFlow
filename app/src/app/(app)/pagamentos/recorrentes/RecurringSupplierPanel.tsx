@@ -312,22 +312,35 @@ function CompanyTab({
 }
 
 export function RecurringSupplierPanel({
-  suppliers,
   companies,
+  companySuppliersMap,
   paymentInfoMap,
 }: {
-  suppliers: RecurringSupplier[];
   companies: Company[];
+  companySuppliersMap: Record<string, RecurringSupplier[]>;
   paymentInfoMap: Record<string, SupplierCompanyInfo>;
 }) {
-  const [activeTab, setActiveTab] = useState(companies[0]?.id ?? "");
+  // Mostra só abas de empresas que têm pelo menos 1 fornecedor recorrente
+  const activeCompanies = companies.filter((c) => (companySuppliersMap[c.id]?.length ?? 0) > 0);
+  const [activeTab, setActiveTab] = useState(activeCompanies[0]?.id ?? "");
   const activeCompany = companies.find((c) => c.id === activeTab);
+
+  if (activeCompanies.length === 0) {
+    return (
+      <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-8 text-center">
+        <p className="text-sm text-ps-muted">
+          Nenhum pagamento marcado como recorrente encontrado nos últimos 2 meses.
+          Lance um pagamento e marque a opção <strong>"Recorrente"</strong> para ele aparecer aqui.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>
       {/* Tabs */}
       <div className="flex border-b border-ps-navy/10 mb-4">
-        {companies.map((c) => (
+        {activeCompanies.map((c) => (
           <button
             key={c.id}
             type="button"
@@ -345,7 +358,7 @@ export function RecurringSupplierPanel({
 
       {activeCompany && (
         <CompanyTab
-          suppliers={suppliers}
+          suppliers={companySuppliersMap[activeCompany.id] ?? []}
           company={activeCompany}
           paymentInfoMap={paymentInfoMap}
         />
