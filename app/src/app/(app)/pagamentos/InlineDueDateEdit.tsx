@@ -30,7 +30,7 @@ export function InlineDueDateEdit({ paymentId, dueDate }: { paymentId: string; d
         type="button"
         onClick={() => setEditing(true)}
         className="flex items-center gap-1.5 text-ps-ink hover:text-ps-navy group"
-        title="Editar vencimento"
+        title="Editar vencimento / data de pagamento"
       >
         <span>{dueDate}</span>
         <span className="text-ps-muted group-hover:text-ps-navy text-xs">✏️</span>

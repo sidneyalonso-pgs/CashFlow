@@ -208,7 +208,7 @@ export default async function PaymentsPage({
               </th>
               <th className="text-left px-4 py-3 whitespace-nowrap">Descrição</th>
               <th className="text-left px-4 py-3 whitespace-nowrap">
-                <SortLink label="Vencimento" field="due_date" {...sortArgs} />
+                <SortLink label="Vencimento / Pagamento" field="due_date" {...sortArgs} />
               </th>
               <th className="text-left px-4 py-3 whitespace-nowrap">
                 <SortLink label="Valor" field="gross_amount" {...sortArgs} />
