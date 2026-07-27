@@ -326,6 +326,8 @@ export async function updatePaymentDueDate(paymentId: string, dueDate: string) {
 
   revalidatePath("/pagamentos");
   revalidatePath(`/pagamentos/${paymentId}`);
+  revalidatePath("/cash-flow");
+  revalidatePath("/");
   return { error: null };
 }
 
