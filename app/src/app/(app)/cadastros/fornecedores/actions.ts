@@ -64,9 +64,7 @@ export async function updateSupplier(supplierId: string, formData: FormData) {
 
   const defaultDescription = String(formData.get("default_description") || "") || null;
   const isRecurring = formData.get("is_recurring") === "on";
-  const recurringAmount = Number(formData.get("recurring_amount") || 0) || null;
-  const recurringDayStr = String(formData.get("recurring_day_of_month") || "");
-  const recurringDay = recurringDayStr ? Number(recurringDayStr) : null;
+  const costStructure = String(formData.get("cost_structure") || "") || null;
   const propagateDescription = formData.get("propagate_description") === "on";
 
   const { error } = await supabase
@@ -78,8 +76,7 @@ export async function updateSupplier(supplierId: string, formData: FormData) {
       default_cost_center_id: String(formData.get("default_cost_center_id") || "") || null,
       default_description: defaultDescription,
       is_recurring: isRecurring,
-      recurring_amount: isRecurring ? recurringAmount : null,
-      recurring_day_of_month: isRecurring ? recurringDay : null,
+      cost_structure: costStructure,
     })
     .eq("id", supplierId);
 

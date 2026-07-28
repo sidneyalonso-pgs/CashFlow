@@ -7,13 +7,12 @@ type Supplier = {
   id: string;
   legal_name: string;
   cost_type: string;
+  cost_structure: string | null;
   default_category_id: string | null;
   default_cost_center_id: string | null;
   default_description: string | null;
   status: string;
   is_recurring: boolean | null;
-  recurring_amount: number | null;
-  recurring_day_of_month: number | null;
   categories: { name: string } | null;
   cost_centers: { code: string; name: string } | null;
 };
@@ -43,10 +42,13 @@ function SupplierRow({
 
   const [legalName, setLegalName] = useState(supplier.legal_name);
   const [costType, setCostType] = useState(supplier.cost_type);
+  const [costStructure, setCostStructure] = useState(supplier.cost_structure ?? "");
   const [categoryId, setCategoryId] = useState(supplier.default_category_id ?? "");
   const [costCenterId, setCostCenterId] = useState(supplier.default_cost_center_id ?? "");
   const [description, setDescription] = useState(supplier.default_description ?? "");
   const [status, setStatus] = useState(supplier.status);
+  const [isRecurring, setIsRecurring] = useState(supplier.is_recurring ?? false);
+
   function mark(setter: (v: any) => void, value: any) {
     setter(value);
     setDirty(true);
@@ -57,12 +59,13 @@ function SupplierRow({
     const fd = new FormData();
     fd.set("legal_name", legalName);
     fd.set("cost_type", costType);
+    fd.set("cost_structure", costStructure);
     fd.set("default_category_id", categoryId);
     fd.set("default_cost_center_id", costCenterId);
     fd.set("default_description", description);
     fd.set("status", status);
     fd.set("tax_id", "");
-    // Sempre propaga descrição para pagamentos futuros ao salvar pela tabela
+    if (isRecurring) fd.set("is_recurring", "on");
     if (description) fd.set("propagate_description", "on");
 
     startTransition(async () => {
@@ -101,8 +104,32 @@ function SupplierRow({
         </select>
       </td>
 
+      {/* Fixo / Variável */}
+      <td className="px-3 py-2 min-w-[110px]">
+        <select value={costStructure} onChange={(e) => mark(setCostStructure, e.target.value)} className={cellCls}>
+          <option value="">—</option>
+          <option value="fixo">Fixo</option>
+          <option value="variavel">Variável</option>
+        </select>
+      </td>
+
+      {/* Recorrente */}
+      <td className="px-3 py-2 text-center">
+        <button
+          type="button"
+          onClick={() => mark(setIsRecurring, !isRecurring)}
+          className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-colors ${
+            isRecurring
+              ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+              : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+          }`}
+        >
+          {isRecurring ? "Sim" : "Não"}
+        </button>
+      </td>
+
       {/* Categoria */}
-      <td className="px-3 py-2 min-w-[200px]">
+      <td className="px-3 py-2 min-w-[180px]">
         <select value={categoryId} onChange={(e) => mark(setCategoryId, e.target.value)} className={cellCls}>
           <option value="">—</option>
           {categories.map((c) => (
@@ -112,7 +139,7 @@ function SupplierRow({
       </td>
 
       {/* Departamento */}
-      <td className="px-3 py-2 min-w-[180px]">
+      <td className="px-3 py-2 min-w-[160px]">
         <select value={costCenterId} onChange={(e) => mark(setCostCenterId, e.target.value)} className={cellCls}>
           <option value="">—</option>
           {costCenters.map((c) => (
@@ -122,7 +149,7 @@ function SupplierRow({
       </td>
 
       {/* Descrição padrão */}
-      <td className="px-3 py-2 min-w-[220px]">
+      <td className="px-3 py-2 min-w-[200px]">
         <input
           type="text"
           value={description}
@@ -143,9 +170,7 @@ function SupplierRow({
       {/* Ações */}
       <td className="px-3 py-2 whitespace-nowrap">
         {error && <span className="text-xs text-red-500 mr-2">{error}</span>}
-        {saved && !dirty && (
-          <span className="text-xs text-ps-green font-medium">✓ Salvo</span>
-        )}
+        {saved && !dirty && <span className="text-xs text-ps-green font-medium">✓ Salvo</span>}
         {dirty && (
           <button
             onClick={handleSave}
@@ -178,6 +203,8 @@ export function SuppliersTable({
           <tr>
             <th className={thCls}>Razão social</th>
             <th className={thCls}>Tipo de custo</th>
+            <th className={thCls}>Fixo/Variável</th>
+            <th className={thCls}>Recorrente</th>
             <th className={thCls}>Categoria</th>
             <th className={thCls}>Departamento</th>
             <th className={thCls}>Descrição padrão</th>
@@ -187,16 +214,11 @@ export function SuppliersTable({
         </thead>
         <tbody>
           {suppliers.map((s) => (
-            <SupplierRow
-              key={s.id}
-              supplier={s}
-              categories={categories}
-              costCenters={costCenters}
-            />
+            <SupplierRow key={s.id} supplier={s} categories={categories} costCenters={costCenters} />
           ))}
           {suppliers.length === 0 && (
             <tr>
-              <td colSpan={7} className="px-4 py-8 text-center text-ps-muted text-sm">
+              <td colSpan={9} className="px-4 py-8 text-center text-ps-muted text-sm">
                 Nenhum fornecedor cadastrado.
               </td>
             </tr>

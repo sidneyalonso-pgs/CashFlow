@@ -16,10 +16,12 @@ type Supplier = {
   id: string;
   legal_name: string;
   cost_type: string;
+  cost_structure: string | null;
   default_category_id: string | null;
   default_cost_center_id: string | null;
   default_description: string | null;
   status: string;
+  is_recurring: boolean | null;
 };
 
 export function EditSupplierButton({
@@ -36,6 +38,7 @@ export function EditSupplierButton({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [costType, setCostType] = useState(supplier.cost_type);
+  const [isRecurring, setIsRecurring] = useState(supplier.is_recurring ?? false);
   const [hasDescription, setHasDescription] = useState(!!supplier.default_description);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -65,19 +68,6 @@ export function EditSupplierButton({
     });
   }
 
-  function handleGenerate() {
-    startTransition(async () => {
-      const result = await generateRecurringProvisions(supplier.id, genCompanyId, genMonths);
-      if (result.error) {
-        setGenResult(`Erro: ${result.error}`);
-      } else {
-        const n = (result as any).created?.length ?? 0;
-        setGenResult(n === 0 ? "Todos os meses já tinham pagamentos lançados." : `${n} pagamento(s) provisionado(s) com sucesso.`);
-        router.refresh();
-      }
-    });
-  }
-
   return (
     <>
       <button onClick={() => setOpen(true)} className="text-xs text-ps-navy underline">
@@ -101,6 +91,17 @@ export function EditSupplierButton({
               ))}
             </select>
           </div>
+
+          <SelectField
+            label="Custo fixo ou variável"
+            name="cost_structure"
+            defaultValue={supplier.cost_structure ?? ""}
+            options={[
+              { value: "", label: "Não definido" },
+              { value: "fixo", label: "Fixo" },
+              { value: "variavel", label: "Variável" },
+            ]}
+          />
 
           <SelectField
             label="Categoria padrão"
@@ -135,6 +136,22 @@ export function EditSupplierButton({
             )}
           </div>
 
+          <div className="rounded-ps-sm border border-ps-navy/10 bg-ps-bg-2/50 p-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-ps-ink cursor-pointer">
+              <input
+                type="checkbox"
+                name="is_recurring"
+                checked={isRecurring}
+                onChange={(e) => setIsRecurring(e.target.checked)}
+                className="rounded accent-ps-green"
+              />
+              Despesa recorrente mensal
+            </label>
+            <p className="text-xs text-ps-muted mt-1 pl-5">
+              Ao lançar pagamentos com este fornecedor e marcar "Recorrente", eles aparecem na aba Pagamentos Recorrentes.
+            </p>
+          </div>
+
           <SelectField
             label="Status"
             name="status"
@@ -165,7 +182,6 @@ export function EditSupplierButton({
             </div>
           </div>
         </form>
-
       </Modal>
     </>
   );
