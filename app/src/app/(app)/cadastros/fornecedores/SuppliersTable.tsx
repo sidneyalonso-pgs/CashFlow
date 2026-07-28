@@ -47,8 +47,6 @@ function SupplierRow({
   const [costCenterId, setCostCenterId] = useState(supplier.default_cost_center_id ?? "");
   const [description, setDescription] = useState(supplier.default_description ?? "");
   const [status, setStatus] = useState(supplier.status);
-  const [isRecurring, setIsRecurring] = useState(supplier.is_recurring ?? false);
-
   function mark(setter: (v: any) => void, value: any) {
     setter(value);
     setDirty(true);
@@ -64,7 +62,6 @@ function SupplierRow({
     fd.set("default_description", description);
     fd.set("status", status);
     fd.set("tax_id", "");
-    if (isRecurring) fd.set("is_recurring", "on");
     // Sempre propaga descrição para pagamentos futuros ao salvar pela tabela
     if (description) fd.set("propagate_description", "on");
 
@@ -135,21 +132,6 @@ function SupplierRow({
         />
       </td>
 
-      {/* Recorrente */}
-      <td className="px-3 py-2 text-center">
-        <button
-          type="button"
-          onClick={() => mark(setIsRecurring, !isRecurring)}
-          className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-colors ${
-            isRecurring
-              ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
-              : "bg-gray-100 text-gray-400 hover:bg-gray-200"
-          }`}
-        >
-          {isRecurring ? "Sim" : "Não"}
-        </button>
-      </td>
-
       {/* Status */}
       <td className="px-3 py-2 min-w-[110px]">
         <select value={status} onChange={(e) => mark(setStatus, e.target.value)} className={cellCls}>
@@ -199,7 +181,6 @@ export function SuppliersTable({
             <th className={thCls}>Categoria</th>
             <th className={thCls}>Departamento</th>
             <th className={thCls}>Descrição padrão</th>
-            <th className={thCls}>Recorrente</th>
             <th className={thCls}>Status</th>
             <th className={thCls}></th>
           </tr>
