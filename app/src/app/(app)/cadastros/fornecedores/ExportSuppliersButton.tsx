@@ -11,17 +11,24 @@ export function ExportSuppliersButton() {
     const supabase = createClient();
     const { data } = await supabase
       .from("suppliers")
-      .select("id, legal_name, default_description")
+      .select("legal_name, cost_type, cost_structure, is_recurring, status, default_description, categories(name), cost_centers(code, name)")
       .order("legal_name");
 
     const rows = data ?? [];
-    const header = ["ID", "Razão social", "Descrição"];
+    const header = ["Razão Social", "Tipo de Custo", "Fixo/Variável", "Recorrente", "Status", "Descrição Padrão", "Categoria", "Departamento"];
     const csvLines = [
       header.join(";"),
-      ...rows.map((s: any) =>
-        [s.id, s.legal_name, s.default_description ?? ""]
-          .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
-          .join(";")
+      ...rows.map((s: any) => [
+        s.legal_name,
+        s.cost_type ?? "",
+        s.cost_structure ?? "",
+        s.is_recurring ? "Sim" : "Não",
+        s.status ?? "",
+        s.default_description ?? "",
+        s.categories?.name ?? "",
+        s.cost_centers ? `${s.cost_centers.code} - ${s.cost_centers.name}` : "",
+      ].map((v) => `"${String(v).replace(/"/g, '""')}"`)
+        .join(";")
       ),
     ];
 
