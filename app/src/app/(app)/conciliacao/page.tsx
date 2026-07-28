@@ -41,7 +41,7 @@ export default async function ReconciliationPage({
   // Buscar todos os imports com info da conta e empresa
   const { data: imports } = await supabase
     .from("bank_statement_imports")
-    .select("id, file_name, created_at, imported_rows, total_rows, bank_account_id, bank_accounts(nickname, bank_name, companies(legal_name, trade_name))")
+    .select("id, file_name, created_at, imported_rows, total_rows, bank_account_id, bank_accounts(nickname, bank_name, company_id, companies(legal_name, trade_name))")
     .order("created_at", { ascending: false });
 
   // Buscar contagem de entradas por status para cada import
@@ -99,29 +99,36 @@ export default async function ReconciliationPage({
     entries = pendingData ?? [];
     reconciledEntries = reconciledData ?? [];
 
+    const companyId: string | null = (openImport?.bank_accounts as any)?.company_id ?? null;
+
     if (bankAccountId) {
-      // Derivar intervalo de datas das entradas (usar datas do import para buscar candidatos)
+      // Derivar intervalo de datas das entradas
       const allDates = [...(pendingData ?? []), ...(reconciledData ?? [])].map((e: any) => e.entry_date).sort();
       const minDate = allDates[0] ?? new Date().toISOString().slice(0, 7) + "-01";
       const maxDate = allDates[allDates.length - 1] ?? minDate;
 
+      // Busca pagamentos por empresa (não por conta específica) pra não perder lançamentos sem paying_bank_account_id
+      let paymentsQuery = supabase
+        .from("payments")
+        .select("id, description, gross_amount, effective_payment_date")
+        .eq("status", "pago")
+        .eq("reconciliation_status", "pendente")
+        .gte("effective_payment_date", minDate)
+        .lte("effective_payment_date", maxDate);
+      if (companyId) paymentsQuery = paymentsQuery.eq("company_id", companyId);
+
+      let revenuesQuery = supabase
+        .from("revenues")
+        .select("id, description, realized_amount, realized_date")
+        .eq("status", "recebida")
+        .eq("reconciliation_status", "pendente")
+        .gte("realized_date", minDate)
+        .lte("realized_date", maxDate);
+      if (companyId) revenuesQuery = revenuesQuery.eq("company_id", companyId);
+
       const [{ data: paymentsData }, { data: revenuesData }, { data: investmentsData }] = await Promise.all([
-        supabase
-          .from("payments")
-          .select("id, description, gross_amount, effective_payment_date")
-          .eq("paying_bank_account_id", bankAccountId)
-          .eq("status", "pago")
-          .eq("reconciliation_status", "pendente")
-          .gte("effective_payment_date", minDate)
-          .lte("effective_payment_date", maxDate),
-        supabase
-          .from("revenues")
-          .select("id, description, realized_amount, realized_date")
-          .eq("receiving_bank_account_id", bankAccountId)
-          .eq("status", "recebida")
-          .eq("reconciliation_status", "pendente")
-          .gte("realized_date", minDate)
-          .lte("realized_date", maxDate),
+        paymentsQuery,
+        revenuesQuery,
         supabase
           .from("investments")
           .select("id, institution, product, applied_amount, applied_date, redeemed_amount, redeemed_date, status")
