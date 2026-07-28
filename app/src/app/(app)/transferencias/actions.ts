@@ -21,6 +21,17 @@ export async function createTransfer(formData: FormData) {
   if (!transferDate) return { error: "Informe a data." };
   if (!companyId) return { error: "Selecione a empresa." };
 
+  // Para transferência interna, busca a empresa da conta de destino
+  let toCompanyId: string | null = null;
+  if (tipo === "transferencia_interna" && toAccountId) {
+    const { data: toAcc } = await supabase
+      .from("bank_accounts")
+      .select("company_id")
+      .eq("id", toAccountId)
+      .single();
+    toCompanyId = toAcc?.company_id ?? null;
+  }
+
   const { error } = await supabase.from("transfers").insert({
     tipo,
     description: description || null,
@@ -30,6 +41,7 @@ export async function createTransfer(formData: FormData) {
     from_account_id: fromAccountId,
     to_account_id: toAccountId,
     company_id: companyId,
+    to_company_id: toCompanyId,
     created_by: user?.id,
   });
 

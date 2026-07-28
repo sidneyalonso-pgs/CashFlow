@@ -36,7 +36,7 @@ export default async function TransferenciasPage({
     .lte("transfer_date", monthEnd)
     .order("transfer_date", { ascending: false });
 
-  if (companyId) query = query.eq("company_id", companyId);
+  if (companyId) query = query.or(`company_id.eq.${companyId},to_company_id.eq.${companyId}`);
 
   const [{ data: transfers }, { data: companies }, { data: bankAccounts }] = await Promise.all([
     query,
