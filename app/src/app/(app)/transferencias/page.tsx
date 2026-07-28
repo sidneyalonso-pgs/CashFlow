@@ -31,7 +31,7 @@ export default async function TransferenciasPage({
 
   let query = supabase
     .from("transfers")
-    .select("id, tipo, description, amount, transfer_date, counterpart_name, company_id, from_account_id, to_account_id, companies(trade_name, legal_name), from_account:bank_accounts!transfers_from_account_id_fkey(nickname, bank_name), to_account:bank_accounts!transfers_to_account_id_fkey(nickname, bank_name)")
+    .select("id, tipo, description, amount, transfer_date, counterpart_name, company_id, from_account_id, to_account_id, companies(trade_name, legal_name), from_account:bank_accounts!transfers_from_account_id_fkey(nickname, bank_name, companies(trade_name, legal_name)), to_account:bank_accounts!transfers_to_account_id_fkey(nickname, bank_name, companies(trade_name, legal_name))")
     .gte("transfer_date", monthStart)
     .lte("transfer_date", monthEnd)
     .order("transfer_date", { ascending: false });
@@ -50,7 +50,7 @@ export default async function TransferenciasPage({
   }));
 
   const totalEnviado = (transfers ?? [])
-    .filter((t: any) => t.tipo.includes("enviado") || t.tipo === "debito_bancario")
+    .filter((t: any) => t.tipo.includes("enviado") || t.tipo === "debito_bancario" || t.tipo === "transferencia_interna")
     .reduce((s: number, t: any) => s + Number(t.amount), 0);
 
   const totalRecebido = (transfers ?? [])
@@ -134,7 +134,20 @@ export default async function TransferenciasPage({
           },
           {
             header: "Para / De",
-            cell: (r: any) => <span className="text-sm">{r.counterpart_name ?? "—"}</span>,
+            cell: (r: any) => {
+              if (r.tipo === "transferencia_interna") {
+                const from = (r.from_account as any)?.companies;
+                const to = (r.to_account as any)?.companies;
+                const fromName = from?.trade_name || from?.legal_name || "?";
+                const toName = to?.trade_name || to?.legal_name || "?";
+                return (
+                  <span className="text-sm text-ps-muted">
+                    De <strong className="text-ps-ink">{fromName}</strong> → Para <strong className="text-ps-ink">{toName}</strong>
+                  </span>
+                );
+              }
+              return <span className="text-sm">{r.counterpart_name ?? "—"}</span>;
+            },
           },
           {
             header: "Descrição",
