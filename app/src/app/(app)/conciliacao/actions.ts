@@ -38,6 +38,7 @@ export async function reconcileEntry(
   }
 
   revalidatePath("/conciliacao");
+  revalidatePath("/movimentacoes");
   return { error: null };
 }
 
@@ -50,6 +51,7 @@ export async function ignoreEntry(bankEntryId: string) {
 
   if (error) return { error: error.message };
   revalidatePath("/conciliacao");
+  revalidatePath("/movimentacoes");
   return { error: null };
 }
 
@@ -75,5 +77,6 @@ export async function unreconcileEntry(bankEntryId: string) {
     .eq("id", bankEntryId);
 
   revalidatePath("/conciliacao");
+  revalidatePath("/movimentacoes");
   return { error: null };
 }
