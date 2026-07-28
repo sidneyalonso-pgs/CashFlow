@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/cash-flow", label: "Cash Flow", icon: "M3 17 9 11l4 4 8-8M21 7h-6M21 7v6" },
   { href: "/pagamentos", label: "Pagamentos", icon: "M2 7h20v12H2V7Zm0 4h20M6 15h4" },
   { href: "/receitas", label: "Receitas", icon: "M12 2v20M17 5.5c0-1.5-2-2.5-5-2.5s-5 1.2-5 3 2 2.7 5 3 5 1.3 5 3-2 3-5 3-5-1-5-2.5" },
+  { href: "/transferencias", label: "Transferências", icon: "M7 16l-4-4m0 0l4-4m-4 4h18M17 8l4 4m0 0l-4 4m4-4H3" },
   { href: "/movimentacoes", label: "Movimentações", icon: "M7 4v11M7 15 3.5 11.5M7 15l3.5-3.5M17 20V9M17 9l3.5 3.5M17 9l-3.5 3.5" },
   { href: "/conciliacao", label: "Conciliação", icon: "M4 21V10l8-6 8 6v11M9 21v-6h6v6M4 10h16" },
   { href: "/investimentos", label: "Investimentos", icon: "M4 19h16M7 19v-6m5 6V8m5 11v-9" },
