@@ -31,7 +31,7 @@ export default async function TransferenciasPage({
 
   let query = supabase
     .from("transfers")
-    .select("id, tipo, description, amount, transfer_date, counterpart_name, company_id, to_company_id, from_account_id, to_account_id, companies(trade_name, legal_name), from_account:bank_accounts!transfers_from_account_id_fkey(nickname, bank_name, company_id, companies!bank_accounts_company_id_fkey(trade_name, legal_name)), to_account:bank_accounts!transfers_to_account_id_fkey(nickname, bank_name, company_id, companies!bank_accounts_company_id_fkey(trade_name, legal_name))")
+    .select("id, tipo, description, amount, transfer_date, counterpart_name, company_id, to_company_id, from_account_id, to_account_id, companies!transfers_company_id_fkey(trade_name, legal_name), to_company:companies!transfers_to_company_id_fkey(trade_name, legal_name), from_account:bank_accounts!transfers_from_account_id_fkey(nickname, bank_name), to_account:bank_accounts!transfers_to_account_id_fkey(nickname, bank_name)")
     .gte("transfer_date", monthStart)
     .lte("transfer_date", monthEnd)
     .order("transfer_date", { ascending: false });
@@ -136,8 +136,8 @@ export default async function TransferenciasPage({
             header: "Para / De",
             cell: (r: any) => {
               if (r.tipo === "transferencia_interna") {
-                const from = (r.from_account as any)?.companies;
-                const to = (r.to_account as any)?.companies;
+                const from = r.companies as any;
+                const to = (r as any).to_company;
                 const fromName = from?.trade_name || from?.legal_name || "?";
                 const toName = to?.trade_name || to?.legal_name || "?";
                 return (
