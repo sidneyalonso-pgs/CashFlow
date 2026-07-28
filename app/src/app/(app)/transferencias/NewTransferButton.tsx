@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Modal } from "@/components/Modal";
 import { createTransfer } from "./actions";
 
-type BankAccount = { id: string; name: string; bank_name: string | null };
+type BankAccount = { id: string; name: string; bank_name: string | null; company_name?: string | null };
 type Company = { id: string; legal_name: string; trade_name: string | null };
 
 const TIPOS = [
@@ -13,10 +13,17 @@ const TIPOS = [
   { value: "pix_recebido", label: "Pix recebido de" },
   { value: "ted_enviado", label: "TED enviado para" },
   { value: "ted_recebido", label: "TED recebido de" },
-  { value: "transferencia_interna", label: "Transferência entre contas" },
+  { value: "transferencia_interna", label: "Transferência entre contas (mesma ou outra empresa)" },
   { value: "debito_bancario", label: "Débito bancário (tarifa/IOF)" },
   { value: "outro", label: "Outro" },
 ];
+
+function accountLabel(a: BankAccount) {
+  const parts = [a.name];
+  if (a.bank_name) parts.push(a.bank_name);
+  if (a.company_name) parts.push(`[${a.company_name}]`);
+  return parts.join(" — ");
+}
 
 export function NewTransferButton({
   companies,
@@ -31,10 +38,15 @@ export function NewTransferButton({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const isEnviado = tipo.includes("enviado") || tipo === "debito_bancario" || tipo === "outro";
+  const isEnviado = tipo.includes("enviado") || tipo === "debito_bancario";
   const isRecebido = tipo.includes("recebido");
   const isInterno = tipo === "transferencia_interna";
   const showCounterpart = !isInterno && tipo !== "debito_bancario";
+
+  // Conta débito: sempre mostra exceto pix/TED puramente recebido
+  const showFromAccount = !isRecebido;
+  // Conta crédito: sempre mostra para recebidos e internos
+  const showToAccount = isRecebido || isInterno;
 
   function handleSubmit(formData: FormData) {
     setError(null);
@@ -75,9 +87,11 @@ export function NewTransferButton({
             </select>
           </div>
 
-          {/* Empresa */}
+          {/* Empresa (referência / registro) */}
           <div>
-            <label className="block text-sm text-ps-ink-2 mb-1">Empresa</label>
+            <label className="block text-sm text-ps-ink-2 mb-1">
+              Empresa {isInterno ? "(registro)" : ""}
+            </label>
             <select
               name="company_id"
               className="w-full h-11 rounded-ps-sm border border-ps-navy/15 px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ps-green"
@@ -102,37 +116,53 @@ export function NewTransferButton({
             </div>
           )}
 
-          {/* Conta débito */}
-          <div>
-            <label className="block text-sm text-ps-ink-2 mb-1">
-              {isRecebido ? "Conta que recebeu (crédito)" : "Conta de débito (origem)"}
-            </label>
-            <select
-              name={isRecebido ? "to_account_id" : "from_account_id"}
-              className="w-full h-11 rounded-ps-sm border border-ps-navy/15 px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ps-green"
-            >
-              <option value="">— selecione —</option>
-              {bankAccounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}{a.bank_name ? ` — ${a.bank_name}` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Conta crédito (só para transferência interna) */}
-          {isInterno && (
+          {/* Conta débito (origem) */}
+          {showFromAccount && (
             <div>
-              <label className="block text-sm text-ps-ink-2 mb-1">Conta de crédito (destino)</label>
+              <label className="block text-sm text-ps-ink-2 mb-1">
+                {isInterno ? "Conta de débito (origem)" : "Conta de débito"}
+              </label>
+              <select
+                name="from_account_id"
+                className="w-full h-11 rounded-ps-sm border border-ps-navy/15 px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ps-green"
+              >
+                <option value="">— selecione —</option>
+                {bankAccounts.map((a) => (
+                  <option key={a.id} value={a.id}>{accountLabel(a)}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Conta crédito (destino) */}
+          {showToAccount && (
+            <div>
+              <label className="block text-sm text-ps-ink-2 mb-1">
+                {isInterno ? "Conta de crédito (destino)" : "Conta que recebeu (crédito)"}
+              </label>
               <select
                 name="to_account_id"
                 className="w-full h-11 rounded-ps-sm border border-ps-navy/15 px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ps-green"
               >
                 <option value="">— selecione —</option>
                 {bankAccounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}{a.bank_name ? ` — ${a.bank_name}` : ""}
-                  </option>
+                  <option key={a.id} value={a.id}>{accountLabel(a)}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Conta para pix/TED recebido também permite informar a de débito se quiser */}
+          {isRecebido && (
+            <div>
+              <label className="block text-sm text-ps-ink-2 mb-1">Conta de débito (origem, opcional)</label>
+              <select
+                name="from_account_id"
+                className="w-full h-11 rounded-ps-sm border border-ps-navy/15 px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ps-green"
+              >
+                <option value="">— não informar —</option>
+                {bankAccounts.map((a) => (
+                  <option key={a.id} value={a.id}>{accountLabel(a)}</option>
                 ))}
               </select>
             </div>
@@ -143,7 +173,7 @@ export function NewTransferButton({
             <label className="block text-sm text-ps-ink-2 mb-1">Descrição</label>
             <input
               name="description"
-              placeholder="Ex: Pagamento de dividendos, tarifa mensal..."
+              placeholder="Ex: Aporte SC → IP, tarifa mensal..."
               className="w-full h-11 rounded-ps-sm border border-ps-navy/15 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ps-green"
             />
           </div>

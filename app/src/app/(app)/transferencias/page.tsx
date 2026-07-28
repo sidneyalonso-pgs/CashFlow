@@ -41,7 +41,7 @@ export default async function TransferenciasPage({
   const [{ data: transfers }, { data: companies }, { data: bankAccounts }] = await Promise.all([
     query,
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
-    supabase.from("bank_accounts").select("id, name, bank_name").order("name"),
+    supabase.from("bank_accounts").select("id, name, bank_name, companies(trade_name, legal_name)").order("name"),
   ]);
 
   const monthOptions = Array.from({ length: 12 }, (_, i) => ({
@@ -63,7 +63,15 @@ export default async function TransferenciasPage({
         title="Transferências"
         subtitle="Pix, TED, débitos bancários e transferências entre contas"
         actions={
-          <NewTransferButton companies={companies ?? []} bankAccounts={bankAccounts ?? []} />
+          <NewTransferButton
+            companies={companies ?? []}
+            bankAccounts={(bankAccounts ?? []).map((a: any) => ({
+              id: a.id,
+              name: a.name,
+              bank_name: a.bank_name,
+              company_name: a.companies?.trade_name || a.companies?.legal_name || null,
+            }))}
+          />
         }
       />
 
