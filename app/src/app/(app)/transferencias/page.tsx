@@ -31,7 +31,7 @@ export default async function TransferenciasPage({
 
   let query = supabase
     .from("transfers")
-    .select("id, tipo, description, amount, transfer_date, counterpart_name, company_id, from_account_id, to_account_id, companies(trade_name, legal_name), from_account:bank_accounts!transfers_from_account_id_fkey(nickname, bank_name, companies(trade_name, legal_name)), to_account:bank_accounts!transfers_to_account_id_fkey(nickname, bank_name, companies(trade_name, legal_name))")
+    .select("id, tipo, description, amount, transfer_date, counterpart_name, company_id, to_company_id, from_account_id, to_account_id, companies(trade_name, legal_name), from_account:bank_accounts!transfers_from_account_id_fkey(nickname, bank_name, company_id, companies!bank_accounts_company_id_fkey(trade_name, legal_name)), to_account:bank_accounts!transfers_to_account_id_fkey(nickname, bank_name, company_id, companies!bank_accounts_company_id_fkey(trade_name, legal_name))")
     .gte("transfer_date", monthStart)
     .lte("transfer_date", monthEnd)
     .order("transfer_date", { ascending: false });
