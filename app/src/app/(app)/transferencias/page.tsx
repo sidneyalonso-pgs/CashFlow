@@ -31,7 +31,7 @@ export default async function TransferenciasPage({
 
   let query = supabase
     .from("transfers")
-    .select("id, tipo, description, amount, transfer_date, counterpart_name, company_id, from_account_id, to_account_id, companies(trade_name, legal_name), from_account:bank_accounts!transfers_from_account_id_fkey(name, bank_name), to_account:bank_accounts!transfers_to_account_id_fkey(name, bank_name)")
+    .select("id, tipo, description, amount, transfer_date, counterpart_name, company_id, from_account_id, to_account_id, companies(trade_name, legal_name), from_account:bank_accounts!transfers_from_account_id_fkey(nickname, bank_name), to_account:bank_accounts!transfers_to_account_id_fkey(nickname, bank_name)")
     .gte("transfer_date", monthStart)
     .lte("transfer_date", monthEnd)
     .order("transfer_date", { ascending: false });
@@ -41,7 +41,7 @@ export default async function TransferenciasPage({
   const [{ data: transfers }, { data: companies }, { data: bankAccounts }] = await Promise.all([
     query,
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
-    supabase.from("bank_accounts").select("id, name, bank_name, companies(trade_name, legal_name)").order("name"),
+    supabase.from("bank_accounts").select("id, nickname, bank_name, companies(trade_name, legal_name)").order("nickname"),
   ]);
 
   const monthOptions = Array.from({ length: 12 }, (_, i) => ({
@@ -67,7 +67,7 @@ export default async function TransferenciasPage({
             companies={companies ?? []}
             bankAccounts={(bankAccounts ?? []).map((a: any) => ({
               id: a.id,
-              name: a.name,
+              name: a.nickname,
               bank_name: a.bank_name,
               company_name: a.companies?.trade_name || a.companies?.legal_name || null,
             }))}
@@ -144,14 +144,14 @@ export default async function TransferenciasPage({
             header: "Conta débito",
             cell: (r: any) => {
               const acc = r.from_account as any;
-              return <span className="text-xs text-ps-muted">{acc ? `${acc.name}${acc.bank_name ? ` — ${acc.bank_name}` : ""}` : "—"}</span>;
+              return <span className="text-xs text-ps-muted">{acc ? `${acc.nickname}${acc.bank_name ? ` — ${acc.bank_name}` : ""}` : "—"}</span>;
             },
           },
           {
             header: "Conta crédito",
             cell: (r: any) => {
               const acc = r.to_account as any;
-              return <span className="text-xs text-ps-muted">{acc ? `${acc.name}${acc.bank_name ? ` — ${acc.bank_name}` : ""}` : "—"}</span>;
+              return <span className="text-xs text-ps-muted">{acc ? `${acc.nickname}${acc.bank_name ? ` — ${acc.bank_name}` : ""}` : "—"}</span>;
             },
           },
           {
