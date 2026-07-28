@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { DataTable } from "@/components/DataTable";
 import { formatBRL } from "@/lib/calculations/money";
+import { PaymentsDetailTable } from "./PaymentsDetailTable";
 
 export default async function CashFlowDetailPage({
   searchParams,
@@ -81,24 +82,16 @@ export default async function CashFlowDetailPage({
       <div className="space-y-6">
         <div>
           <h3 className="font-semibold text-ps-ink mb-2">Saídas (pagamentos realizados)</h3>
-          <DataTable
-            rows={paymentRealizations ?? []}
-            rowKey={(r: any) => r.id}
-            emptyMessage="Nenhum pagamento realizado neste período."
-            columns={[
-              {
-                header: "Descrição",
-                cell: (r: any) => (
-                  <Link href={`/pagamentos/${r.payments?.id}`} className="text-ps-ink hover:underline">
-                    {r.payments?.description}
-                  </Link>
-                ),
-              },
-              { header: "Empresa", cell: (r: any) => companyLabel(r.payments?.companies) },
-              { header: "Fornecedor", cell: (r: any) => r.payments?.suppliers?.legal_name ?? "—" },
-              { header: "Data", cell: (r: any) => r.paid_at },
-              { header: "Valor", cell: (r: any) => <span className="tabular-nums text-red-600">{formatBRL(r.amount)}</span> },
-            ]}
+          <PaymentsDetailTable
+            rows={(paymentRealizations ?? []).map((r: any) => ({
+              id: r.id,
+              amount: Number(r.amount),
+              paid_at: r.paid_at,
+              paymentId: r.payments?.id ?? "",
+              description: r.payments?.description ?? "—",
+              company: companyLabel(r.payments?.companies),
+              supplier: r.payments?.suppliers?.legal_name ?? "—",
+            }))}
           />
         </div>
 
