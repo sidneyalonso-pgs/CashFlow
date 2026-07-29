@@ -410,6 +410,7 @@ export async function createBulkPayments(rows: Array<{
   mode: "pago" | "programado";
   category_id?: string | null;
   cost_center_id?: string | null;
+  recurring?: boolean;
 }>) {
   const supabase = createClient();
   const {
@@ -451,6 +452,7 @@ export async function createBulkPayments(rows: Array<{
         expected_payment_date: row.date,
         competence_date: row.date,
         ...(isPaid ? { effective_payment_date: row.date, paid_amount: row.gross_amount, status: "pago" } : { status: "agendado" }),
+        recurring: row.recurring ?? false,
         created_by: user?.id,
         updated_by: user?.id,
       })

@@ -22,10 +22,11 @@ type Row = {
   mode: "pago" | "programado";
   category_id: string;
   cost_center_id: string;
+  recurring: boolean;
 };
 
 function makeRow(id: number, today: string): Row {
-  return { id, company_id: "", supplier_id: "", description: "", gross_amount: "", date: today, mode: "pago", category_id: "", cost_center_id: "" };
+  return { id, company_id: "", supplier_id: "", description: "", gross_amount: "", date: today, mode: "pago", category_id: "", cost_center_id: "", recurring: false };
 }
 
 export function BulkPaymentForm({
@@ -57,12 +58,12 @@ export function BulkPaymentForm({
     setRows((prev) => prev.filter((r) => r.id !== id));
   }
 
-  function updateRow(id: number, field: keyof Row, value: string) {
+  function updateRow(id: number, field: keyof Row, value: string | boolean) {
     setRows((prev) =>
       prev.map((r) => {
         if (r.id !== id) return r;
         const updated = { ...r, [field]: value };
-        if (field === "supplier_id") {
+        if (field === "supplier_id" && typeof value === "string") {
           const s = suppliersById.get(value);
           if (s) {
             updated.category_id = s.default_category_id ?? "";
@@ -93,6 +94,7 @@ export function BulkPaymentForm({
           mode: r.mode,
           category_id: r.category_id || null,
           cost_center_id: r.cost_center_id || null,
+          recurring: r.recurring,
         }))
       );
       if (result.errors.length > 0) {
@@ -120,6 +122,7 @@ export function BulkPaymentForm({
               <th className={thCls}>Modo</th>
               <th className={thCls}>Categoria</th>
               <th className={thCls}>Centro de custo</th>
+              <th className={`${thCls} text-center`} title="Marcar como recorrente">Recorr.</th>
               <th className={thCls}></th>
             </tr>
           </thead>
@@ -190,6 +193,15 @@ export function BulkPaymentForm({
                       <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
                     ))}
                   </select>
+                </td>
+                <td className="px-3 py-2 text-center">
+                  <input
+                    type="checkbox"
+                    checked={row.recurring}
+                    onChange={(e) => updateRow(row.id, "recurring", e.target.checked)}
+                    className="w-4 h-4 rounded accent-ps-green cursor-pointer"
+                    title="Pagamento recorrente"
+                  />
                 </td>
                 <td className="px-3 py-2">
                   <button
