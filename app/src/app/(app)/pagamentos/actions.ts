@@ -410,6 +410,7 @@ export async function createBulkPayments(rows: Array<{
   mode: "pago" | "programado";
   category_id?: string | null;
   cost_center_id?: string | null;
+  bank_account_id?: string | null;
   recurring?: boolean;
 }>) {
   const supabase = createClient();
@@ -446,6 +447,7 @@ export async function createBulkPayments(rows: Array<{
         currency: "BRL",
         category_id: row.category_id || null,
         cost_center_id: row.cost_center_id || null,
+        paying_bank_account_id: row.bank_account_id || null,
         cost_type: supplier?.cost_type ?? "despesas",
         document_date: row.date,
         due_date: row.date,

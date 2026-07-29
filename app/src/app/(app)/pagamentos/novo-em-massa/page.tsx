@@ -4,7 +4,7 @@ import { BulkPaymentForm } from "./BulkPaymentForm";
 
 export default async function BulkPaymentPage() {
   const supabase = createClient();
-  const [{ data: companies }, { data: suppliers }, { data: categories }, { data: costCenters }] =
+  const [{ data: companies }, { data: suppliers }, { data: categories }, { data: costCenters }, { data: bankAccounts }] =
     await Promise.all([
       supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
       supabase
@@ -14,6 +14,7 @@ export default async function BulkPaymentPage() {
         .order("legal_name"),
       supabase.from("categories").select("id, name").order("name"),
       supabase.from("cost_centers").select("id, code, name").order("code"),
+      supabase.from("bank_accounts").select("id, nickname, bank_name, company_id").order("nickname"),
     ]);
 
   return (
@@ -27,6 +28,7 @@ export default async function BulkPaymentPage() {
         suppliers={suppliers ?? []}
         categories={categories ?? []}
         costCenters={costCenters ?? []}
+        bankAccounts={(bankAccounts ?? []).map((a: any) => ({ id: a.id, nickname: a.nickname, bank_name: a.bank_name, company_id: a.company_id }))}
       />
     </div>
   );

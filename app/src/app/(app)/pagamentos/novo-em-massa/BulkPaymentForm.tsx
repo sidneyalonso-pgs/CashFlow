@@ -12,6 +12,8 @@ type Supplier = {
   default_description: string | null;
 };
 
+type BankAccount = { id: string; nickname: string; bank_name: string | null; company_id: string | null };
+
 type Row = {
   id: number;
   company_id: string;
@@ -22,11 +24,12 @@ type Row = {
   mode: "pago" | "programado";
   category_id: string;
   cost_center_id: string;
+  bank_account_id: string;
   recurring: boolean;
 };
 
 function makeRow(id: number, today: string): Row {
-  return { id, company_id: "", supplier_id: "", description: "", gross_amount: "", date: today, mode: "pago", category_id: "", cost_center_id: "", recurring: false };
+  return { id, company_id: "", supplier_id: "", description: "", gross_amount: "", date: today, mode: "pago", category_id: "", cost_center_id: "", bank_account_id: "", recurring: false };
 }
 
 export function BulkPaymentForm({
@@ -34,11 +37,13 @@ export function BulkPaymentForm({
   suppliers,
   categories,
   costCenters,
+  bankAccounts,
 }: {
   companies: Array<{ id: string; legal_name: string; trade_name: string | null }>;
   suppliers: Supplier[];
   categories: Array<{ id: string; name: string }>;
   costCenters: Array<{ id: string; code: string; name: string }>;
+  bankAccounts: BankAccount[];
 }) {
   const today = new Date().toISOString().split("T")[0];
   const [rows, setRows] = useState<Row[]>([makeRow(1, today), makeRow(2, today), makeRow(3, today)]);
@@ -94,6 +99,7 @@ export function BulkPaymentForm({
           mode: r.mode,
           category_id: r.category_id || null,
           cost_center_id: r.cost_center_id || null,
+          bank_account_id: r.bank_account_id || null,
           recurring: r.recurring,
         }))
       );
@@ -122,6 +128,7 @@ export function BulkPaymentForm({
               <th className={thCls}>Modo</th>
               <th className={thCls}>Categoria</th>
               <th className={thCls}>Centro de custo</th>
+              <th className={thCls}>Conta bancária</th>
               <th className={`${thCls} text-center`} title="Marcar como recorrente">Recorr.</th>
               <th className={thCls}></th>
             </tr>
@@ -192,6 +199,22 @@ export function BulkPaymentForm({
                     {costCenters.map((c) => (
                       <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
                     ))}
+                  </select>
+                </td>
+                <td className="px-3 py-2 min-w-[160px]">
+                  <select
+                    value={row.bank_account_id}
+                    onChange={(e) => updateRow(row.id, "bank_account_id", e.target.value)}
+                    className={inputCls}
+                  >
+                    <option value="">(sem conta)</option>
+                    {bankAccounts
+                      .filter((a) => !row.company_id || a.company_id === row.company_id)
+                      .map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.nickname}{a.bank_name ? ` — ${a.bank_name}` : ""}
+                        </option>
+                      ))}
                   </select>
                 </td>
                 <td className="px-3 py-2 text-center">
