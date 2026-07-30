@@ -182,6 +182,18 @@ export async function updateRevenue(revenueId: string, formData: FormData) {
   return { error: null };
 }
 
+export async function updateRevenueBankAccount(revenueId: string, bankAccountId: string | null) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("revenues")
+    .update({ receiving_bank_account_id: bankAccountId })
+    .eq("id", revenueId);
+  if (error) return { error: error.message };
+  revalidatePath("/receitas");
+  revalidatePath("/cash-flow");
+  return { error: null };
+}
+
 export async function cancelRevenue(revenueId: string) {
   const supabase = createClient();
   const { error } = await supabase.from("revenues").update({ status: "cancelada" }).eq("id", revenueId);

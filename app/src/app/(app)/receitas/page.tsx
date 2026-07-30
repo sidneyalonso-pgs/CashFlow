@@ -7,6 +7,7 @@ import { DataTable } from "@/components/DataTable";
 import { formatBRL } from "@/lib/calculations/money";
 import { RevenueSettleButton } from "./RevenueSettleButton";
 import { EditRevenueButton } from "./EditRevenueButton";
+import { InlineRevenueBankAccountEdit } from "./InlineRevenueBankAccountEdit";
 
 function SortLink({ label, field, currentSort, currentDir, searchParams }: any) {
   const isActive = currentSort === field;
@@ -49,7 +50,7 @@ export default async function RevenuesPage({
 
   let query = supabase
     .from("revenues")
-    .select("id, description, category_id, expected_amount, realized_amount, expected_date, status, notes, companies(legal_name, trade_name), categories(name)")
+    .select("id, description, category_id, expected_amount, realized_amount, expected_date, status, notes, receiving_bank_account_id, companies(legal_name, trade_name), categories(name), bank_accounts:receiving_bank_account_id(nickname, bank_name)")
     .is("deleted_at", null)
     .order(sortBy, { ascending: sortAsc });
 
@@ -65,6 +66,11 @@ export default async function RevenuesPage({
     supabase.from("categories").select("id, name").in("allowed_direction", ["entrada", "ambas"]).order("name"),
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
   ]);
+
+  const bankAccountOptions = (bankAccounts ?? []).map((a: any) => ({
+    id: a.id,
+    label: a.nickname ?? a.bank_name,
+  }));
 
   const sp = searchParams;
 
@@ -140,6 +146,17 @@ export default async function RevenuesPage({
             header: <SortLink label="Valor" field="amount" currentSort={sp.sort_by} currentDir={sp.sort_dir ?? "desc"} searchParams={sp} />,
             cell: (r: any) => (
               <span className="tabular-nums text-ps-green-700">{formatBRL(r.realized_amount ?? r.expected_amount)}</span>
+            ),
+          },
+          {
+            header: "Conta",
+            cell: (r: any) => (
+              <InlineRevenueBankAccountEdit
+                revenueId={r.id}
+                bankAccountId={r.receiving_bank_account_id ?? null}
+                bankAccountLabel={(r.bank_accounts as any)?.nickname ?? (r.bank_accounts as any)?.bank_name ?? null}
+                bankAccounts={bankAccountOptions}
+              />
             ),
           },
           { header: "Status", cell: (r: any) => <StatusBadge status={r.status} /> },
