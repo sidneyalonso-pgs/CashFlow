@@ -10,10 +10,11 @@ type Granularity = "semana" | "mes" | "trimestre";
 export default async function CashFlowPage({
   searchParams,
 }: {
-  searchParams: { company_id?: string; visao?: string; ano?: string; mes?: string; pagamentos?: string };
+  searchParams: { company_id?: string; visao?: string; ano?: string; mes?: string; pagamentos?: string; bank_account_id?: string };
 }) {
   const supabase = createClient();
   const companyId = searchParams.company_id;
+  const bankAccountId = searchParams.bank_account_id;
   const granularity: Granularity =
     searchParams.visao === "mes" || searchParams.visao === "trimestre" ? (searchParams.visao as Granularity) : "semana";
   // realizados = só baixados; provisionados = só futuros/pendentes; ambos = os dois
@@ -31,23 +32,23 @@ export default async function CashFlowPage({
   const rangeStart = buckets[0].start;
   const rangeEnd = buckets[buckets.length - 1].end;
 
-  let bankAccountsQuery = supabase.from("bank_accounts").select("initial_balance, counts_as_available_cash, company_id");
+  let bankAccountsQuery = supabase.from("bank_accounts").select("id, nickname, bank_name, initial_balance, counts_as_available_cash, company_id");
   let paymentRealizationsQuery = supabase
     .from("payment_realizations")
-    .select("amount, paid_at, payments!inner(company_id)")
+    .select("amount, paid_at, payments!inner(company_id, paying_bank_account_id)")
     .is("payments.deleted_at", null);
   let provisionedQuery = supabase
     .from("payments")
-    .select("gross_amount, due_date, company_id")
+    .select("gross_amount, due_date, company_id, paying_bank_account_id")
     .is("deleted_at", null)
     .not("status", "in", '("pago","cancelado")');
   let revenueRealizationsQuery = supabase
     .from("revenue_realizations")
-    .select("amount, received_at, revenues!inner(company_id)")
+    .select("amount, received_at, revenues!inner(company_id, receiving_bank_account_id)")
     .is("revenues.deleted_at", null);
   let investmentsQuery = supabase
     .from("investments")
-    .select("tipo, applied_amount, applied_date, company_id, is_opening_balance");
+    .select("tipo, applied_amount, applied_date, company_id, bank_account_id, is_opening_balance");
 
   if (companyId) {
     bankAccountsQuery = bankAccountsQuery.eq("company_id", companyId);
@@ -57,7 +58,7 @@ export default async function CashFlowPage({
     investmentsQuery = investmentsQuery.eq("company_id", companyId);
   }
 
-  const [{ data: bankAccounts }, { data: paymentRealizations }, { data: provisionedPayments }, { data: revenueRealizations }, { data: investmentsData }, { data: companies }] =
+  const [{ data: allBankAccounts }, { data: paymentRealizationsRaw }, { data: provisionedPaymentsRaw }, { data: revenueRealizationsRaw }, { data: investmentsDataRaw }, { data: companies }] =
     await Promise.all([
       bankAccountsQuery,
       pagamentosFiltro !== "provisionados" ? paymentRealizationsQuery : Promise.resolve({ data: [] }),
@@ -66,6 +67,23 @@ export default async function CashFlowPage({
       investmentsQuery,
       supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
     ]);
+
+  // Filtrar por conta bancária se selecionada
+  const bankAccounts = bankAccountId
+    ? (allBankAccounts ?? []).filter((a: any) => a.id === bankAccountId)
+    : (allBankAccounts ?? []);
+  const paymentRealizations = bankAccountId
+    ? (paymentRealizationsRaw ?? []).filter((r: any) => (r.payments as any)?.paying_bank_account_id === bankAccountId)
+    : (paymentRealizationsRaw ?? []);
+  const provisionedPayments = bankAccountId
+    ? (provisionedPaymentsRaw ?? []).filter((p: any) => p.paying_bank_account_id === bankAccountId)
+    : (provisionedPaymentsRaw ?? []);
+  const revenueRealizations = bankAccountId
+    ? (revenueRealizationsRaw ?? []).filter((r: any) => (r.revenues as any)?.receiving_bank_account_id === bankAccountId)
+    : (revenueRealizationsRaw ?? []);
+  const investmentsData = bankAccountId
+    ? (investmentsDataRaw ?? []).filter((i: any) => i.bank_account_id === bankAccountId)
+    : (investmentsDataRaw ?? []);
 
   const initialCashBalance = sumMoney(
     (bankAccounts ?? []).filter((a: any) => a.counts_as_available_cash).map((a: any) => a.initial_balance)
@@ -157,6 +175,14 @@ export default async function CashFlowPage({
             </option>
           ))}
         </select>
+        <select name="bank_account_id" defaultValue={bankAccountId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+          <option value="">Todas as contas</option>
+          {(allBankAccounts ?? []).map((a: any) => (
+            <option key={a.id} value={a.id}>
+              {a.nickname ?? a.bank_name}
+            </option>
+          ))}
+        </select>
         <select name="visao" defaultValue={granularity} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
           <option value="semana">Por semana</option>
           <option value="mes">Por mês</option>
@@ -232,7 +258,7 @@ export default async function CashFlowPage({
             {bucketRows.map((row) => {
               const detailHref = `/cash-flow/detalhe?start=${row.start}&end=${row.end}&label=${encodeURIComponent(row.label)}${
                 companyId ? `&company_id=${companyId}` : ""
-              }`;
+              }${bankAccountId ? `&bank_account_id=${bankAccountId}` : ""}`;
               const totalWithInv = row.balance.toNumber() + row.invBalance;
               return (
                 <tr key={row.label} className="border-t border-ps-navy/5 hover:bg-ps-bg-2/40">

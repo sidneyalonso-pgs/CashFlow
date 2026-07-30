@@ -9,9 +9,9 @@ import { PaymentsDetailTable } from "./PaymentsDetailTable";
 export default async function CashFlowDetailPage({
   searchParams,
 }: {
-  searchParams: { start?: string; end?: string; company_id?: string; label?: string };
+  searchParams: { start?: string; end?: string; company_id?: string; label?: string; bank_account_id?: string };
 }) {
-  const { start, end, company_id: companyId, label } = searchParams;
+  const { start, end, company_id: companyId, label, bank_account_id: bankAccountId } = searchParams;
 
   if (!start || !end) {
     return (
@@ -53,6 +53,11 @@ export default async function CashFlowDetailPage({
     paymentsQuery = paymentsQuery.eq("payments.company_id", companyId);
     revenuesQuery = revenuesQuery.eq("revenues.company_id", companyId);
     investmentsQuery = investmentsQuery.eq("company_id", companyId);
+  }
+  if (bankAccountId) {
+    paymentsQuery = paymentsQuery.eq("payments.paying_bank_account_id", bankAccountId);
+    revenuesQuery = revenuesQuery.eq("revenues.receiving_bank_account_id", bankAccountId);
+    investmentsQuery = investmentsQuery.eq("bank_account_id", bankAccountId);
   }
 
   const [{ data: paymentRealizations }, { data: revenueRealizations }, { data: investments }] = await Promise.all([
