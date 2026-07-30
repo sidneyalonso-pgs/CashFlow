@@ -11,6 +11,7 @@ const TIPO_LABELS: Record<string, string> = {
   ted_enviado: "TED enviado",
   ted_recebido: "TED recebido",
   transferencia_interna: "Transf. interna",
+  reembolso: "Reembolso",
   debito_bancario: "Débito bancário",
   outro: "Outro",
 };
@@ -50,7 +51,7 @@ export default async function TransferenciasPage({
   }));
 
   const totalEnviado = (transfers ?? [])
-    .filter((t: any) => t.tipo.includes("enviado") || t.tipo === "debito_bancario" || t.tipo === "transferencia_interna")
+    .filter((t: any) => t.tipo.includes("enviado") || t.tipo === "debito_bancario" || t.tipo === "transferencia_interna" || t.tipo === "reembolso")
     .reduce((s: number, t: any) => s + Number(t.amount), 0);
 
   const totalRecebido = (transfers ?? [])
@@ -122,6 +123,7 @@ export default async function TransferenciasPage({
               <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                 r.tipo.includes("recebido") ? "bg-green-50 text-green-700" :
                 r.tipo === "transferencia_interna" ? "bg-blue-50 text-blue-700" :
+                r.tipo === "reembolso" ? "bg-orange-50 text-orange-700" :
                 "bg-red-50 text-red-700"
               }`}>
                 {TIPO_LABELS[r.tipo] ?? r.tipo}

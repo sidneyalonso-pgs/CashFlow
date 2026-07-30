@@ -14,6 +14,7 @@ const TIPOS = [
   { value: "ted_enviado", label: "TED enviado para" },
   { value: "ted_recebido", label: "TED recebido de" },
   { value: "transferencia_interna", label: "Transferência entre contas (mesma ou outra empresa)" },
+  { value: "reembolso", label: "Reembolso a funcionário" },
   { value: "debito_bancario", label: "Débito bancário (tarifa/IOF)" },
   { value: "outro", label: "Outro" },
 ];
@@ -38,7 +39,7 @@ export function NewTransferButton({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const isEnviado = tipo.includes("enviado") || tipo === "debito_bancario";
+  const isEnviado = tipo.includes("enviado") || tipo === "debito_bancario" || tipo === "reembolso";
   const isRecebido = tipo.includes("recebido");
   const isInterno = tipo === "transferencia_interna";
   const showCounterpart = !isInterno && tipo !== "debito_bancario";
