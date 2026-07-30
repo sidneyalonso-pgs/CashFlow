@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { FinancialCard } from "@/components/FinancialCard";
+import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 import { formatBRL, sumMoney } from "@/lib/calculations/money";
 import { getWeekBuckets, getMonthBuckets, getQuarterBuckets, type Bucket } from "@/lib/calculations/cashflowPeriods";
 
@@ -166,7 +167,7 @@ export default async function CashFlowPage({
     <div>
       <PageHeader title="Cash Flow" subtitle="Resumo executivo e evolução do saldo de caixa" />
 
-      <form className="flex flex-wrap gap-3 mb-6">
+      <AutoSubmitForm className="flex flex-wrap gap-3 mb-6">
         <select name="company_id" defaultValue={companyId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
           <option value="">Todas as empresas</option>
           {(companies ?? []).map((c) => (
@@ -209,10 +210,7 @@ export default async function CashFlowPage({
             </option>
           ))}
         </select>
-        <button className="text-sm text-ps-navy underline" type="submit">
-          Filtrar
-        </button>
-      </form>
+      </AutoSubmitForm>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <FinancialCard label={`Saldo C/C Inicial (${formatShort(rangeStart)})`} value={formatBRL(openingBalance)} />

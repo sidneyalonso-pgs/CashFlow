@@ -7,6 +7,7 @@ import { formatBRL } from "@/lib/calculations/money";
 import { InlineDueDateEdit } from "./InlineDueDateEdit";
 import { InlineBankAccountEdit } from "./InlineBankAccountEdit";
 import { PaymentRowActions } from "./PaymentRowActions";
+import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 
 function getDisplayStatus(status: string, dueDate: string | null, today: string): string {
   if (status === "pago" || status === "cancelado") return status;
@@ -136,7 +137,7 @@ export default async function PaymentsPage({
       />
 
       {/* Filtros */}
-      <form className="flex flex-wrap gap-3 mb-4">
+      <AutoSubmitForm className="flex flex-wrap gap-3 mb-4">
         <select
           name="company_id"
           defaultValue={searchParams.company_id ?? ""}
@@ -194,15 +195,12 @@ export default async function PaymentsPage({
         {searchParams.sort_by && <input type="hidden" name="sort_by" value={searchParams.sort_by} />}
         {searchParams.sort_dir && <input type="hidden" name="sort_dir" value={searchParams.sort_dir} />}
 
-        <button className="text-sm text-ps-navy underline" type="submit">
-          Filtrar
-        </button>
         {(searchParams.company_id || searchParams.supplier_id || searchParams.status || searchParams.date_from || searchParams.date_to) && (
-          <Link href="/pagamentos" className="text-sm text-ps-muted underline">
+          <Link href="/pagamentos" className="text-sm text-ps-muted underline self-center">
             Limpar
           </Link>
         )}
-      </form>
+      </AutoSubmitForm>
 
       {/* Tabela */}
       <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 overflow-hidden overflow-x-auto">

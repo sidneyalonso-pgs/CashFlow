@@ -4,6 +4,7 @@ import { DataTable } from "@/components/DataTable";
 import { NewTransferButton } from "./NewTransferButton";
 import { DeleteTransferButton } from "./DeleteTransferButton";
 import { formatBRL } from "@/lib/calculations/money";
+import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 
 const TIPO_LABELS: Record<string, string> = {
   pix_enviado: "Pix enviado",
@@ -77,7 +78,7 @@ export default async function TransferenciasPage({
       />
 
       {/* Filtros */}
-      <form className="flex flex-wrap gap-3 mb-6">
+      <AutoSubmitForm className="flex flex-wrap gap-3 mb-6">
         <select name="company_id" defaultValue={companyId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
           <option value="">Todas as empresas</option>
           {(companies ?? []).map((c: any) => (
@@ -89,8 +90,7 @@ export default async function TransferenciasPage({
             <option key={m.value} value={m.value}>{m.label}/{refYear}</option>
           ))}
         </select>
-        <button className="text-sm text-ps-navy underline" type="submit">Filtrar</button>
-      </form>
+      </AutoSubmitForm>
 
       {/* Cards resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">

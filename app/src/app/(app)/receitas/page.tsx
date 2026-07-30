@@ -8,6 +8,7 @@ import { formatBRL } from "@/lib/calculations/money";
 import { RevenueSettleButton } from "./RevenueSettleButton";
 import { EditRevenueButton } from "./EditRevenueButton";
 import { InlineRevenueBankAccountEdit } from "./InlineRevenueBankAccountEdit";
+import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 
 function SortLink({ label, field, currentSort, currentDir, searchParams }: any) {
   const isActive = currentSort === field;
@@ -97,7 +98,7 @@ export default async function RevenuesPage({
         }
       />
 
-      <form className="flex flex-wrap gap-3 mb-4">
+      <AutoSubmitForm className="flex flex-wrap gap-3 mb-4">
         <select name="company_id" defaultValue={sp.company_id ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
           <option value="">Todas as empresas</option>
           {(companies ?? []).map((c) => (
@@ -124,9 +125,8 @@ export default async function RevenuesPage({
         <input type="date" name="date_from" defaultValue={sp.date_from ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm" />
         <input type="date" name="date_to" defaultValue={sp.date_to ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm" />
 
-        <button className="text-sm text-ps-navy underline" type="submit">Filtrar</button>
         <Link href="/receitas" className="text-sm text-ps-muted underline self-center">Limpar</Link>
-      </form>
+      </AutoSubmitForm>
 
       <DataTable
         rows={revenues ?? []}

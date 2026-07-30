@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DataTable } from "@/components/DataTable";
 import { formatBRL } from "@/lib/calculations/money";
+import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 
 export default async function MovementsPage({
   searchParams,
@@ -52,7 +53,7 @@ export default async function MovementsPage({
         subtitle="Consulta consolidada de pagamentos (saídas) previstos e realizados"
       />
 
-      <form className="flex flex-wrap gap-3 mb-4">
+      <AutoSubmitForm className="flex flex-wrap gap-3 mb-4">
         <select
           name="company_id"
           defaultValue={searchParams.company_id ?? ""}
@@ -77,10 +78,7 @@ export default async function MovementsPage({
           defaultValue={searchParams.to ?? ""}
           className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm"
         />
-        <button className="text-sm text-ps-navy underline" type="submit">
-          Filtrar
-        </button>
-      </form>
+      </AutoSubmitForm>
 
       {/* Pagamentos */}
       <DataTable
