@@ -288,6 +288,18 @@ export async function updatePayment(paymentId: string, formData: FormData) {
   return { error: null };
 }
 
+export async function updatePaymentBankAccount(paymentId: string, bankAccountId: string | null) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("payments")
+    .update({ paying_bank_account_id: bankAccountId })
+    .eq("id", paymentId);
+  if (error) return { error: error.message };
+  revalidatePath("/pagamentos");
+  revalidatePath("/cash-flow");
+  return { error: null };
+}
+
 export async function updatePaymentDueDate(paymentId: string, dueDate: string) {
   if (!dueDate) return { error: "Informe a data de vencimento." };
 

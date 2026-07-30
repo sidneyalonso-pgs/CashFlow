@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatBRL } from "@/lib/calculations/money";
 import { InlineDueDateEdit } from "./InlineDueDateEdit";
+import { InlineBankAccountEdit } from "./InlineBankAccountEdit";
 import { PaymentRowActions } from "./PaymentRowActions";
 
 function getDisplayStatus(status: string, dueDate: string | null, today: string): string {
@@ -64,7 +65,7 @@ export default async function PaymentsPage({
 
   let query = supabase
     .from("payments")
-    .select("id, description, gross_amount, due_date, status, companies(legal_name, trade_name), suppliers(legal_name)")
+    .select("id, description, gross_amount, due_date, status, paying_bank_account_id, companies(legal_name, trade_name), suppliers(legal_name), bank_accounts:paying_bank_account_id(nickname, bank_name)")
     .is("deleted_at", null)
     .order(sortBy, { ascending: sortDir });
 
@@ -85,11 +86,17 @@ export default async function PaymentsPage({
   if (searchParams.date_from) query = query.gte("due_date", searchParams.date_from);
   if (searchParams.date_to) query = query.lte("due_date", searchParams.date_to);
 
-  const [{ data: payments }, { data: companies }, { data: suppliers }] = await Promise.all([
+  const [{ data: payments }, { data: companies }, { data: suppliers }, { data: bankAccounts }] = await Promise.all([
     query,
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
     supabase.from("suppliers").select("id, legal_name").eq("status", "ativo").order("legal_name"),
+    supabase.from("bank_accounts").select("id, nickname, bank_name").order("nickname"),
   ]);
+
+  const bankAccountOptions = (bankAccounts ?? []).map((a: any) => ({
+    id: a.id,
+    label: `${a.nickname ?? a.bank_name}`,
+  }));
 
   const rows = (payments ?? []).map((p: any) => ({
     ...p,
@@ -210,6 +217,7 @@ export default async function PaymentsPage({
               <th className="text-left px-4 py-3 whitespace-nowrap">
                 <SortLink label="Vencimento / Pagamento" field="due_date" {...sortArgs} />
               </th>
+              <th className="text-left px-4 py-3 whitespace-nowrap">Conta</th>
               <th className="text-left px-4 py-3 whitespace-nowrap">
                 <SortLink label="Valor" field="gross_amount" {...sortArgs} />
               </th>
@@ -230,6 +238,14 @@ export default async function PaymentsPage({
                 <td className="px-4 py-3 whitespace-nowrap">
                   <InlineDueDateEdit paymentId={p.id} dueDate={p.due_date} />
                 </td>
+                <td className="px-4 py-3 whitespace-nowrap min-w-[140px]">
+                  <InlineBankAccountEdit
+                    paymentId={p.id}
+                    bankAccountId={p.paying_bank_account_id ?? null}
+                    bankAccountLabel={(p.bank_accounts as any)?.nickname ?? (p.bank_accounts as any)?.bank_name ?? null}
+                    bankAccounts={bankAccountOptions}
+                  />
+                </td>
                 <td className="px-4 py-3 whitespace-nowrap tabular-nums">{formatBRL(p.gross_amount)}</td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <StatusBadge status={p.displayStatus} />
@@ -246,7 +262,7 @@ export default async function PaymentsPage({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-ps-muted">
+                <td colSpan={8} className="px-4 py-8 text-center text-ps-muted">
                   Nenhum pagamento encontrado.
                 </td>
               </tr>
