@@ -16,12 +16,12 @@ export function AutoSubmitForm({
     <form
       ref={formRef}
       onChange={(e) => {
-        const target = e.target as HTMLInputElement;
+        const target = e.target as unknown as HTMLInputElement;
         if (target.type === "date" || target.type === "text") return;
         submit();
       }}
       onBlur={(e) => {
-        const target = e.target as HTMLInputElement;
+        const target = e.target as unknown as HTMLInputElement;
         if (target.type === "date") submit();
       }}
       className={className}
