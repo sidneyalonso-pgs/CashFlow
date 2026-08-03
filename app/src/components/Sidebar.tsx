@@ -19,6 +19,7 @@ const NAV_ITEMS = [
   { href: "/receitas", label: "Receitas", icon: "M12 2v20M17 5.5c0-1.5-2-2.5-5-2.5s-5 1.2-5 3 2 2.7 5 3 5 1.3 5 3-2 3-5 3-5-1-5-2.5" },
   { href: "/transferencias", label: "Transferências", icon: "M7 16l-4-4m0 0l4-4m-4 4h18M17 8l4 4m0 0l-4 4m4-4H3" },
   { href: "/movimentacoes", label: "Movimentações", icon: "M7 4v11M7 15 3.5 11.5M7 15l3.5-3.5M17 20V9M17 9l3.5 3.5M17 9l-3.5 3.5" },
+  { href: "/faturamento", label: "Faturamento", icon: "M9 7H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M9 7h6M9 12h6M9 16h4" },
   { href: "/conciliacao", label: "Conciliação", icon: "M4 21V10l8-6 8 6v11M9 21v-6h6v6M4 10h16" },
   { href: "/investimentos", label: "Investimentos", icon: "M4 19h16M7 19v-6m5 6V8m5 11v-9" },
   { href: "/fpa", label: "FP&A", icon: "M4 4h16v16H4V4Zm3 4h2m3 0h7M7 12h2m3 0h4m-9 4h2m3 0h7" },
