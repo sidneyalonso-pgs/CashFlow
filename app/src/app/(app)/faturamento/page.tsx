@@ -55,6 +55,9 @@ export default async function FaturamentoDashboard() {
             <Link href="/faturamento/faturas" className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors">
               Todas as faturas
             </Link>
+            <Link href="/faturamento/notas-debito" className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors">
+              Notas de Débito
+            </Link>
             <Link href="/faturamento/emitir" className="bg-ps-navy text-white text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-navy-700 transition-colors">
               Emitir demonstrativo
             </Link>

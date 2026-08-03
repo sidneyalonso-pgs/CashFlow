@@ -165,3 +165,56 @@ export async function cancelarFatura(invoiceId: string) {
   revalidatePath("/faturamento/faturas");
   return { error: null };
 }
+
+export async function criarNotaDebito(data: {
+  pagador: string; cnpj_pagador?: string; end_pagador?: string;
+  recebedor: string; cnpj_recebedor?: string; end_recebedor?: string;
+  debitado?: string; cnpj_debitado?: string;
+  tipo: string; ref?: string; competencia: string; vencimento?: string;
+  itens: Array<{ desc: string; comp: string; val: number }>;
+  total: number; obs?: string;
+}) {
+  const supabase = createClient();
+
+  // Generate sequential numero_nd
+  const { count } = await supabase
+    .from("billing_debit_notes")
+    .select("id", { count: "exact", head: true });
+  const seq = String((count ?? 0) + 1).padStart(3, "0");
+  const ano = new Date().getFullYear().toString().slice(-2);
+  const numero_nd = `${seq}/${ano}`;
+
+  const { data: nd, error } = await supabase
+    .from("billing_debit_notes")
+    .insert({
+      ...data,
+      numero_nd,
+      itens: data.itens,
+      status: "Pendente",
+      data_emissao: new Date().toISOString().split("T")[0],
+    })
+    .select("id")
+    .single();
+
+  if (error) return { error: error.message, id: null };
+  revalidatePath("/faturamento/notas-debito");
+  return { error: null, id: nd.id };
+}
+
+export async function baixarNotaDebito(ndId: string, dataPgto: string) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("billing_debit_notes")
+    .update({ status: "Pago", data_pgto: dataPgto })
+    .eq("id", ndId);
+  if (error) return { error: error.message };
+  revalidatePath("/faturamento/notas-debito");
+  return { error: null };
+}
+
+export async function cancelarNotaDebito(ndId: string) {
+  const supabase = createClient();
+  await supabase.from("billing_debit_notes").update({ status: "Cancelado" }).eq("id", ndId);
+  revalidatePath("/faturamento/notas-debito");
+  return { error: null };
+}
