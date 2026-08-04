@@ -51,21 +51,30 @@ export default async function CashFlowPage({
     .from("investments")
     .select("tipo, applied_amount, applied_date, company_id, bank_account_id, is_opening_balance");
 
+  // Transferências: pix/TED recebido = entrada; pix/TED enviado + débitos = saída
+  let transfersQuery = supabase
+    .from("transfers")
+    .select("tipo, amount, transfer_date, company_id, from_account_id, to_account_id, description, counterpart_name")
+    .gte("transfer_date", "2020-01-01")
+    .lte("transfer_date", rangeEnd);
+
   if (companyId) {
     bankAccountsQuery = bankAccountsQuery.eq("company_id", companyId);
     paymentRealizationsQuery = paymentRealizationsQuery.eq("payments.company_id", companyId);
     provisionedQuery = provisionedQuery.eq("company_id", companyId);
     revenueRealizationsQuery = revenueRealizationsQuery.eq("revenues.company_id", companyId);
     investmentsQuery = investmentsQuery.eq("company_id", companyId);
+    transfersQuery = transfersQuery.eq("company_id", companyId);
   }
 
-  const [{ data: allBankAccounts }, { data: paymentRealizationsRaw }, { data: provisionedPaymentsRaw }, { data: revenueRealizationsRaw }, { data: investmentsDataRaw }, { data: companies }] =
+  const [{ data: allBankAccounts }, { data: paymentRealizationsRaw }, { data: provisionedPaymentsRaw }, { data: revenueRealizationsRaw }, { data: investmentsDataRaw }, { data: transfersRaw }, { data: companies }] =
     await Promise.all([
       bankAccountsQuery,
       pagamentosFiltro !== "provisionados" ? paymentRealizationsQuery : Promise.resolve({ data: [] }),
       pagamentosFiltro !== "realizados" ? provisionedQuery : Promise.resolve({ data: [] }),
       revenueRealizationsQuery,
       investmentsQuery,
+      transfersQuery,
       supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
     ]);
 
@@ -85,6 +94,24 @@ export default async function CashFlowPage({
   const investmentsData = bankAccountId
     ? (investmentsDataRaw ?? []).filter((i: any) => i.bank_account_id === bankAccountId)
     : (investmentsDataRaw ?? []);
+
+  // Transferências filtradas por conta bancária
+  const INFLOW_TIPOS = ["pix_recebido", "ted_recebido"];
+  const OUTFLOW_TIPOS = ["pix_enviado", "ted_enviado", "debito_bancario", "reembolso"];
+  const allTransfers = (transfersRaw ?? []) as Array<{ tipo: string; amount: number; transfer_date: string; from_account_id: string | null; to_account_id: string | null; counterpart_name: string | null; description: string | null }>;
+  const transfersFiltered = bankAccountId
+    ? allTransfers.filter((t) =>
+        (INFLOW_TIPOS.includes(t.tipo) && t.to_account_id === bankAccountId) ||
+        (OUTFLOW_TIPOS.includes(t.tipo) && t.from_account_id === bankAccountId)
+      )
+    : allTransfers;
+
+  const transferInflows = transfersFiltered
+    .filter((t) => INFLOW_TIPOS.includes(t.tipo))
+    .map((t) => ({ amount: Number(t.amount), received_at: t.transfer_date }));
+  const transferOutflows = transfersFiltered
+    .filter((t) => OUTFLOW_TIPOS.includes(t.tipo))
+    .map((t) => ({ amount: Number(t.amount), paid_at: t.transfer_date }));
 
   const initialCashBalance = sumMoney(
     (bankAccounts ?? []).filter((a: any) => a.counts_as_available_cash).map((a: any) => a.initial_balance)
@@ -112,10 +139,12 @@ export default async function CashFlowPage({
     ...((paymentRealizations ?? []) as Array<{ amount: number; paid_at: string }>),
     ...provisionedOutflows,
     ...invOutflows,
+    ...transferOutflows,
   ];
   const inflows = [
     ...((revenueRealizations ?? []) as Array<{ amount: number; received_at: string }>),
     ...invInflows,
+    ...transferInflows,
   ];
 
   const sumInRange = (items: Array<{ amount: number }>, dates: string[], from: string, to: string) =>

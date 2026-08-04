@@ -6,6 +6,15 @@ import { DataTable } from "@/components/DataTable";
 import { formatBRL } from "@/lib/calculations/money";
 import { PaymentsDetailTable } from "./PaymentsDetailTable";
 
+const TIPO_LABELS: Record<string, string> = {
+  pix_enviado: "Pix enviado",
+  pix_recebido: "Pix recebido",
+  ted_enviado: "TED enviado",
+  ted_recebido: "TED recebido",
+  reembolso: "Reembolso",
+  debito_bancario: "Débito bancário",
+};
+
 export default async function CashFlowDetailPage({
   searchParams,
 }: {
@@ -49,10 +58,18 @@ export default async function CashFlowDetailPage({
     .lte("applied_date", end)
     .order("applied_date");
 
+  let transfersQuery = supabase
+    .from("transfers")
+    .select("id, tipo, amount, transfer_date, counterpart_name, description, from_account_id, to_account_id, company_id, companies!transfers_company_id_fkey(legal_name, trade_name), from_account:bank_accounts!transfers_from_account_id_fkey(nickname), to_account:bank_accounts!transfers_to_account_id_fkey(nickname)")
+    .gte("transfer_date", start)
+    .lte("transfer_date", end)
+    .order("transfer_date");
+
   if (companyId) {
     paymentsQuery = paymentsQuery.eq("payments.company_id", companyId);
     revenuesQuery = revenuesQuery.eq("revenues.company_id", companyId);
     investmentsQuery = investmentsQuery.eq("company_id", companyId);
+    transfersQuery = transfersQuery.eq("company_id", companyId);
   }
   if (bankAccountId) {
     paymentsQuery = paymentsQuery.eq("payments.paying_bank_account_id", bankAccountId);
@@ -60,11 +77,22 @@ export default async function CashFlowDetailPage({
     investmentsQuery = investmentsQuery.eq("bank_account_id", bankAccountId);
   }
 
-  const [{ data: paymentRealizations }, { data: revenueRealizations }, { data: investments }] = await Promise.all([
+  const [{ data: paymentRealizations }, { data: revenueRealizations }, { data: investments }, { data: transfersRaw }] = await Promise.all([
     paymentsQuery,
     revenuesQuery,
     investmentsQuery,
+    transfersQuery,
   ]);
+
+  const INFLOW_TIPOS = ["pix_recebido", "ted_recebido"];
+  const OUTFLOW_TIPOS = ["pix_enviado", "ted_enviado", "debito_bancario", "reembolso"];
+  const allTransfers = (transfersRaw ?? []) as any[];
+  const transfersInflows = bankAccountId
+    ? allTransfers.filter((t) => INFLOW_TIPOS.includes(t.tipo) && t.to_account_id === bankAccountId)
+    : allTransfers.filter((t) => INFLOW_TIPOS.includes(t.tipo));
+  const transfersOutflows = bankAccountId
+    ? allTransfers.filter((t) => OUTFLOW_TIPOS.includes(t.tipo) && t.from_account_id === bankAccountId)
+    : allTransfers.filter((t) => OUTFLOW_TIPOS.includes(t.tipo));
 
   const resgates = (investments ?? []).filter((i: any) => i.tipo === "resgate");
   const aplicacoes = (investments ?? []).filter((i: any) => i.tipo === "aplicacao" && !i.is_opening_balance);
@@ -100,6 +128,24 @@ export default async function CashFlowDetailPage({
           />
         </div>
 
+        {transfersOutflows.length > 0 && (
+          <div>
+            <h3 className="font-semibold text-ps-ink mb-2">Saídas (transferências)</h3>
+            <DataTable
+              rows={transfersOutflows}
+              rowKey={(r: any) => r.id}
+              columns={[
+                { header: "Tipo", cell: (r: any) => TIPO_LABELS[r.tipo] ?? r.tipo },
+                { header: "Empresa", cell: (r: any) => companyLabel(r.companies) },
+                { header: "Para / Descrição", cell: (r: any) => r.counterpart_name ?? r.description ?? "—" },
+                { header: "Conta débito", cell: (r: any) => (r.from_account as any)?.nickname ?? "—" },
+                { header: "Data", cell: (r: any) => r.transfer_date },
+                { header: "Valor", cell: (r: any) => <span className="tabular-nums text-red-600">{formatBRL(r.amount)}</span> },
+              ]}
+            />
+          </div>
+        )}
+
         {aplicacoes.length > 0 && (
           <div>
             <h3 className="font-semibold text-ps-ink mb-2">Saídas (aplicações em investimentos)</h3>
@@ -131,6 +177,24 @@ export default async function CashFlowDetailPage({
             ]}
           />
         </div>
+
+        {transfersInflows.length > 0 && (
+          <div>
+            <h3 className="font-semibold text-ps-ink mb-2">Entradas (transferências)</h3>
+            <DataTable
+              rows={transfersInflows}
+              rowKey={(r: any) => r.id}
+              columns={[
+                { header: "Tipo", cell: (r: any) => TIPO_LABELS[r.tipo] ?? r.tipo },
+                { header: "Empresa", cell: (r: any) => companyLabel(r.companies) },
+                { header: "De / Descrição", cell: (r: any) => r.counterpart_name ?? r.description ?? "—" },
+                { header: "Conta crédito", cell: (r: any) => (r.to_account as any)?.nickname ?? "—" },
+                { header: "Data", cell: (r: any) => r.transfer_date },
+                { header: "Valor", cell: (r: any) => <span className="tabular-nums text-ps-green-700">{formatBRL(r.amount)}</span> },
+              ]}
+            />
+          </div>
+        )}
 
         {resgates.length > 0 && (
           <div>

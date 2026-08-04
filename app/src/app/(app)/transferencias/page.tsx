@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { DataTable } from "@/components/DataTable";
 import { NewTransferButton } from "./NewTransferButton";
 import { DeleteTransferButton } from "./DeleteTransferButton";
+import { EditTransferButton } from "./EditTransferButton";
 import { formatBRL } from "@/lib/calculations/money";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 
@@ -179,7 +180,23 @@ export default async function TransferenciasPage({
           },
           {
             header: "",
-            cell: (r: any) => <DeleteTransferButton id={r.id} />,
+            cell: (r: any) => (
+              <div className="flex items-center gap-1">
+                <EditTransferButton
+                  transfer={{
+                    id: r.id, tipo: r.tipo, description: r.description, amount: Number(r.amount),
+                    transfer_date: r.transfer_date, counterpart_name: r.counterpart_name,
+                    company_id: r.company_id, from_account_id: r.from_account_id, to_account_id: r.to_account_id,
+                  }}
+                  companies={companies ?? []}
+                  bankAccounts={(bankAccounts ?? []).map((a: any) => ({
+                    id: a.id, name: a.nickname, bank_name: a.bank_name,
+                    company_name: a.companies?.trade_name || a.companies?.legal_name || null,
+                  }))}
+                />
+                <DeleteTransferButton id={r.id} />
+              </div>
+            ),
           },
         ]}
       />
