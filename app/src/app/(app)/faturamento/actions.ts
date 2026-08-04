@@ -43,6 +43,38 @@ export async function deleteBillingClient(id: string) {
   return { error: null };
 }
 
+export async function createSubconta(data: {
+  client_id: string; razao: string; cnpj?: string; num_conta?: string;
+  in_tipo?: string; in_val?: number; rep_in?: number;
+  out_tipo?: string; out_val?: number; rep_out?: number; status?: string;
+}) {
+  const supabase = createClient();
+  const { error } = await supabase.from("billing_subcontas").insert(data);
+  if (error) return { error: error.message };
+  revalidatePath("/faturamento/clientes");
+  return { error: null };
+}
+
+export async function updateSubconta(id: string, data: {
+  razao?: string; cnpj?: string; num_conta?: string;
+  in_tipo?: string; in_val?: number; rep_in?: number;
+  out_tipo?: string; out_val?: number; rep_out?: number; status?: string;
+}) {
+  const supabase = createClient();
+  const { error } = await supabase.from("billing_subcontas").update(data).eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath("/faturamento/clientes");
+  return { error: null };
+}
+
+export async function deleteSubconta(id: string) {
+  const supabase = createClient();
+  const { error } = await supabase.from("billing_subcontas").delete().eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath("/faturamento/clientes");
+  return { error: null };
+}
+
 export async function emitirFatura(data: {
   client_id: string; company_id: string; competencia: string;
   inicio?: string; fim?: string; modelo: string;
