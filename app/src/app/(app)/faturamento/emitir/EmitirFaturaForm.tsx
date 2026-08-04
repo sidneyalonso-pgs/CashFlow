@@ -14,7 +14,11 @@ type Subconta = {
   in_tipo: string; in_val: number; out_tipo: string; out_val: number;
   rep_in: number; rep_out: number;
 };
-type RowState = { qtdIn: number; volIn: number; qtdOut: number; volOut: number; repIn: number; repOut: number };
+type RowState = {
+  qtdIn: number; volIn: number; qtdOut: number; volOut: number;
+  repIn: number; repOut: number;
+  repPercIn: number; repPercOut: number;
+};
 
 function fmt(n: number) {
   return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -23,7 +27,10 @@ function fmt(n: number) {
 function calcSubFee(sub: Subconta, row: RowState) {
   const feeIn = sub.in_tipo === "fixo" ? row.qtdIn * sub.in_val : row.volIn * (sub.in_val / 100);
   const feeOut = sub.out_tipo === "fixo" ? row.qtdOut * sub.out_val : row.volOut * (sub.out_val / 100);
-  return { feeIn, feeOut };
+  // For perc subcontas, repasse is calculated from the % field; for fixo, it's a fixed R$ amount
+  const repIn = sub.in_tipo === "perc" ? row.volIn * (row.repPercIn / 100) : row.repIn;
+  const repOut = sub.out_tipo === "perc" ? row.volOut * (row.repPercOut / 100) : row.repOut;
+  return { feeIn, feeOut, repIn, repOut };
 }
 
 function calcMensalidade(faixas: any[], numContas: number): { faixa: string; val: number } {
@@ -35,7 +42,7 @@ function calcMensalidade(faixas: any[], numContas: number): { faixa: string; val
   return { faixa: `Acima de ${sorted[sorted.length - 1]?.ate} contas`, val: sorted[sorted.length - 1]?.val ?? 0 };
 }
 
-const defaultRow: RowState = { qtdIn: 0, volIn: 0, qtdOut: 0, volOut: 0, repIn: 0, repOut: 0 };
+const defaultRow: RowState = { qtdIn: 0, volIn: 0, qtdOut: 0, volOut: 0, repIn: 0, repOut: 0, repPercIn: 0, repPercOut: 0 };
 
 export function EmitirFaturaForm({
   clients, companies, subcontaCounts, subcontasMap,
@@ -89,13 +96,13 @@ export function EmitirFaturaForm({
   if (hasSubcontas) {
     for (const sub of clientSubcontas) {
       const row = rows[sub.id] ?? defaultRow;
-      const { feeIn, feeOut } = calcSubFee(sub, row);
+      const { feeIn, feeOut, repIn, repOut } = calcSubFee(sub, row);
       aggFeeIn += feeIn;
       aggFeeOut += feeOut;
       aggQtdIn += sub.in_tipo === "fixo" ? row.qtdIn : 0;
       aggQtdOut += sub.out_tipo === "fixo" ? row.qtdOut : 0;
-      aggRepIn += row.repIn;
-      aggRepOut += row.repOut;
+      aggRepIn += repIn;
+      aggRepOut += repOut;
     }
   }
 
@@ -120,7 +127,7 @@ export function EmitirFaturaForm({
     const subcontasDetalhe = hasSubcontas ? {
       subcontas: clientSubcontas.map(sub => {
         const row = rows[sub.id] ?? defaultRow;
-        const { feeIn: sfi, feeOut: sfo } = calcSubFee(sub, row);
+        const { feeIn: sfi, feeOut: sfo, repIn: sRepIn, repOut: sRepOut } = calcSubFee(sub, row);
         return {
           id: sub.id, razao: sub.razao, cnpj: sub.cnpj, num_conta: sub.num_conta,
           qtdIn: sub.in_tipo === "fixo" ? row.qtdIn : 0,
@@ -129,7 +136,7 @@ export function EmitirFaturaForm({
           volOut: sub.out_tipo === "perc" ? row.volOut : 0,
           valIn: sub.in_val, valOut: sub.out_val,
           feeIn: sfi, feeOut: sfo,
-          repasse: row.repIn + row.repOut,
+          repasse: sRepIn + sRepOut,
         };
       }),
     } : undefined;
@@ -206,10 +213,10 @@ export function EmitirFaturaForm({
                   <thead>
                     <tr className="bg-ps-bg-2 text-ps-muted border-b border-ps-navy/5">
                       <th className="text-left px-4 py-2 font-semibold">Subconta</th>
-                      <th className="text-center px-2 py-2 font-semibold">{clientSubcontas.some(s => s.in_tipo === "perc") ? "Volume IN" : "Qtd IN"}</th>
+                      <th className="text-center px-2 py-2 font-semibold">Qtd / Vol. IN</th>
                       <th className="text-right px-2 py-2 font-semibold text-ps-green-700">Fee IN</th>
                       <th className="text-center px-2 py-2 font-semibold">Rep. IN</th>
-                      <th className="text-center px-2 py-2 font-semibold">{clientSubcontas.some(s => s.out_tipo === "perc") ? "Volume OUT" : "Qtd OUT"}</th>
+                      <th className="text-center px-2 py-2 font-semibold">Qtd / Vol. OUT</th>
                       <th className="text-right px-2 py-2 font-semibold text-ps-green-700">Fee OUT</th>
                       <th className="text-center px-2 py-2 font-semibold">Rep. OUT</th>
                       <th className="text-right px-3 py-2 font-semibold text-ps-ink bg-ps-navy/5">Total Fee</th>
@@ -232,6 +239,7 @@ export function EmitirFaturaForm({
                               OUT: {sub.out_tipo === "fixo" ? `R$${Number(sub.out_val).toFixed(2).replace(".",",")}` : `${sub.out_val}%`}
                             </p>
                           </td>
+                          {/* Qtd / Vol IN */}
                           <td className="px-2 py-2.5">
                             <input
                               type="number" min="0" step={sub.in_tipo === "perc" ? "0.01" : "1"}
@@ -240,14 +248,29 @@ export function EmitirFaturaForm({
                               className={inputSmCls}
                             />
                           </td>
+                          {/* Fee IN */}
                           <td className="px-2 py-2.5 text-right tabular-nums font-semibold text-ps-green-700 whitespace-nowrap">
                             {fmt(sFeeIn)}
                           </td>
+                          {/* Rep. IN */}
                           <td className="px-2 py-2.5">
-                            <input type="number" min="0" step="0.01" value={row.repIn}
-                              onChange={e => updateRow(sub.id, "repIn", Number(e.target.value))}
-                              className={inputSmCls} />
+                            {sub.in_tipo === "perc" ? (
+                              <div className="flex flex-col gap-0.5">
+                                <div className="flex items-center gap-1">
+                                  <input type="number" min="0" max="100" step="0.01" value={row.repPercIn}
+                                    onChange={e => updateRow(sub.id, "repPercIn", Number(e.target.value))}
+                                    className={inputSmCls + " w-16"} />
+                                  <span className="text-ps-muted text-xs font-medium">%</span>
+                                </div>
+                                <span className="text-[10px] text-ps-muted tabular-nums">{fmt(row.volIn * (row.repPercIn / 100))}</span>
+                              </div>
+                            ) : (
+                              <input type="number" min="0" step="0.01" value={row.repIn}
+                                onChange={e => updateRow(sub.id, "repIn", Number(e.target.value))}
+                                className={inputSmCls} />
+                            )}
                           </td>
+                          {/* Qtd / Vol OUT */}
                           <td className="px-2 py-2.5">
                             <input
                               type="number" min="0" step={sub.out_tipo === "perc" ? "0.01" : "1"}
@@ -256,14 +279,29 @@ export function EmitirFaturaForm({
                               className={inputSmCls}
                             />
                           </td>
+                          {/* Fee OUT */}
                           <td className="px-2 py-2.5 text-right tabular-nums font-semibold text-ps-green-700 whitespace-nowrap">
                             {fmt(sFeeOut)}
                           </td>
+                          {/* Rep. OUT */}
                           <td className="px-2 py-2.5">
-                            <input type="number" min="0" step="0.01" value={row.repOut}
-                              onChange={e => updateRow(sub.id, "repOut", Number(e.target.value))}
-                              className={inputSmCls} />
+                            {sub.out_tipo === "perc" ? (
+                              <div className="flex flex-col gap-0.5">
+                                <div className="flex items-center gap-1">
+                                  <input type="number" min="0" max="100" step="0.01" value={row.repPercOut}
+                                    onChange={e => updateRow(sub.id, "repPercOut", Number(e.target.value))}
+                                    className={inputSmCls + " w-16"} />
+                                  <span className="text-ps-muted text-xs font-medium">%</span>
+                                </div>
+                                <span className="text-[10px] text-ps-muted tabular-nums">{fmt(row.volOut * (row.repPercOut / 100))}</span>
+                              </div>
+                            ) : (
+                              <input type="number" min="0" step="0.01" value={row.repOut}
+                                onChange={e => updateRow(sub.id, "repOut", Number(e.target.value))}
+                                className={inputSmCls} />
+                            )}
                           </td>
+                          {/* Total Fee */}
                           <td className="px-3 py-2.5 text-right tabular-nums font-bold text-ps-ink whitespace-nowrap bg-ps-navy/3">
                             {fmt(sFeeIn + sFeeOut)}
                           </td>
