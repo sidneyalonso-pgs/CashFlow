@@ -196,7 +196,7 @@ export function EmitirFaturaForm({
                 <input type="month" value={competencia} onChange={e => setCompetencia(e.target.value)} className={inputCls} required />
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div><label className={labelCls}>Início</label><input type="date" value={inicio} onChange={e => setInicio(e.target.value)} className={inputCls} /></div>
+                <div><label className={labelCls}>Início</label><input type="date" value={inicio} onChange={e => { setInicio(e.target.value); if (e.target.value) setCompetencia(e.target.value.slice(0, 7)); }} className={inputCls} /></div>
                 <div><label className={labelCls}>Fim</label><input type="date" value={fim} onChange={e => setFim(e.target.value)} className={inputCls} /></div>
               </div>
             </div>
