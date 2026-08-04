@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { deletePayment, quickMarkPaid, markPaymentAsOpen } from "./actions";
+import { deletePayment, quickMarkPaid, markPaymentAsOpen, createRecurringFromPayment } from "./actions";
 
 export function PaymentRowActions({
   paymentId,
@@ -18,6 +18,11 @@ export function PaymentRowActions({
   const [isPending, startTransition] = useTransition();
   const [showDelete, setShowDelete] = useState(false);
   const [showMarkPaid, setShowMarkPaid] = useState(false);
+  const [showRecurring, setShowRecurring] = useState(false);
+  const [scheduleMode, setScheduleMode] = useState<"dia" | "semana">("dia");
+  const [dayOfMonth, setDayOfMonth] = useState("");
+  const [weekOfMonth, setWeekOfMonth] = useState("1");
+  const [recurringDone, setRecurringDone] = useState(false);
   const today = new Date().toISOString().split("T")[0];
   const [paidAt, setPaidAt] = useState(dueDate && dueDate <= today ? dueDate : today);
 
@@ -35,6 +40,14 @@ export function PaymentRowActions({
       await quickMarkPaid(paymentId, paidAt, grossAmount);
     });
     setShowMarkPaid(false);
+  }
+
+  function handleRecurring() {
+    startTransition(async () => {
+      await createRecurringFromPayment(paymentId, scheduleMode, scheduleMode === "dia" ? Number(dayOfMonth) : null, scheduleMode === "semana" ? Number(weekOfMonth) : null);
+      setShowRecurring(false);
+      setRecurringDone(true);
+    });
   }
 
   function handleMarkOpen() {
@@ -56,6 +69,17 @@ export function PaymentRowActions({
             <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
           </svg>
         </Link>
+
+        {/* Recorrente */}
+        <button
+          onClick={() => setShowRecurring(true)}
+          title={recurringDone ? "Já adicionado como recorrente" : "Adicionar como recorrente"}
+          className={`p-1.5 rounded transition-colors ${recurringDone ? "text-ps-green" : "text-ps-muted hover:text-ps-navy hover:bg-ps-bg-2"}`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+            <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0v2.43l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clipRule="evenodd" />
+          </svg>
+        </button>
 
         {/* Mudar status */}
         {isPaid ? (
@@ -91,6 +115,51 @@ export function PaymentRowActions({
           </svg>
         </button>
       </div>
+
+      {/* Modal recorrente */}
+      {showRecurring && (
+        <div className="fixed inset-0 bg-ps-navy-900/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-ps shadow-ps-lg p-6 w-full max-w-sm space-y-4">
+            <h3 className="text-base font-bold text-ps-ink">Adicionar como recorrente</h3>
+            <p className="text-sm text-ps-muted">Escolha quando este pagamento se repete todo mês.</p>
+            <div className="flex gap-2 p-1 bg-ps-bg-2 rounded-ps-sm w-fit">
+              <button type="button" onClick={() => setScheduleMode("dia")}
+                className={`px-3 py-1 rounded-ps-sm text-sm font-medium transition-colors ${scheduleMode === "dia" ? "bg-white shadow-ps-sm text-ps-ink" : "text-ps-muted"}`}>
+                Dia fixo
+              </button>
+              <button type="button" onClick={() => setScheduleMode("semana")}
+                className={`px-3 py-1 rounded-ps-sm text-sm font-medium transition-colors ${scheduleMode === "semana" ? "bg-white shadow-ps-sm text-ps-ink" : "text-ps-muted"}`}>
+                Semana do mês
+              </button>
+            </div>
+            {scheduleMode === "dia" ? (
+              <div>
+                <label className="block text-sm text-ps-ink-2 mb-1">Dia do mês (1–28)</label>
+                <input type="number" min="1" max="28" value={dayOfMonth} onChange={(e) => setDayOfMonth(e.target.value)}
+                  className="w-32 h-10 rounded-ps-sm border border-ps-navy/15 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ps-green" />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm text-ps-ink-2 mb-1">Semana do mês</label>
+                <select value={weekOfMonth} onChange={(e) => setWeekOfMonth(e.target.value)}
+                  className="h-10 rounded-ps-sm border border-ps-navy/15 px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ps-green">
+                  {[1,2,3,4,5].map((w) => <option key={w} value={w}>Semana {w}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="flex gap-2 justify-end pt-1">
+              <button onClick={() => setShowRecurring(false)}
+                className="px-4 py-2 text-sm rounded-ps-sm border border-ps-navy/15 text-ps-ink hover:bg-ps-bg-2 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={handleRecurring} disabled={scheduleMode === "dia" && !dayOfMonth}
+                className="px-4 py-2 text-sm rounded-ps-sm bg-ps-green text-ps-navy-900 font-medium disabled:opacity-50">
+                Adicionar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal excluir */}
       {showDelete && (
