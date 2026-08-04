@@ -4,16 +4,39 @@ import { PageHeader } from "@/components/PageHeader";
 import { formatBRL } from "@/lib/calculations/money";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 
-const STATUS_CLS: Record<string, string> = {
-  Pendente: "bg-amber-50 text-amber-700",
-  Pago: "bg-green-50 text-green-700",
-  Cancelado: "bg-red-50 text-red-700",
-};
-
 const TIPO_LABEL: Record<string, string> = {
   reembolso: "Reembolso",
   rateio: "Rateio",
 };
+
+// Empresas do grupo PagSmile
+const GRUPO = ["pagsmile", "paghub"];
+
+function ndDirection(pagador: string, recebedor: string): "pagar" | "receber" | "interno" {
+  const pagIsGroup = GRUPO.some(g => (pagador ?? "").toLowerCase().includes(g));
+  const recIsGroup = GRUPO.some(g => (recebedor ?? "").toLowerCase().includes(g));
+  if (pagIsGroup && !recIsGroup) return "pagar";
+  if (!pagIsGroup && recIsGroup) return "receber";
+  return "interno";
+}
+
+function ndStatusDisplay(status: string, dir: "pagar" | "receber" | "interno"): { label: string; cls: string } {
+  if (status === "Cancelado") return { label: "Cancelado", cls: "bg-red-50 text-red-700" };
+  if (dir === "pagar") {
+    return status === "Pago"
+      ? { label: "Pago", cls: "bg-green-50 text-green-700" }
+      : { label: "A Pagar", cls: "bg-amber-50 text-amber-700" };
+  }
+  if (dir === "receber") {
+    return status === "Pago"
+      ? { label: "Recebido", cls: "bg-green-50 text-green-700" }
+      : { label: "A Receber", cls: "bg-blue-50 text-blue-700" };
+  }
+  // interno
+  return status === "Pago"
+    ? { label: "Pago", cls: "bg-green-50 text-green-700" }
+    : { label: "Pendente", cls: "bg-amber-50 text-amber-700" };
+}
 
 export default async function NotasDebitoPage({
   searchParams,
@@ -111,9 +134,11 @@ export default async function NotasDebitoPage({
                 <td className="px-4 py-3 text-ps-muted">{r.vencimento ?? "—"}</td>
                 <td className="px-4 py-3 text-right tabular-nums font-semibold text-ps-ink">{formatBRL(r.total)}</td>
                 <td className="px-4 py-3">
-                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${STATUS_CLS[r.status] ?? ""}`}>
-                    {r.status}
-                  </span>
+                  {(() => {
+                    const dir = ndDirection(r.pagador, r.recebedor);
+                    const sd = ndStatusDisplay(r.status, dir);
+                    return <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${sd.cls}`}>{sd.label}</span>;
+                  })()}
                 </td>
                 <td className="px-4 py-3">
                   <Link href={`/faturamento/notas-debito/${r.id}`} className="text-xs text-ps-navy underline">Ver</Link>

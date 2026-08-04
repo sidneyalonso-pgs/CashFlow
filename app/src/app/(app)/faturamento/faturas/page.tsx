@@ -4,11 +4,19 @@ import { PageHeader } from "@/components/PageHeader";
 import { formatBRL } from "@/lib/calculations/money";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 
-const STATUS_CLS: Record<string, string> = {
-  pendente: "bg-amber-50 text-amber-700",
-  pago: "bg-green-50 text-green-700",
-  cancelado: "bg-red-50 text-red-700",
+const STATUS_DISPLAY: Record<string, { label: string; cls: string }> = {
+  "a_receber": { label: "A Receber", cls: "bg-blue-50 text-blue-700" },
+  "recebido":  { label: "Recebido",  cls: "bg-green-50 text-green-700" },
+  "pendente":  { label: "Pendente",  cls: "bg-amber-50 text-amber-700" },
+  "pago":      { label: "Pago",      cls: "bg-green-50 text-green-700" },
+  "cancelado": { label: "Cancelado", cls: "bg-red-50 text-red-700" },
 };
+
+function getStatusKey(status: string, totalRepasse: number): string {
+  if (status === "cancelado") return "cancelado";
+  if (Number(totalRepasse) === 0) return status === "pago" ? "recebido" : "a_receber";
+  return status;
+}
 
 export default async function FaturasPage({ searchParams }: { searchParams: { mes?: string; status?: string; client_id?: string } }) {
   const supabase = createClient();
@@ -53,11 +61,11 @@ export default async function FaturasPage({ searchParams }: { searchParams: { me
 
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 border-l-4 border-l-ps-green px-5 py-4">
-          <p className="text-xs text-ps-muted uppercase tracking-wide">Fee total (filtro atual)</p>
+          <p className="text-xs text-ps-muted uppercase tracking-wide">PagSmile — a receber (filtro)</p>
           <p className="text-xl font-bold text-ps-ink tabular-nums">{formatBRL(totalFee)}</p>
         </div>
         <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 border-l-4 border-l-red-400 px-5 py-4">
-          <p className="text-xs text-ps-muted uppercase tracking-wide">Repasse total</p>
+          <p className="text-xs text-ps-muted uppercase tracking-wide">Parceiro — repasse (filtro)</p>
           <p className="text-xl font-bold text-ps-ink tabular-nums">{formatBRL(totalRepasse)}</p>
         </div>
       </div>
@@ -70,8 +78,8 @@ export default async function FaturasPage({ searchParams }: { searchParams: { me
               <th className="text-left px-4 py-3">Competência</th>
               <th className="text-left px-4 py-3">Emissão</th>
               <th className="text-left px-4 py-3">Vencimento</th>
-              <th className="text-right px-4 py-3">Fee</th>
-              <th className="text-right px-4 py-3">Repasse</th>
+              <th className="text-right px-4 py-3">PagSmile</th>
+              <th className="text-right px-4 py-3">Parceiro</th>
               <th className="text-left px-4 py-3">Status</th>
               <th className="text-left px-4 py-3">Ações</th>
             </tr>
@@ -86,9 +94,11 @@ export default async function FaturasPage({ searchParams }: { searchParams: { me
                 <td className="px-4 py-3 text-right tabular-nums text-ps-green-700 font-medium">{formatBRL(r.total)}</td>
                 <td className="px-4 py-3 text-right tabular-nums text-red-600">{formatBRL(r.total_repasse)}</td>
                 <td className="px-4 py-3">
-                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${STATUS_CLS[r.status] ?? ""}`}>
-                    {r.status}
-                  </span>
+                  {(() => {
+                    const sk = getStatusKey(r.status, r.total_repasse);
+                    const sd = STATUS_DISPLAY[sk];
+                    return <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${sd?.cls ?? ""}`}>{sd?.label ?? r.status}</span>;
+                  })()}
                 </td>
                 <td className="px-4 py-3">
                   <Link href={`/faturamento/${r.id}`} className="text-xs text-ps-navy underline">Ver / Baixar</Link>
