@@ -229,7 +229,9 @@ export function TransacaoDoc({ inv, client, subcontas }: { inv: any; client: any
           {subcontas.length > 0 ? subcontas.map((s: any, i: number) => {
             const qIn = Number(s.qtdIn ?? s.tIn ?? 0);
             const qOut = Number(s.qtdOut ?? s.tOut ?? 0);
-            const apurado = qIn * Number(s.valIn ?? 0) + qOut * Number(s.valOut ?? 0);
+            const apurado = s.feeIn != null || s.feeOut != null
+              ? Number(s.feeIn ?? 0) + Number(s.feeOut ?? 0)
+              : qIn * Number(s.valIn ?? 0) + qOut * Number(s.valOut ?? 0);
             return (
               <tr key={i} className="border-b border-ps-navy/5">
                 <td className="px-3 py-2.5"><p className="font-semibold text-ps-ink">{s.razao ?? "—"}</p>{s.cnpj && <p className="text-ps-muted text-[10px]">{s.cnpj}</p>}</td>

@@ -85,6 +85,7 @@ export async function emitirFatura(data: {
   total_faturado: number; desconto_perc: number; desconto_val: number;
   total_repasse: number; total: number;
   obs?: string; data_vencimento?: string; data_repasse?: string;
+  subcontas_detalhe?: any;
 }) {
   const supabase = createClient();
 
@@ -96,6 +97,7 @@ export async function emitirFatura(data: {
     .from("billing_invoices")
     .insert({
       ...data,
+      subcontas_detalhe: data.subcontas_detalhe ?? null,
       status: "pendente",
       data_emissao: new Date().toISOString().split("T")[0],
     })
