@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatBRL } from "@/lib/calculations/money";
@@ -44,15 +43,12 @@ const STATUS_CLS: Record<string, string> = {
 
 function Logo() {
   return (
-    <div className="w-16 h-16 relative shrink-0">
-      <Image
-        src="/logos/pagsmile-ip-logo.png"
-        alt="PagSmile IP"
-        fill
-        className="object-contain"
-        onError={() => {}}
-      />
-    </div>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/logos/pagsmile-ip-logo.png"
+      alt="PagSmile IP"
+      className="w-16 h-16 object-contain shrink-0"
+    />
   );
 }
 
@@ -527,14 +523,14 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   const supabase = createClient();
   const { data: inv } = await supabase
     .from("billing_invoices")
-    .select("*, billing_clients(*, billing_subcontas(*)), companies(legal_name, trade_name)")
+    .select("*, billing_clients(*, billing_subcontas(*))")
     .eq("id", params.id)
     .single();
 
   if (!inv) notFound();
 
   const client = inv.billing_clients as any;
-  const company = inv.companies as any;
+  const company = null;
 
   // Parse subcontas_detalhe
   const rawDet = inv.subcontas_detalhe;
