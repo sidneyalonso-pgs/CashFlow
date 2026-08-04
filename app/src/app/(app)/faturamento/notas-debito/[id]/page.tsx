@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { formatBRL } from "@/lib/calculations/money";
 import { NDActions } from "./NDActions";
-import { PrintButton } from "../../[id]/PrintButton";
+import { NDPrintButton } from "./NDPrintButton";
 
 export default async function NotaDebitoDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -149,7 +149,7 @@ export default async function NotaDebitoDetailPage({ params }: { params: { id: s
             <NDActions ndId={nd.id} status={nd.status} />
           </div>
 
-          <PrintButton />
+          <NDPrintButton />
         </div>
       </div>
     </div>
