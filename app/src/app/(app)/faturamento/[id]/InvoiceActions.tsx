@@ -3,10 +3,10 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { baixarFatura, cancelarFatura } from "../actions";
 
-export function InvoiceActions({ invoiceId, status }: { invoiceId: string; status: string }) {
+export function InvoiceActions({ invoiceId, status, dataVencimento }: { invoiceId: string; status: string; dataVencimento?: string | null }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [dataPgto, setDataPgto] = useState(new Date().toISOString().split("T")[0]);
+  const [dataPgto, setDataPgto] = useState(dataVencimento ?? new Date().toISOString().split("T")[0]);
   const [error, setError] = useState<string | null>(null);
 
   if (status !== "pendente") return null;

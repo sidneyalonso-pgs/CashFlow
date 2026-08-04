@@ -30,7 +30,7 @@ function calcMensalidade(faixas: any[], numContas: number): { faixa: string; val
   return { faixa: `Acima de ${sorted[sorted.length - 1]?.ate} contas`, val: sorted[sorted.length - 1]?.val ?? 0 };
 }
 
-export function EmitirFaturaForm({ clients, companies }: { clients: Client[]; companies: Company[] }) {
+export function EmitirFaturaForm({ clients, companies, subcontaCounts }: { clients: Client[]; companies: Company[]; subcontaCounts: Record<string, number> }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [clientId, setClientId] = useState("");
@@ -103,7 +103,12 @@ export function EmitirFaturaForm({ clients, companies }: { clients: Client[]; co
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2 md:col-span-1">
                 <label className={labelCls}>Merchant *</label>
-                <select value={clientId} onChange={e => setClientId(e.target.value)} className={inputCls} required>
+                <select value={clientId} onChange={e => {
+                  const id = e.target.value;
+                  setClientId(id);
+                  const c = clients.find(x => x.id === id);
+                  if (c?.modelo === "mensalidade") setNumContas(subcontaCounts[id] ?? 0);
+                }} className={inputCls} required>
                   <option value="">-- Selecione --</option>
                   {clients.map(c => <option key={c.id} value={c.id}>{c.razao}</option>)}
                 </select>
@@ -156,6 +161,9 @@ export function EmitirFaturaForm({ clients, companies }: { clients: Client[]; co
               <div>
                 <label className={labelCls}>Nº de contas abertas no mês</label>
                 <input type="number" min="0" value={numContas} onChange={e => setNumContas(Number(e.target.value))} className={inputCls} />
+                {subcontaCounts[clientId] !== undefined && (
+                  <p className="text-xs text-ps-muted mt-1">Carregado automaticamente: {subcontaCounts[clientId]} subconta(s) cadastradas</p>
+                )}
               </div>
               {numContas > 0 && mens && (
                 <div className="bg-ps-bg-2 rounded-ps-sm px-4 py-3 text-sm">

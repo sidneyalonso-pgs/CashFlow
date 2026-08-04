@@ -612,7 +612,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
                 </div>
               )}
             </div>
-            <InvoiceActions invoiceId={inv.id} status={inv.status} />
+            <InvoiceActions invoiceId={inv.id} status={inv.status} dataVencimento={inv.data_vencimento} />
           </div>
 
           {(inv.revenue_id || inv.payment_id) && (
