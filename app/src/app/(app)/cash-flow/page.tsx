@@ -314,6 +314,55 @@ export default async function CashFlowPage({
         até o dia anterior ao início do período selecionado. Cada linha soma as entradas/saídas realizadas
         (pagamentos e receitas já baixados) dentro daquele intervalo de datas.
       </p>
+
+      {/* Transferências do período */}
+      {(() => {
+        const TIPO_LABELS: Record<string, string> = {
+          pix_enviado: "Pix enviado", pix_recebido: "Pix recebido",
+          ted_enviado: "TED enviado", ted_recebido: "TED recebido",
+          reembolso: "Reembolso", debito_bancario: "Débito bancário",
+        };
+        const inPeriod = transfersFiltered.filter(
+          (t) => t.transfer_date >= rangeStart && t.transfer_date <= rangeEnd
+        );
+        if (inPeriod.length === 0) return null;
+        return (
+          <div className="mt-6">
+            <h3 className="font-semibold text-ps-ink mb-2">Transferências no período</h3>
+            <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 overflow-hidden overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-ps-bg-2 text-ps-muted text-xs uppercase tracking-wide">
+                  <tr>
+                    <th className="text-left px-4 py-3">Data</th>
+                    <th className="text-left px-4 py-3">Tipo</th>
+                    <th className="text-left px-4 py-3">Para / De / Descrição</th>
+                    <th className="text-right px-4 py-3">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inPeriod.map((t, i) => {
+                    const isIn = INFLOW_TIPOS.includes(t.tipo);
+                    return (
+                      <tr key={i} className="border-t border-ps-navy/5">
+                        <td className="px-4 py-2.5 tabular-nums text-ps-muted text-xs">{t.transfer_date}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${isIn ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+                            {TIPO_LABELS[t.tipo] ?? t.tipo}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 text-sm text-ps-muted">{t.counterpart_name ?? t.description ?? "—"}</td>
+                        <td className={`px-4 py-2.5 tabular-nums font-medium text-right ${isIn ? "text-ps-green-700" : "text-red-600"}`}>
+                          {isIn ? "+" : "−"}{formatBRL(Number(t.amount))}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
