@@ -212,6 +212,7 @@ export function EmitirFaturaForm({
                       <th className="text-center px-2 py-2 font-semibold">{clientSubcontas.some(s => s.out_tipo === "perc") ? "Volume OUT" : "Qtd OUT"}</th>
                       <th className="text-right px-2 py-2 font-semibold text-ps-green-700">Fee OUT</th>
                       <th className="text-center px-2 py-2 font-semibold">Rep. OUT</th>
+                      <th className="text-right px-3 py-2 font-semibold text-ps-ink bg-ps-navy/5">Total Fee</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -263,6 +264,9 @@ export function EmitirFaturaForm({
                               onChange={e => updateRow(sub.id, "repOut", Number(e.target.value))}
                               className={inputSmCls} />
                           </td>
+                          <td className="px-3 py-2.5 text-right tabular-nums font-bold text-ps-ink whitespace-nowrap bg-ps-navy/3">
+                            {fmt(sFeeIn + sFeeOut)}
+                          </td>
                         </tr>
                       );
                     })}
@@ -276,6 +280,7 @@ export function EmitirFaturaForm({
                       <td />
                       <td className="px-2 py-2.5 text-right tabular-nums text-ps-green-700">{fmt(aggFeeOut)}</td>
                       <td className="px-2 py-2.5 text-right tabular-nums text-ps-muted">{fmt(aggRepOut)}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-ps-green font-bold">{fmt(aggFeeIn + aggFeeOut)}</td>
                     </tr>
                   </tfoot>
                 </table>
