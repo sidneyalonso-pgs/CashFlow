@@ -528,29 +528,14 @@ export async function createBulkPayments(rows: Array<{
 
 export async function createRecurringFromPayment(paymentId: string, scheduleMode: string, dayOfMonth: number | null, weekOfMonth: number | null) {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
 
-  const { data: p } = await supabase
+  const { error } = await supabase
     .from("payments")
-    .select("company_id, supplier_id, description, category_id, cost_center_id, paying_bank_account_id")
-    .eq("id", paymentId)
-    .single();
-
-  if (!p) return { error: "Pagamento não encontrado." };
-
-  const { error } = await supabase.from("recurring_payment_templates").insert({
-    company_id: p.company_id,
-    supplier_id: p.supplier_id,
-    description: p.description,
-    day_of_month: scheduleMode === "dia" ? dayOfMonth : null,
-    week_of_month: scheduleMode === "semana" ? weekOfMonth : null,
-    category_id: p.category_id,
-    cost_center_id: p.cost_center_id,
-    paying_bank_account_id: p.paying_bank_account_id,
-    created_by: user?.id,
-  });
+    .update({ recurring: true })
+    .eq("id", paymentId);
 
   if (error) return { error: error.message };
+  revalidatePath("/pagamentos");
   revalidatePath("/pagamentos/recorrentes");
   return { error: null };
 }
