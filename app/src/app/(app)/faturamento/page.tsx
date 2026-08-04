@@ -24,13 +24,18 @@ export default async function FaturamentoDashboard() {
   const mesAtual = new Date().toISOString().slice(0, 7);
 
   const [{ data: invoices }, { data: clients }] = await Promise.all([
-    supabase.from("billing_invoices").select("id, competencia, status, total, total_repasse, data_emissao, billing_clients(razao)").order("created_at", { ascending: false }).limit(20),
+    supabase.from("billing_invoices").select("id, competencia, status, modelo, total, total_faturado, total_repasse, data_emissao, billing_clients(razao)").order("created_at", { ascending: false }).limit(20),
     supabase.from("billing_clients").select("id").eq("status", "ativo"),
   ]);
 
+  function psFee(i: any) {
+    const noRepasse = ["mensalidade", "mensalidade_intro", "bet", "bets"].includes(i.modelo);
+    return noRepasse ? Number(i.total) : Number(i.total_faturado) - Number(i.total_repasse);
+  }
+
   const all = invoices ?? [];
   const doMes = all.filter((i: any) => i.competencia === mesAtual);
-  const totalFaturado = doMes.reduce((s: number, i: any) => s + Number(i.total), 0);
+  const totalFaturado = doMes.reduce((s: number, i: any) => s + psFee(i), 0);
   const totalRepasse = doMes.reduce((s: number, i: any) => s + Number(i.total_repasse), 0);
   const pendentes = all.filter((i: any) => i.status === "pendente").length;
   const clientesAtivos = clients?.length ?? 0;
@@ -95,7 +100,7 @@ export default async function FaturamentoDashboard() {
                 <td className="px-4 py-3 font-medium text-ps-ink">{(inv.billing_clients as any)?.razao ?? "—"}</td>
                 <td className="px-4 py-3 text-ps-muted">{inv.competencia}</td>
                 <td className="px-4 py-3 text-ps-muted">{inv.data_emissao}</td>
-                <td className="px-4 py-3 text-right tabular-nums text-ps-green-700 font-medium">{formatBRL(inv.total)}</td>
+                <td className="px-4 py-3 text-right tabular-nums text-ps-green-700 font-medium">{formatBRL(psFee(inv))}</td>
                 <td className="px-4 py-3 text-right tabular-nums text-red-600">{formatBRL(inv.total_repasse)}</td>
                 <td className="px-4 py-3">
                   <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${STATUS_CLS[inv.status] ?? ""}`}>
