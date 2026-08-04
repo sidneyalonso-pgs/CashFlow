@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { formatBRL } from "@/lib/calculations/money";
 import { InvoiceActions } from "./InvoiceActions";
+import { PrintButton } from "./PrintButton";
 
 export default async function InvoiceDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -153,7 +154,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
           <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5 space-y-3">
             <h3 className="font-semibold text-ps-ink text-sm border-b border-ps-navy/5 pb-3">Status da fatura</h3>
             <div className={`inline-block px-3 py-1 rounded text-sm font-semibold ${STATUS_CLS[inv.status] ?? ""}`}>
-              {inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}
+              {(inv.status ?? "").charAt(0).toUpperCase() + (inv.status ?? "").slice(1)}
             </div>
             {inv.data_pgto && <p className="text-xs text-ps-muted">Pago em: {inv.data_pgto}</p>}
             <div className="border-t border-ps-navy/5 pt-3 space-y-2 text-sm">
@@ -179,12 +180,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             </div>
           )}
 
-          <button
-            onClick={() => window.print()}
-            className="w-full bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors print:hidden"
-          >
-            🖨️ Imprimir / PDF
-          </button>
+          <PrintButton />
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { formatBRL } from "@/lib/calculations/money";
 import { NDActions } from "./NDActions";
+import { PrintButton } from "../../[id]/PrintButton";
 
 export default async function NotaDebitoDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -148,12 +149,7 @@ export default async function NotaDebitoDetailPage({ params }: { params: { id: s
             <NDActions ndId={nd.id} status={nd.status} />
           </div>
 
-          <button
-            onClick={() => (window as any).print()}
-            className="w-full bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors print:hidden"
-          >
-            🖨️ Imprimir / PDF
-          </button>
+          <PrintButton />
         </div>
       </div>
     </div>
