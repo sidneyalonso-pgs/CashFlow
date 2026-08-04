@@ -104,8 +104,8 @@ export default async function FaturamentoDashboard({ searchParams }: { searchPar
 
       <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 overflow-hidden">
         <div className="px-5 py-4 border-b border-ps-navy/5 flex items-center justify-between">
-          <h3 className="font-semibold text-ps-ink text-sm">Faturas — {mesFiltro}</h3>
-          <Link href="/faturamento/faturas" className="text-xs text-ps-navy underline">Ver todas</Link>
+          <h3 className="font-semibold text-ps-ink text-sm">Histórico de faturas</h3>
+          <Link href="/faturamento/faturas" className="text-xs text-ps-navy underline">Filtros avançados</Link>
         </div>
         <table className="w-full text-sm">
           <thead className="bg-ps-bg-2 text-ps-muted text-xs uppercase tracking-wide">
@@ -120,7 +120,7 @@ export default async function FaturamentoDashboard({ searchParams }: { searchPar
             </tr>
           </thead>
           <tbody>
-            {doMes.map((inv: any) => (
+            {all.map((inv: any) => (
               <tr key={inv.id} className="border-t border-ps-navy/5 hover:bg-ps-bg-2/50">
                 <td className="px-4 py-3 font-medium text-ps-ink">{(inv.billing_clients as any)?.razao ?? "—"}</td>
                 <td className="px-4 py-3 text-ps-muted">{inv.competencia}</td>
@@ -137,8 +137,8 @@ export default async function FaturamentoDashboard({ searchParams }: { searchPar
                 </td>
               </tr>
             ))}
-            {doMes.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-ps-muted">Nenhuma fatura em {mesFiltro}.</td></tr>
+            {all.length === 0 && (
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-ps-muted">Nenhuma fatura emitida ainda.</td></tr>
             )}
           </tbody>
         </table>
