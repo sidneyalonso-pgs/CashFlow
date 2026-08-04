@@ -31,6 +31,8 @@ export function PaymentForm({
   const [costCenterId, setCostCenterId] = useState("");
   const [description, setDescription] = useState("");
   const [mode, setMode] = useState<"pago" | "programado">("pago");
+  const [recorrente, setRecorrente] = useState(false);
+  const [scheduleMode, setScheduleMode] = useState<"semana" | "dia">("dia");
 
   const suppliersById = useMemo(() => new Map(suppliers.map((s) => [s.id, s])), [suppliers]);
 
@@ -197,10 +199,51 @@ export function PaymentForm({
         </select>
       </div>
 
-      <label className="flex items-center gap-2 text-sm text-ps-ink-2">
-        <input type="checkbox" name="recurring" className="rounded" />
-        Isso é um pagamento recorrente (só para referência — o agendamento automático fica em "Pagamentos recorrentes")
-      </label>
+      <div className="border border-ps-navy/10 rounded-ps-sm p-3 space-y-3">
+        <label className="flex items-center gap-2 text-sm font-medium text-ps-ink cursor-pointer">
+          <input
+            type="checkbox"
+            name="recurring"
+            className="rounded"
+            checked={recorrente}
+            onChange={(e) => setRecorrente(e.target.checked)}
+          />
+          Pagamento recorrente — adicionar em Pagamentos Recorrentes
+        </label>
+
+        {recorrente && (
+          <div className="pl-6 space-y-3">
+            <input type="hidden" name="schedule_mode" value={scheduleMode} />
+            <div>
+              <label className="block text-sm text-ps-ink-2 mb-1">Agendar por</label>
+              <div className="flex gap-2 p-1 bg-ps-bg-2 rounded-ps-sm w-fit">
+                <button type="button" onClick={() => setScheduleMode("dia")}
+                  className={`px-3 py-1 rounded-ps-sm text-sm font-medium transition-colors ${scheduleMode === "dia" ? "bg-white shadow-ps-sm text-ps-ink" : "text-ps-muted"}`}>
+                  Dia fixo
+                </button>
+                <button type="button" onClick={() => setScheduleMode("semana")}
+                  className={`px-3 py-1 rounded-ps-sm text-sm font-medium transition-colors ${scheduleMode === "semana" ? "bg-white shadow-ps-sm text-ps-ink" : "text-ps-muted"}`}>
+                  Semana do mês
+                </button>
+              </div>
+            </div>
+            {scheduleMode === "dia" ? (
+              <div>
+                <label className="block text-sm text-ps-ink-2 mb-1">Dia do mês (1–28)</label>
+                <input name="day_of_month" type="number" min="1" max="28"
+                  className="w-32 rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm" />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm text-ps-ink-2 mb-1">Semana do mês</label>
+                <select name="week_of_month" className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+                  {[1,2,3,4,5].map((w) => <option key={w} value={w}>Semana {w}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       <div>
         <label className="block text-sm text-ps-ink-2 mb-1">Observações</label>

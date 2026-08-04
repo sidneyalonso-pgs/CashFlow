@@ -74,7 +74,25 @@ export async function createPaidPayment(formData: FormData) {
 
   if (realizationError) return { error: realizationError.message };
 
+  if (recurring) {
+    const scheduleMode = String(formData.get("schedule_mode") || "dia");
+    const dayOfMonth = scheduleMode === "dia" ? Number(formData.get("day_of_month")) || null : null;
+    const weekOfMonth = scheduleMode === "semana" ? Number(formData.get("week_of_month")) || null : null;
+    await supabase.from("recurring_payment_templates").insert({
+      company_id: companyId,
+      supplier_id: supplierId,
+      description: description || supplier?.default_description || supplier?.legal_name || "Pagamento",
+      day_of_month: dayOfMonth,
+      week_of_month: weekOfMonth,
+      category_id: categoryId,
+      cost_center_id: costCenterId,
+      paying_bank_account_id: bankAccountId,
+      created_by: user?.id,
+    });
+  }
+
   revalidatePath("/pagamentos");
+  revalidatePath("/pagamentos/recorrentes");
   redirect("/pagamentos");
 }
 
@@ -131,7 +149,25 @@ export async function createScheduledPayment(formData: FormData) {
 
   if (error) return { error: error.message };
 
+  if (recurring) {
+    const scheduleMode = String(formData.get("schedule_mode") || "dia");
+    const dayOfMonth = scheduleMode === "dia" ? Number(formData.get("day_of_month")) || null : null;
+    const weekOfMonth = scheduleMode === "semana" ? Number(formData.get("week_of_month")) || null : null;
+    await supabase.from("recurring_payment_templates").insert({
+      company_id: companyId,
+      supplier_id: supplierId,
+      description: description || supplier?.default_description || supplier?.legal_name || "Pagamento",
+      day_of_month: dayOfMonth,
+      week_of_month: weekOfMonth,
+      category_id: categoryId,
+      cost_center_id: costCenterId,
+      paying_bank_account_id: bankAccountId,
+      created_by: user?.id,
+    });
+  }
+
   revalidatePath("/pagamentos");
+  revalidatePath("/pagamentos/recorrentes");
   redirect("/pagamentos");
 }
 
