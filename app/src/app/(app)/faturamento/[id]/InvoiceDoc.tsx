@@ -161,7 +161,11 @@ export function MensalidadeDoc({ inv, client, subcontas }: { inv: any; client: a
 }
 
 export function TransacaoDoc({ inv, client, subcontas }: { inv: any; client: any; subcontas: any[] }) {
-  const totalApurado = subcontas.reduce((s: number, r: any) => s + Number(r.valIn ?? 0) + Number(r.valOut ?? 0), 0) || Number(inv.total_faturado);
+  const totalApurado = subcontas.reduce((s: number, r: any) => {
+    const qIn = Number(r.qtdIn ?? r.tIn ?? 0);
+    const qOut = Number(r.qtdOut ?? r.tOut ?? 0);
+    return s + qIn * Number(r.valIn ?? 0) + qOut * Number(r.valOut ?? 0);
+  }, 0) || Number(inv.total_faturado);
   const totalRepasse = subcontas.reduce((s: number, r: any) => s + Number(r.repasse ?? 0), 0) || Number(inv.total_repasse);
 
   return (
@@ -223,7 +227,9 @@ export function TransacaoDoc({ inv, client, subcontas }: { inv: any; client: any
         </thead>
         <tbody>
           {subcontas.length > 0 ? subcontas.map((s: any, i: number) => {
-            const apurado = Number(s.valIn ?? 0) + Number(s.valOut ?? 0);
+            const qIn = Number(s.qtdIn ?? s.tIn ?? 0);
+            const qOut = Number(s.qtdOut ?? s.tOut ?? 0);
+            const apurado = qIn * Number(s.valIn ?? 0) + qOut * Number(s.valOut ?? 0);
             return (
               <tr key={i} className="border-b border-ps-navy/5">
                 <td className="px-3 py-2.5"><p className="font-semibold text-ps-ink">{s.razao ?? "—"}</p>{s.cnpj && <p className="text-ps-muted text-[10px]">{s.cnpj}</p>}</td>

@@ -33,8 +33,16 @@ export default async function FaturasPage({ searchParams }: { searchParams: { me
   if (searchParams.status) rows = rows.filter((r: any) => r.status === searchParams.status);
   if (searchParams.client_id) rows = rows.filter((r: any) => (r.billing_clients as any)?.id === searchParams.client_id);
 
-  const totalFee = rows.reduce((s: number, r: any) => s + Number(r.total), 0);
-  const totalRepasse = rows.reduce((s: number, r: any) => s + Number(r.total_repasse), 0);
+  // Modelos sem repasse: mensalidade e bet — PagSmile retém o total inteiro
+  function psValues(r: any) {
+    const noRepasse = ["mensalidade", "mensalidade_intro", "bet", "bets"].includes(r.modelo);
+    const ps = noRepasse ? Number(r.total) : Number(r.total_faturado) - Number(r.total_repasse);
+    const parceiro = noRepasse ? 0 : Number(r.total_repasse);
+    return { ps, parceiro };
+  }
+
+  const totalFee = rows.reduce((s: number, r: any) => s + psValues(r).ps, 0);
+  const totalRepasse = rows.reduce((s: number, r: any) => s + psValues(r).parceiro, 0);
 
   return (
     <div>
@@ -91,11 +99,11 @@ export default async function FaturasPage({ searchParams }: { searchParams: { me
                 <td className="px-4 py-3 text-ps-muted">{r.competencia}</td>
                 <td className="px-4 py-3 text-ps-muted">{r.data_emissao}</td>
                 <td className="px-4 py-3 text-ps-muted">{r.data_vencimento ?? "—"}</td>
-                <td className="px-4 py-3 text-right tabular-nums text-ps-green-700 font-medium">{formatBRL(r.total)}</td>
-                <td className="px-4 py-3 text-right tabular-nums text-red-600">{formatBRL(r.total_repasse)}</td>
+                <td className="px-4 py-3 text-right tabular-nums text-ps-green-700 font-medium">{formatBRL(psValues(r).ps)}</td>
+                <td className="px-4 py-3 text-right tabular-nums text-red-600">{formatBRL(psValues(r).parceiro)}</td>
                 <td className="px-4 py-3">
                   {(() => {
-                    const sk = getStatusKey(r.status, r.total_repasse);
+                    const sk = getStatusKey(r.status, psValues(r).parceiro);
                     const sd = STATUS_DISPLAY[sk];
                     return <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${sd?.cls ?? ""}`}>{sd?.label ?? r.status}</span>;
                   })()}
