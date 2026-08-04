@@ -101,7 +101,7 @@ export function MensalidadeDoc({ inv, client, subcontas }: { inv: any; client: a
         </div>
         <div className="px-4 py-3 border-l border-white/10">
           <p className="text-white/60 uppercase tracking-wide text-[10px]">Data de Pagamento</p>
-          <p className="font-bold mt-0.5">{fmtDate(inv.data_pgto ?? inv.data_baixa)}</p>
+          <p className="font-bold mt-0.5">{fmtDate(inv.data_pgto ?? inv.data_vencimento)}</p>
         </div>
       </div>
       <table className="w-full border-collapse text-xs">
