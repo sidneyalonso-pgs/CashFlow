@@ -207,8 +207,8 @@ export function TransacaoDoc({ inv, client, subcontas }: { inv: any; client: any
           <p className="font-bold mt-0.5 text-ps-green">{inv.inicio && inv.fim ? `${fmtDate(inv.inicio)} a ${fmtDate(inv.fim)}` : "—"}</p>
         </div>
         <div className="px-4 py-3 border-l border-white/10">
-          <p className="text-white/60 uppercase tracking-wide text-[10px]">Data de Repasse</p>
-          <p className="font-bold mt-0.5">{fmtDate(inv.data_pgto ?? inv.data_baixa ?? inv.data_repasse)}</p>
+          <p className="text-white/60 uppercase tracking-wide text-[10px]">{inv.status === "pago" ? "Data de Repasse" : "Vencimento"}</p>
+          <p className="font-bold mt-0.5">{inv.status === "pago" ? fmtDate(inv.data_pgto ?? inv.data_baixa ?? inv.data_repasse) : fmtDate(inv.data_vencimento ?? inv.data_repasse)}</p>
         </div>
       </div>
       <div className="text-[10px] text-ps-muted uppercase tracking-widest font-semibold bg-ps-bg-2 px-4 py-2 border-b border-ps-navy/10">

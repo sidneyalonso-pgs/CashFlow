@@ -171,7 +171,11 @@ function MensalidadeDoc({ inv, client, subcontas }: { inv: any; client: any; sub
 // ── Layout: TRANSAÇÃO (Sky Innovation tipo — Demonstrativo de Repasse) ────────
 
 function TransacaoDoc({ inv, client, subcontas }: { inv: any; client: any; subcontas: any[] }) {
-  const totalApurado = subcontas.reduce((s: number, r: any) => s + Number(r.valIn ?? 0) + Number(r.valOut ?? 0), 0) || Number(inv.total_faturado);
+  const totalApurado = subcontas.reduce((s: number, r: any) => {
+    const qIn = Number(r.qtdIn ?? r.tIn ?? 0);
+    const qOut = Number(r.qtdOut ?? r.tOut ?? 0);
+    return s + qIn * Number(r.valIn ?? 0) + qOut * Number(r.valOut ?? 0);
+  }, 0) || Number(inv.total_faturado);
   const totalRepasse = subcontas.reduce((s: number, r: any) => s + Number(r.repasse ?? 0), 0) || Number(inv.total_repasse);
 
   return (
@@ -219,8 +223,8 @@ function TransacaoDoc({ inv, client, subcontas }: { inv: any; client: any; subco
           <p className="font-bold mt-0.5 text-ps-green">{inv.inicio && inv.fim ? `${fmtDate(inv.inicio)} a ${fmtDate(inv.fim)}` : "—"}</p>
         </div>
         <div className="px-4 py-3 border-l border-white/10">
-          <p className="text-white/60 uppercase tracking-wide text-[10px]">Data de Repasse</p>
-          <p className="font-bold mt-0.5">{fmtDate(inv.data_pgto ?? inv.data_baixa ?? inv.data_repasse)}</p>
+          <p className="text-white/60 uppercase tracking-wide text-[10px]">{inv.status === "pago" ? "Data de Repasse" : "Vencimento"}</p>
+          <p className="font-bold mt-0.5">{inv.status === "pago" ? fmtDate(inv.data_pgto ?? inv.data_baixa ?? inv.data_repasse) : fmtDate(inv.data_vencimento ?? inv.data_repasse)}</p>
         </div>
       </div>
 
@@ -241,7 +245,9 @@ function TransacaoDoc({ inv, client, subcontas }: { inv: any; client: any; subco
         </thead>
         <tbody>
           {subcontas.length > 0 ? subcontas.map((s: any, i: number) => {
-            const apurado = Number(s.valIn ?? 0) + Number(s.valOut ?? 0);
+            const qIn = Number(s.qtdIn ?? s.tIn ?? 0);
+            const qOut = Number(s.qtdOut ?? s.tOut ?? 0);
+            const apurado = qIn * Number(s.valIn ?? 0) + qOut * Number(s.valOut ?? 0);
             return (
               <tr key={i} className="border-b border-ps-navy/5">
                 <td className="px-3 py-2.5">
