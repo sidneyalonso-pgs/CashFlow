@@ -158,20 +158,26 @@ export function EmitirFaturaForm({
     } : undefined;
 
     const subcontasDetalhe = hasSubcontas ? {
-      subcontas: clientSubcontas.map(sub => {
-        const row = rows[sub.id] ?? defaultRow;
-        const { feeIn: sfi, feeOut: sfo, repIn: sRepIn, repOut: sRepOut } = calcSubFee(sub, row);
-        return {
-          id: sub.id, razao: sub.razao, cnpj: sub.cnpj, num_conta: sub.num_conta,
-          qtdIn: sub.in_tipo === "fixo" ? row.qtdIn : 0,
-          qtdOut: sub.out_tipo === "fixo" ? row.qtdOut : 0,
-          volIn: sub.in_tipo === "perc" ? row.volIn : 0,
-          volOut: sub.out_tipo === "perc" ? row.volOut : 0,
-          valIn: sub.in_val, valOut: sub.out_val,
-          feeIn: sfi, feeOut: sfo,
-          repasse: sRepIn + sRepOut,
-        };
-      }),
+      subcontas: clientSubcontas
+        .filter(sub => {
+          const row = rows[sub.id] ?? defaultRow;
+          return row.qtdIn > 0 || row.qtdOut > 0 || row.volIn > 0 || row.volOut > 0 ||
+            row.feeInOverride != null || row.feeOutOverride != null;
+        })
+        .map(sub => {
+          const row = rows[sub.id] ?? defaultRow;
+          const { feeIn: sfi, feeOut: sfo, repIn: sRepIn, repOut: sRepOut } = calcSubFee(sub, row);
+          return {
+            id: sub.id, razao: sub.razao, cnpj: sub.cnpj, num_conta: sub.num_conta,
+            qtdIn: sub.in_tipo === "fixo" ? row.qtdIn : 0,
+            qtdOut: sub.out_tipo === "fixo" ? row.qtdOut : 0,
+            volIn: sub.in_tipo === "perc" ? row.volIn : 0,
+            volOut: sub.out_tipo === "perc" ? row.volOut : 0,
+            valIn: sub.in_val, valOut: sub.out_val,
+            feeIn: sfi, feeOut: sfo,
+            repasse: sRepIn + sRepOut,
+          };
+        }),
     } : undefined;
 
     startTransition(async () => {

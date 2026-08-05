@@ -160,7 +160,15 @@ export function MensalidadeDoc({ inv, client, subcontas }: { inv: any; client: a
   );
 }
 
-export function TransacaoDoc({ inv, client, subcontas }: { inv: any; client: any; subcontas: any[] }) {
+export function TransacaoDoc({ inv, client, subcontas: rawSubcontas }: { inv: any; client: any; subcontas: any[] }) {
+  const subcontas = rawSubcontas.filter((s: any) =>
+    Number(s.qtdIn ?? s.tIn ?? 0) > 0 ||
+    Number(s.qtdOut ?? s.tOut ?? 0) > 0 ||
+    Number(s.volIn ?? 0) > 0 ||
+    Number(s.volOut ?? 0) > 0 ||
+    Number(s.feeIn ?? 0) > 0 ||
+    Number(s.feeOut ?? 0) > 0
+  );
   const totalApurado = subcontas.reduce((s: number, r: any) => {
     const qIn = Number(r.qtdIn ?? r.tIn ?? 0);
     const qOut = Number(r.qtdOut ?? r.tOut ?? 0);
@@ -367,18 +375,27 @@ export function BetsDoc({ inv, client, det }: { inv: any; client: any; det: any 
           </tr>
         </thead>
         <tbody>
-          <tr className="bg-ps-bg-2"><td colSpan={5} className="px-4 py-2 font-bold text-ps-ink text-[10px] uppercase tracking-wide">Recebimentos</td></tr>
-          <tr className="border-b border-ps-navy/5"><td className="px-4 py-2.5 text-ps-ink">PIX</td><td className="px-4 py-2.5 text-ps-muted">BRL</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{qi.toLocaleString("pt-BR")}</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{N(valPixIn)}</td><td className="px-4 py-2.5 text-right tabular-nums font-semibold">{tPixIn > 0 ? N(tPixIn) : "—"}</td></tr>
-          <tr className="border-b border-ps-navy/5"><td className="px-4 py-2.5 text-ps-ink">Open Bank OpenFinance, Iniciador de Pagamento</td><td className="px-4 py-2.5 text-ps-muted">BRL</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{qob}</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{N(valOpenBank)}</td><td className="px-4 py-2.5 text-right tabular-nums font-semibold">{tOpenBank > 0 ? N(tOpenBank) : "—"}</td></tr>
-          <tr className="bg-ps-bg-2/50 border-b border-ps-navy/10"><td colSpan={4} className="px-4 py-2 text-right text-ps-muted font-semibold">Subtotal Recebimentos</td><td className="px-4 py-2 text-right tabular-nums font-bold text-ps-ink">{N(tPixIn + tOpenBank)}</td></tr>
-          <tr className="bg-ps-bg-2"><td colSpan={5} className="px-4 py-2 font-bold text-ps-ink text-[10px] uppercase tracking-wide">Pagamentos Lote</td></tr>
-          <tr className="border-b border-ps-navy/5"><td className="px-4 py-2.5 text-ps-ink">Bank Transfer</td><td className="px-4 py-2.5 text-ps-muted">BRL</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{qbt}</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{N(valBankTransfer)}</td><td className="px-4 py-2.5 text-right tabular-nums font-semibold">{tBankTransfer > 0 ? N(tBankTransfer) : "—"}</td></tr>
-          <tr className="border-b border-ps-navy/5"><td className="px-4 py-2.5 text-ps-ink">PIX</td><td className="px-4 py-2.5 text-ps-muted">BRL</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{qo.toLocaleString("pt-BR")}</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{N(valPixOut)}</td><td className="px-4 py-2.5 text-right tabular-nums font-semibold">{tPixOut > 0 ? N(tPixOut) : "—"}</td></tr>
-          <tr className="bg-ps-bg-2/50 border-b border-ps-navy/10"><td colSpan={4} className="px-4 py-2 text-right text-ps-muted font-semibold">Subtotal Pagamentos</td><td className="px-4 py-2 text-right tabular-nums font-bold text-ps-ink">{N(tBankTransfer + tPixOut)}</td></tr>
-          <tr className="bg-ps-bg-2"><td colSpan={5} className="px-4 py-2 font-bold text-ps-ink text-[10px] uppercase tracking-wide">Outras Taxas</td></tr>
-          <tr className="border-b border-ps-navy/5"><td className="px-4 py-2.5 text-ps-ink">Transações Negadas</td><td className="px-4 py-2.5 text-ps-muted">BRL</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{qneg.toLocaleString("pt-BR")}</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{N(valNegadas)}</td><td className="px-4 py-2.5 text-right tabular-nums font-semibold">{tNegadas > 0 ? N(tNegadas) : "—"}</td></tr>
-          <tr className="border-b border-ps-navy/5"><td className="px-4 py-2.5 text-ps-ink">Refund/Estorno</td><td className="px-4 py-2.5 text-ps-muted">BRL</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{qr}</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{N(valRefund)}</td><td className="px-4 py-2.5 text-right tabular-nums font-semibold">{tRefund > 0 ? N(tRefund) : "—"}</td></tr>
-          <tr className="border-b border-ps-navy/5"><td className="px-4 py-2.5 text-ps-ink">Remessas Internacionais – Taxa de Câmbio</td><td className="px-4 py-2.5 text-ps-muted">BRL</td><td className="px-4 py-2.5 text-right text-ps-muted">—</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{valRemessaPerc > 0 ? `${valRemessaPerc}%` : "—"}</td><td className="px-4 py-2.5 text-right tabular-nums font-semibold">{tRemessa > 0 ? N(tRemessa) : "—"}</td></tr>
+          {/* Recebimentos — só aparece se houver movimento */}
+          {(qi > 0 || qob > 0) && <>
+            <tr className="bg-ps-bg-2"><td colSpan={5} className="px-4 py-2 font-bold text-ps-ink text-[10px] uppercase tracking-wide">Recebimentos</td></tr>
+            {qi > 0 && <tr className="border-b border-ps-navy/5"><td className="px-4 py-2.5 text-ps-ink">PIX</td><td className="px-4 py-2.5 text-ps-muted">BRL</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{qi.toLocaleString("pt-BR")}</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{N(valPixIn)}</td><td className="px-4 py-2.5 text-right tabular-nums font-semibold">{N(tPixIn)}</td></tr>}
+            {qob > 0 && <tr className="border-b border-ps-navy/5"><td className="px-4 py-2.5 text-ps-ink">Open Bank OpenFinance, Iniciador de Pagamento</td><td className="px-4 py-2.5 text-ps-muted">BRL</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{qob}</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{N(valOpenBank)}</td><td className="px-4 py-2.5 text-right tabular-nums font-semibold">{N(tOpenBank)}</td></tr>}
+            <tr className="bg-ps-bg-2/50 border-b border-ps-navy/10"><td colSpan={4} className="px-4 py-2 text-right text-ps-muted font-semibold">Subtotal Recebimentos</td><td className="px-4 py-2 text-right tabular-nums font-bold text-ps-ink">{N(tPixIn + tOpenBank)}</td></tr>
+          </>}
+          {/* Pagamentos Lote — só aparece se houver movimento */}
+          {(qbt > 0 || qo > 0) && <>
+            <tr className="bg-ps-bg-2"><td colSpan={5} className="px-4 py-2 font-bold text-ps-ink text-[10px] uppercase tracking-wide">Pagamentos Lote</td></tr>
+            {qbt > 0 && <tr className="border-b border-ps-navy/5"><td className="px-4 py-2.5 text-ps-ink">Bank Transfer</td><td className="px-4 py-2.5 text-ps-muted">BRL</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{qbt}</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{N(valBankTransfer)}</td><td className="px-4 py-2.5 text-right tabular-nums font-semibold">{N(tBankTransfer)}</td></tr>}
+            {qo > 0 && <tr className="border-b border-ps-navy/5"><td className="px-4 py-2.5 text-ps-ink">PIX</td><td className="px-4 py-2.5 text-ps-muted">BRL</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{qo.toLocaleString("pt-BR")}</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{N(valPixOut)}</td><td className="px-4 py-2.5 text-right tabular-nums font-semibold">{N(tPixOut)}</td></tr>}
+            <tr className="bg-ps-bg-2/50 border-b border-ps-navy/10"><td colSpan={4} className="px-4 py-2 text-right text-ps-muted font-semibold">Subtotal Pagamentos</td><td className="px-4 py-2 text-right tabular-nums font-bold text-ps-ink">{N(tBankTransfer + tPixOut)}</td></tr>
+          </>}
+          {/* Outras Taxas — só aparece se houver movimento */}
+          {(qneg > 0 || qr > 0 || tRemessa > 0) && <>
+            <tr className="bg-ps-bg-2"><td colSpan={5} className="px-4 py-2 font-bold text-ps-ink text-[10px] uppercase tracking-wide">Outras Taxas</td></tr>
+            {qneg > 0 && <tr className="border-b border-ps-navy/5"><td className="px-4 py-2.5 text-ps-ink">Transações Negadas</td><td className="px-4 py-2.5 text-ps-muted">BRL</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{qneg.toLocaleString("pt-BR")}</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{N(valNegadas)}</td><td className="px-4 py-2.5 text-right tabular-nums font-semibold">{N(tNegadas)}</td></tr>}
+            {qr > 0 && <tr className="border-b border-ps-navy/5"><td className="px-4 py-2.5 text-ps-ink">Refund/Estorno</td><td className="px-4 py-2.5 text-ps-muted">BRL</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{qr}</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{N(valRefund)}</td><td className="px-4 py-2.5 text-right tabular-nums font-semibold">{N(tRefund)}</td></tr>}
+            {tRemessa > 0 && <tr className="border-b border-ps-navy/5"><td className="px-4 py-2.5 text-ps-ink">Remessas Internacionais – Taxa de Câmbio</td><td className="px-4 py-2.5 text-ps-muted">BRL</td><td className="px-4 py-2.5 text-right text-ps-muted">—</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{valRemessaPerc > 0 ? `${valRemessaPerc}%` : "—"}</td><td className="px-4 py-2.5 text-right tabular-nums font-semibold">{N(tRemessa)}</td></tr>}
+          </>}
         </tbody>
       </table>
       <div className="mt-5 flex justify-end">
