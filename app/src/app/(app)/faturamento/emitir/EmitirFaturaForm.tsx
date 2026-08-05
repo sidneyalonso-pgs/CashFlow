@@ -95,7 +95,13 @@ export function EmitirFaturaForm({
     // init subconta rows
     const subs = subcontasMap[id] ?? [];
     const newRows: Record<string, RowState> = {};
-    for (const s of subs) newRows[s.id] = { ...defaultRow };
+    for (const s of subs) newRows[s.id] = {
+      ...defaultRow,
+      repIn: s.in_tipo === "fixo" ? s.rep_in : 0,
+      repOut: s.out_tipo === "fixo" ? s.rep_out : 0,
+      repPercIn: s.in_tipo === "perc" ? s.rep_in : 0,
+      repPercOut: s.out_tipo === "perc" ? s.rep_out : 0,
+    };
     setRows(newRows);
   }
 
