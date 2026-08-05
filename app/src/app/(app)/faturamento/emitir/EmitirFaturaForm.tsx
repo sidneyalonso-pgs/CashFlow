@@ -283,17 +283,13 @@ export function EmitirFaturaForm({
                           </td>
                           {/* Fee IN */}
                           <td className="px-2 py-2.5">
-                            {sub.in_tipo === "perc" ? (
-                              <div className="flex flex-col gap-0.5">
-                                <input type="number" min="0" step="0.01"
-                                  value={row.feeInOverride ?? sFeeIn}
-                                  onChange={e => updateRow(sub.id, "feeInOverride", Number(e.target.value))}
-                                  className={inputSmCls + " text-ps-green-700 font-semibold"} />
-                                {row.feeInOverride == null && <span className="text-[10px] text-ps-muted">estimado</span>}
-                              </div>
-                            ) : (
-                              <span className="tabular-nums font-semibold text-ps-green-700 whitespace-nowrap text-sm">{fmt(sFeeIn)}</span>
-                            )}
+                            <div className="flex flex-col gap-0.5">
+                              <input type="number" min="0" step="0.01"
+                                value={row.feeInOverride ?? sFeeIn}
+                                onChange={e => updateRow(sub.id, "feeInOverride", Number(e.target.value))}
+                                className={inputSmCls + " text-ps-green-700 font-semibold"} />
+                              {row.feeInOverride == null && sub.in_tipo === "perc" && <span className="text-[10px] text-ps-muted">estimado</span>}
+                            </div>
                           </td>
                           {/* Rep. IN */}
                           <td className="px-2 py-2.5">
@@ -324,17 +320,13 @@ export function EmitirFaturaForm({
                           </td>
                           {/* Fee OUT */}
                           <td className="px-2 py-2.5">
-                            {sub.out_tipo === "perc" ? (
-                              <div className="flex flex-col gap-0.5">
-                                <input type="number" min="0" step="0.01"
-                                  value={row.feeOutOverride ?? sFeeOut}
-                                  onChange={e => updateRow(sub.id, "feeOutOverride", Number(e.target.value))}
-                                  className={inputSmCls + " text-ps-green-700 font-semibold"} />
-                                {row.feeOutOverride == null && <span className="text-[10px] text-ps-muted">estimado</span>}
-                              </div>
-                            ) : (
-                              <span className="tabular-nums font-semibold text-ps-green-700 whitespace-nowrap text-sm">{fmt(sFeeOut)}</span>
-                            )}
+                            <div className="flex flex-col gap-0.5">
+                              <input type="number" min="0" step="0.01"
+                                value={row.feeOutOverride ?? sFeeOut}
+                                onChange={e => updateRow(sub.id, "feeOutOverride", Number(e.target.value))}
+                                className={inputSmCls + " text-ps-green-700 font-semibold"} />
+                              {row.feeOutOverride == null && sub.out_tipo === "perc" && <span className="text-[10px] text-ps-muted">estimado</span>}
+                            </div>
                           </td>
                           {/* Rep. OUT */}
                           <td className="px-2 py-2.5">
