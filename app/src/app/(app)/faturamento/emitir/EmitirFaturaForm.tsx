@@ -31,8 +31,8 @@ function calcSubFee(sub: Subconta, row: RowState) {
   const feeIn = row.feeInOverride != null ? row.feeInOverride : (sub.in_tipo === "fixo" ? row.qtdIn * sub.in_val : roundUp2(row.volIn * (sub.in_val / 100)));
   const feeOut = row.feeOutOverride != null ? row.feeOutOverride : (sub.out_tipo === "fixo" ? row.qtdOut * sub.out_val : roundUp2(row.volOut * (sub.out_val / 100)));
   // For perc subcontas, repasse is calculated from the % field; for fixo, it's a fixed R$ amount
-  const repIn = sub.in_tipo === "perc" ? feeIn * (row.repPercIn / 100) : row.repIn;
-  const repOut = sub.out_tipo === "perc" ? feeOut * (row.repPercOut / 100) : row.repOut;
+  const repIn = sub.in_tipo === "perc" ? (sub.in_val > 0 ? feeIn * (row.repPercIn / sub.in_val) : 0) : row.repIn;
+  const repOut = sub.out_tipo === "perc" ? (sub.out_val > 0 ? feeOut * (row.repPercOut / sub.out_val) : 0) : row.repOut;
   return { feeIn, feeOut, repIn, repOut };
 }
 
@@ -313,7 +313,7 @@ export function EmitirFaturaForm({
                                     className={inputSmCls + " w-16"} />
                                   <span className="text-ps-muted text-xs font-medium">%</span>
                                 </div>
-                                <span className="text-[10px] text-ps-muted tabular-nums">{fmt(sFeeIn * (row.repPercIn / 100))}</span>
+                                <span className="text-[10px] text-ps-muted tabular-nums">{fmt(sub.in_val > 0 ? sFeeIn * (row.repPercIn / sub.in_val) : 0)}</span>
                               </div>
                             ) : (
                               <input type="number" min="0" step="0.01" value={row.repIn}
@@ -350,7 +350,7 @@ export function EmitirFaturaForm({
                                     className={inputSmCls + " w-16"} />
                                   <span className="text-ps-muted text-xs font-medium">%</span>
                                 </div>
-                                <span className="text-[10px] text-ps-muted tabular-nums">{fmt(sFeeOut * (row.repPercOut / 100))}</span>
+                                <span className="text-[10px] text-ps-muted tabular-nums">{fmt(sub.out_val > 0 ? sFeeOut * (row.repPercOut / sub.out_val) : 0)}</span>
                               </div>
                             ) : (
                               <input type="number" min="0" step="0.01" value={row.repOut}
