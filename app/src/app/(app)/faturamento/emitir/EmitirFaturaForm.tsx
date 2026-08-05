@@ -18,6 +18,7 @@ type RowState = {
   qtdIn: number; volIn: number; qtdOut: number; volOut: number;
   repIn: number; repOut: number;
   repPercIn: number; repPercOut: number;
+  feeInOverride: number | null; feeOutOverride: number | null;
 };
 
 function fmt(n: number) {
@@ -27,8 +28,8 @@ function fmt(n: number) {
 function roundUp2(n: number) { return Math.ceil(n * 100) / 100; }
 
 function calcSubFee(sub: Subconta, row: RowState) {
-  const feeIn = sub.in_tipo === "fixo" ? row.qtdIn * sub.in_val : roundUp2(row.volIn * (sub.in_val / 100));
-  const feeOut = sub.out_tipo === "fixo" ? row.qtdOut * sub.out_val : roundUp2(row.volOut * (sub.out_val / 100));
+  const feeIn = row.feeInOverride != null ? row.feeInOverride : (sub.in_tipo === "fixo" ? row.qtdIn * sub.in_val : roundUp2(row.volIn * (sub.in_val / 100)));
+  const feeOut = row.feeOutOverride != null ? row.feeOutOverride : (sub.out_tipo === "fixo" ? row.qtdOut * sub.out_val : roundUp2(row.volOut * (sub.out_val / 100)));
   // For perc subcontas, repasse is calculated from the % field; for fixo, it's a fixed R$ amount
   const repIn = sub.in_tipo === "perc" ? row.volIn * (row.repPercIn / 100) : row.repIn;
   const repOut = sub.out_tipo === "perc" ? row.volOut * (row.repPercOut / 100) : row.repOut;
@@ -44,7 +45,7 @@ function calcMensalidade(faixas: any[], numContas: number): { faixa: string; val
   return { faixa: `Acima de ${sorted[sorted.length - 1]?.ate} contas`, val: sorted[sorted.length - 1]?.val ?? 0 };
 }
 
-const defaultRow: RowState = { qtdIn: 0, volIn: 0, qtdOut: 0, volOut: 0, repIn: 0, repOut: 0, repPercIn: 0, repPercOut: 0 };
+const defaultRow: RowState = { qtdIn: 0, volIn: 0, qtdOut: 0, volOut: 0, repIn: 0, repOut: 0, repPercIn: 0, repPercOut: 0, feeInOverride: null, feeOutOverride: null };
 
 export function EmitirFaturaForm({
   clients, companies, subcontaCounts, subcontasMap,
@@ -281,8 +282,18 @@ export function EmitirFaturaForm({
                             />
                           </td>
                           {/* Fee IN */}
-                          <td className="px-2 py-2.5 text-right tabular-nums font-semibold text-ps-green-700 whitespace-nowrap">
-                            {fmt(sFeeIn)}
+                          <td className="px-2 py-2.5">
+                            {sub.in_tipo === "perc" ? (
+                              <div className="flex flex-col gap-0.5">
+                                <input type="number" min="0" step="0.01"
+                                  value={row.feeInOverride ?? sFeeIn}
+                                  onChange={e => updateRow(sub.id, "feeInOverride", Number(e.target.value))}
+                                  className={inputSmCls + " text-ps-green-700 font-semibold"} />
+                                {row.feeInOverride == null && <span className="text-[10px] text-ps-muted">estimado</span>}
+                              </div>
+                            ) : (
+                              <span className="tabular-nums font-semibold text-ps-green-700 whitespace-nowrap text-sm">{fmt(sFeeIn)}</span>
+                            )}
                           </td>
                           {/* Rep. IN */}
                           <td className="px-2 py-2.5">
@@ -312,8 +323,18 @@ export function EmitirFaturaForm({
                             />
                           </td>
                           {/* Fee OUT */}
-                          <td className="px-2 py-2.5 text-right tabular-nums font-semibold text-ps-green-700 whitespace-nowrap">
-                            {fmt(sFeeOut)}
+                          <td className="px-2 py-2.5">
+                            {sub.out_tipo === "perc" ? (
+                              <div className="flex flex-col gap-0.5">
+                                <input type="number" min="0" step="0.01"
+                                  value={row.feeOutOverride ?? sFeeOut}
+                                  onChange={e => updateRow(sub.id, "feeOutOverride", Number(e.target.value))}
+                                  className={inputSmCls + " text-ps-green-700 font-semibold"} />
+                                {row.feeOutOverride == null && <span className="text-[10px] text-ps-muted">estimado</span>}
+                              </div>
+                            ) : (
+                              <span className="tabular-nums font-semibold text-ps-green-700 whitespace-nowrap text-sm">{fmt(sFeeOut)}</span>
+                            )}
                           </td>
                           {/* Rep. OUT */}
                           <td className="px-2 py-2.5">
