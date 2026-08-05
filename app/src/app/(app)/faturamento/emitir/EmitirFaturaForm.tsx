@@ -24,9 +24,11 @@ function fmt(n: number) {
   return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function roundUp2(n: number) { return Math.ceil(n * 100) / 100; }
+
 function calcSubFee(sub: Subconta, row: RowState) {
-  const feeIn = sub.in_tipo === "fixo" ? row.qtdIn * sub.in_val : row.volIn * (sub.in_val / 100);
-  const feeOut = sub.out_tipo === "fixo" ? row.qtdOut * sub.out_val : row.volOut * (sub.out_val / 100);
+  const feeIn = sub.in_tipo === "fixo" ? row.qtdIn * sub.in_val : roundUp2(row.volIn * (sub.in_val / 100));
+  const feeOut = sub.out_tipo === "fixo" ? row.qtdOut * sub.out_val : roundUp2(row.volOut * (sub.out_val / 100));
   // For perc subcontas, repasse is calculated from the % field; for fixo, it's a fixed R$ amount
   const repIn = sub.in_tipo === "perc" ? row.volIn * (row.repPercIn / 100) : row.repIn;
   const repOut = sub.out_tipo === "perc" ? row.volOut * (row.repPercOut / 100) : row.repOut;
