@@ -68,12 +68,21 @@ export function EmitirFaturaForm({
   const [dataRepasse, setDataRepasse] = useState("");
   const [obs, setObs] = useState("");
   const [rows, setRows] = useState<Record<string, RowState>>({});
+  // Bets-specific state
+  const [bQtdPixIn, setBQtdPixIn] = useState(0);
+  const [bQtdOpenBank, setBQtdOpenBank] = useState(0);
+  const [bQtdBankTransfer, setBQtdBankTransfer] = useState(0);
+  const [bQtdPixOut, setBQtdPixOut] = useState(0);
+  const [bQtdNegadas, setBQtdNegadas] = useState(0);
+  const [bQtdRefund, setBQtdRefund] = useState(0);
+  const [bRemessaPerc, setBRemessaPerc] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const client = clients.find(c => c.id === clientId);
   const clientSubcontas: Subconta[] = subcontasMap[clientId] ?? [];
   const hasSubcontas = clientSubcontas.length > 0 && client?.modelo === "transacao";
+  const isBets = ["bet", "bets"].includes(client?.modelo ?? "");
   const faixas = client?.faixas_mens ? (Array.isArray(client.faixas_mens) ? client.faixas_mens : []) : [];
 
   function handleClientChange(id: string) {
@@ -106,16 +115,24 @@ export function EmitirFaturaForm({
     }
   }
 
-  const feeIn = hasSubcontas ? aggFeeIn : (client ? (client.in_tipo === "fixo" ? qtdIn * client.in_val : volumeIn * (client.in_val / 100)) : 0);
-  const feeOut = hasSubcontas ? aggFeeOut : (client ? (client.out_tipo === "fixo" ? qtdOut * client.out_val : volumeOut * (client.out_val / 100)) : 0);
+  const feeIn = hasSubcontas ? aggFeeIn : isBets ? bQtdPixIn * (client?.in_val ?? 0) : (client ? (client.in_tipo === "fixo" ? qtdIn * client.in_val : volumeIn * (client.in_val / 100)) : 0);
+  const feeOut = hasSubcontas ? aggFeeOut : isBets ? bQtdPixOut * (client?.out_val ?? 0) : (client ? (client.out_tipo === "fixo" ? qtdOut * client.out_val : volumeOut * (client.out_val / 100)) : 0);
   const repasseIn = hasSubcontas ? aggRepIn : (client ? (client.in_tipo === "perc" ? volumeIn * (client.rep_in / 100) : qtdIn * client.rep_in) : 0);
   const repasseOut = hasSubcontas ? aggRepOut : (client ? (client.out_tipo === "perc" ? volumeOut * (client.rep_out / 100) : qtdOut * client.rep_out) : 0);
 
+  // Bets-specific totals
+  const bFeeNegadas = bQtdNegadas * 0.10;
+  const bFeeRefund = bQtdRefund * 5.00;
+  const bSubtotalRec = feeIn; // PIX IN + OpenBank (OpenBank = 0)
+  const bSubtotalPag = feeOut; // Bank Transfer (0) + PIX OUT
+  const bTotalOutras = bFeeNegadas + bFeeRefund;
+  const bTotal = bSubtotalRec + bSubtotalPag + bTotalOutras;
+
   const mens = client?.modelo === "mensalidade" ? calcMensalidade(faixas, numContas) : null;
-  const totalFaturado = client?.modelo === "mensalidade" ? (mens?.val ?? 0) : feeIn + feeOut;
+  const totalFaturado = client?.modelo === "mensalidade" ? (mens?.val ?? 0) : isBets ? bTotal : feeIn + feeOut;
   const descontoVal = totalFaturado * (descontoPerc / 100);
   const total = totalFaturado - descontoVal;
-  const totalRepasse = client?.modelo === "mensalidade" ? 0 : repasseIn + repasseOut;
+  const totalRepasse = (client?.modelo === "mensalidade" || isBets) ? 0 : repasseIn + repasseOut;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -124,6 +141,19 @@ export function EmitirFaturaForm({
     setError(null);
 
     // Build subcontas_detalhe for per-subconta breakdown
+    const betsDetalhe = isBets ? {
+      qi: bQtdPixIn, qob: bQtdOpenBank, qbt: bQtdBankTransfer, qo: bQtdPixOut,
+      qneg: bQtdNegadas, qr: bQtdRefund,
+      tPixIn: feeIn, tOpenBank: 0, tBankTransfer: 0, tPixOut: feeOut,
+      tNegadas: bFeeNegadas, tRefund: bFeeRefund, tRemessa: 0,
+      val_pix_in: client?.in_val ?? 0, val_pix_out: client?.out_val ?? 0,
+      val_open_bank: 0, val_bank_transfer: 0, val_negadas: 0.10, val_refund: 5.00,
+      val_remessa_perc: bRemessaPerc,
+      subtotal: total,
+      dadosBanc: "Banco Inter | Ag. 1 | CC 35635543-8 | CNPJ: 37.753.531/0001-65 | PIX: Pagsmile Instituição de Pagamento LTDA",
+      vencimento: dataVencimento || null,
+    } : undefined;
+
     const subcontasDetalhe = hasSubcontas ? {
       subcontas: clientSubcontas.map(sub => {
         const row = rows[sub.id] ?? defaultRow;
@@ -154,7 +184,7 @@ export function EmitirFaturaForm({
         total_faturado: totalFaturado, desconto_perc: descontoPerc, desconto_val: descontoVal,
         total_repasse: totalRepasse, total,
         obs: obs || undefined, data_vencimento: dataVencimento || undefined, data_repasse: dataRepasse || undefined,
-        subcontas_detalhe: subcontasDetalhe,
+        subcontas_detalhe: betsDetalhe ?? subcontasDetalhe,
       });
       if (res.error) { setError(res.error); return; }
       setSuccess("Demonstrativo emitido! Receita e pagamento criados automaticamente.");
@@ -326,6 +356,74 @@ export function EmitirFaturaForm({
             </div>
           )}
 
+          {/* Bets inputs */}
+          {isBets && client && (
+            <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 overflow-hidden">
+              <div className="px-5 py-3 border-b border-ps-navy/5">
+                <h3 className="font-semibold text-ps-ink text-sm">Volumes do período</h3>
+                <p className="text-xs text-ps-muted mt-0.5">PIX IN: R${Number(client.in_val).toFixed(2).replace(".",",")} /tx · PIX OUT: R${Number(client.out_val).toFixed(2).replace(".",",")} /tx · Negadas: R$0,10/tx · Refund: R$5,00/tx</p>
+              </div>
+              <div className="p-5 space-y-4">
+                {/* Recebimentos */}
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-ps-muted mb-2">Recebimentos</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>Qtd PIX IN</label>
+                      <input type="number" min="0" value={bQtdPixIn} onChange={e => setBQtdPixIn(Number(e.target.value))} className={inputCls} />
+                      <p className="text-xs text-ps-muted mt-1">= {fmt(feeIn)}</p>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Qtd OpenFinance (opcional)</label>
+                      <input type="number" min="0" value={bQtdOpenBank} onChange={e => setBQtdOpenBank(Number(e.target.value))} className={inputCls} />
+                    </div>
+                  </div>
+                </div>
+                {/* Pagamentos Lote */}
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-ps-muted mb-2">Pagamentos Lote</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>Qtd Bank Transfer (opcional)</label>
+                      <input type="number" min="0" value={bQtdBankTransfer} onChange={e => setBQtdBankTransfer(Number(e.target.value))} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Qtd PIX OUT</label>
+                      <input type="number" min="0" value={bQtdPixOut} onChange={e => setBQtdPixOut(Number(e.target.value))} className={inputCls} />
+                      <p className="text-xs text-ps-muted mt-1">= {fmt(feeOut)}</p>
+                    </div>
+                  </div>
+                </div>
+                {/* Outras Taxas */}
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-ps-muted mb-2">Outras Taxas</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className={labelCls}>Qtd Transações Negadas</label>
+                      <input type="number" min="0" value={bQtdNegadas} onChange={e => setBQtdNegadas(Number(e.target.value))} className={inputCls} />
+                      <p className="text-xs text-ps-muted mt-1">= {fmt(bFeeNegadas)}</p>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Qtd Refund/Estorno</label>
+                      <input type="number" min="0" value={bQtdRefund} onChange={e => setBQtdRefund(Number(e.target.value))} className={inputCls} />
+                      <p className="text-xs text-ps-muted mt-1">= {fmt(bFeeRefund)}</p>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Remessas (%)</label>
+                      <input type="number" min="0" step="0.01" value={bRemessaPerc} onChange={e => setBRemessaPerc(Number(e.target.value))} className={inputCls} />
+                    </div>
+                  </div>
+                </div>
+                {/* Totais calculados */}
+                <div className="bg-ps-bg-2 rounded-ps-sm px-4 py-3 grid grid-cols-3 gap-4 text-xs">
+                  <div><p className="text-ps-muted">Subtotal Recebimentos</p><p className="font-bold text-ps-ink">{fmt(bSubtotalRec)}</p></div>
+                  <div><p className="text-ps-muted">Subtotal Pagamentos</p><p className="font-bold text-ps-ink">{fmt(bSubtotalPag)}</p></div>
+                  <div><p className="text-ps-muted">Outras Taxas</p><p className="font-bold text-ps-ink">{fmt(bTotalOutras)}</p></div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Simple transacao inputs (no subcontas) */}
           {client?.modelo === "transacao" && !hasSubcontas && (
             <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5 space-y-4">
@@ -400,6 +498,14 @@ export function EmitirFaturaForm({
                     <div className="flex justify-between text-sm"><span className="text-white/70">Fee IN total</span><span>{fmt(aggFeeIn)}</span></div>
                     <div className="flex justify-between text-sm"><span className="text-white/70">Fee OUT total</span><span>{fmt(aggFeeOut)}</span></div>
                     {totalRepasse > 0 && <div className="flex justify-between text-sm"><span className="text-white/70">Repasse total</span><span className="text-red-300">−{fmt(totalRepasse)}</span></div>}
+                  </>
+                )}
+                {isBets && (
+                  <>
+                    <div className="flex justify-between text-sm"><span className="text-white/70">PIX IN ({bQtdPixIn.toLocaleString("pt-BR")} tx)</span><span>{fmt(feeIn)}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-white/70">PIX OUT ({bQtdPixOut.toLocaleString("pt-BR")} tx)</span><span>{fmt(feeOut)}</span></div>
+                    {bFeeNegadas > 0 && <div className="flex justify-between text-sm"><span className="text-white/70">Negadas ({bQtdNegadas.toLocaleString("pt-BR")})</span><span>{fmt(bFeeNegadas)}</span></div>}
+                    {bFeeRefund > 0 && <div className="flex justify-between text-sm"><span className="text-white/70">Refund ({bQtdRefund})</span><span>{fmt(bFeeRefund)}</span></div>}
                   </>
                 )}
                 {client.modelo === "transacao" && !hasSubcontas && (

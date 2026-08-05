@@ -302,21 +302,24 @@ export function BetsDoc({ inv, client, det }: { inv: any; client: any; det: any 
   const qo = Number(det?.qo ?? inv.qtd_out ?? 0);
   const qbt = Number(det?.qbt ?? 0);
   const qob = Number(det?.qob ?? 0);
+  const qneg = Number(det?.qneg ?? 0);
   const qr = Number(det?.qr ?? 0);
   const tPixIn = Number(det?.tPixIn ?? inv.fee_in ?? 0);
   const tPixOut = Number(det?.tPixOut ?? inv.fee_out ?? 0);
   const tOpenBank = Number(det?.tOpenBank ?? 0);
   const tBankTransfer = Number(det?.tBankTransfer ?? 0);
+  const tNegadas = Number(det?.tNegadas ?? 0);
   const tRefund = Number(det?.tRefund ?? 0);
   const tRemessa = Number(det?.tRemessa ?? 0);
   const subtotal = Number(det?.subtotal ?? inv.total_faturado ?? 0);
   const vencimento = det?.vencimento ? fmtDateBR(det.vencimento) : fmtDate(inv.data_vencimento);
-  const dadosBanc = det?.dadosBanc ?? null;
+  const dadosBanc = det?.dadosBanc ?? "Banco Inter | Ag. 1 | CC 35635543-8 | CNPJ: 37.753.531/0001-65 | PIX: Pagsmile Instituição de Pagamento LTDA";
   const valPixIn = Number(det?.val_pix_in ?? client?.in_val ?? 0);
   const valPixOut = Number(det?.val_pix_out ?? client?.out_val ?? 0);
   const valOpenBank = Number(det?.val_open_bank ?? 0);
   const valBankTransfer = Number(det?.val_bank_transfer ?? 0);
-  const valRefund = Number(det?.val_refund ?? 0);
+  const valNegadas = Number(det?.val_negadas ?? 0.10);
+  const valRefund = Number(det?.val_refund ?? 5.00);
   const valRemessaPerc = Number(det?.val_remessa_perc ?? 0);
 
   return (
@@ -373,6 +376,7 @@ export function BetsDoc({ inv, client, det }: { inv: any; client: any; det: any 
           <tr className="border-b border-ps-navy/5"><td className="px-4 py-2.5 text-ps-ink">PIX</td><td className="px-4 py-2.5 text-ps-muted">BRL</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{qo.toLocaleString("pt-BR")}</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{N(valPixOut)}</td><td className="px-4 py-2.5 text-right tabular-nums font-semibold">{tPixOut > 0 ? N(tPixOut) : "—"}</td></tr>
           <tr className="bg-ps-bg-2/50 border-b border-ps-navy/10"><td colSpan={4} className="px-4 py-2 text-right text-ps-muted font-semibold">Subtotal Pagamentos</td><td className="px-4 py-2 text-right tabular-nums font-bold text-ps-ink">{N(tBankTransfer + tPixOut)}</td></tr>
           <tr className="bg-ps-bg-2"><td colSpan={5} className="px-4 py-2 font-bold text-ps-ink text-[10px] uppercase tracking-wide">Outras Taxas</td></tr>
+          <tr className="border-b border-ps-navy/5"><td className="px-4 py-2.5 text-ps-ink">Transações Negadas</td><td className="px-4 py-2.5 text-ps-muted">BRL</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{qneg.toLocaleString("pt-BR")}</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{N(valNegadas)}</td><td className="px-4 py-2.5 text-right tabular-nums font-semibold">{tNegadas > 0 ? N(tNegadas) : "—"}</td></tr>
           <tr className="border-b border-ps-navy/5"><td className="px-4 py-2.5 text-ps-ink">Refund/Estorno</td><td className="px-4 py-2.5 text-ps-muted">BRL</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{qr}</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{N(valRefund)}</td><td className="px-4 py-2.5 text-right tabular-nums font-semibold">{tRefund > 0 ? N(tRefund) : "—"}</td></tr>
           <tr className="border-b border-ps-navy/5"><td className="px-4 py-2.5 text-ps-ink">Remessas Internacionais – Taxa de Câmbio</td><td className="px-4 py-2.5 text-ps-muted">BRL</td><td className="px-4 py-2.5 text-right text-ps-muted">—</td><td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{valRemessaPerc > 0 ? `${valRemessaPerc}%` : "—"}</td><td className="px-4 py-2.5 text-right tabular-nums font-semibold">{tRemessa > 0 ? N(tRemessa) : "—"}</td></tr>
         </tbody>
@@ -393,8 +397,9 @@ export function BetsDoc({ inv, client, det }: { inv: any; client: any; det: any 
       </div>
       <div className="mt-6 pt-4 border-t border-ps-navy/10 grid grid-cols-2 gap-8 text-xs text-ps-muted">
         <div>
-          {dadosBanc && <><p className="font-semibold text-ps-ink uppercase tracking-wide text-[10px] mb-1">Observações</p><p className="leading-relaxed">Dados bancários para pagamento: {dadosBanc}</p></>}
-          {inv.obs && !dadosBanc && <p>{inv.obs}</p>}
+          <p className="font-semibold text-ps-ink uppercase tracking-wide text-[10px] mb-1">Observações</p>
+          <p className="leading-relaxed">Dados bancários para pagamento: {dadosBanc}</p>
+          {inv.obs && <p className="mt-1">{inv.obs}</p>}
         </div>
         <div className="text-right space-y-1">
           <div><span className="text-ps-muted">Data de emissão: </span><span className="font-semibold text-ps-ink">{fmtDate(inv.data_emissao)}</span></div>
