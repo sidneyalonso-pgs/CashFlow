@@ -170,7 +170,12 @@ function MensalidadeDoc({ inv, client, subcontas }: { inv: any; client: any; sub
 
 // ── Layout: TRANSAÇÃO (Sky Innovation tipo — Demonstrativo de Repasse) ────────
 
-function TransacaoDoc({ inv, client, subcontas }: { inv: any; client: any; subcontas: any[] }) {
+function TransacaoDoc({ inv, client, subcontas: rawSubcontas }: { inv: any; client: any; subcontas: any[] }) {
+  const subcontas = rawSubcontas.filter((s: any) =>
+    Number(s.qtdIn ?? s.tIn ?? 0) > 0 || Number(s.qtdOut ?? s.tOut ?? 0) > 0 ||
+    Number(s.volIn ?? 0) > 0 || Number(s.volOut ?? 0) > 0 ||
+    Number(s.feeIn ?? 0) > 0 || Number(s.feeOut ?? 0) > 0
+  );
   const totalApurado = subcontas.reduce((s: number, r: any) => {
     const fee = (r.feeIn != null || r.feeOut != null)
       ? Number(r.feeIn ?? 0) + Number(r.feeOut ?? 0)
