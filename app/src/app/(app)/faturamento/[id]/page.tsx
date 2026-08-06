@@ -238,8 +238,8 @@ function TransacaoDoc({ inv, client, subcontas }: { inv: any; client: any; subco
           <tr className="bg-ps-navy/85 text-white">
             <th className="text-left px-3 py-2.5 font-semibold">Subconta</th>
             <th className="text-left px-3 py-2.5 font-semibold">Nº Conta</th>
-            <th className="text-right px-3 py-2.5 font-semibold">Qtd IN</th>
-            <th className="text-right px-3 py-2.5 font-semibold">Qtd OUT</th>
+            <th className="text-right px-3 py-2.5 font-semibold">Qtd IN | Movimentado</th>
+            <th className="text-right px-3 py-2.5 font-semibold">Qtd OUT | Movimentado</th>
             <th className="text-right px-3 py-2.5 font-semibold">Apurado</th>
             <th className="text-right px-3 py-2.5 font-semibold">Valor de Repasse</th>
           </tr>
@@ -258,8 +258,12 @@ function TransacaoDoc({ inv, client, subcontas }: { inv: any; client: any; subco
                   {s.cnpj && <p className="text-ps-muted text-[10px]">{s.cnpj}</p>}
                 </td>
                 <td className="px-3 py-2.5 text-ps-muted">{s.num_conta ?? "—"}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-ps-muted">{(s.qtdIn ?? s.tIn ?? 0).toLocaleString("pt-BR")}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-ps-muted">{(s.qtdOut ?? s.tOut ?? 0).toLocaleString("pt-BR")}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums text-ps-muted">
+                  {Number(s.volIn ?? 0) > 0 ? N(s.volIn) : (s.qtdIn ?? s.tIn ?? 0).toLocaleString("pt-BR")}
+                </td>
+                <td className="px-3 py-2.5 text-right tabular-nums text-ps-muted">
+                  {Number(s.volOut ?? 0) > 0 ? N(s.volOut) : (s.qtdOut ?? s.tOut ?? 0).toLocaleString("pt-BR")}
+                </td>
                 <td className="px-3 py-2.5 text-right tabular-nums text-ps-ink">{N(apurado)}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-ps-green-700">{N(s.repasse ?? 0)}</td>
               </tr>
