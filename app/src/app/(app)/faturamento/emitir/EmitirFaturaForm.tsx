@@ -31,8 +31,8 @@ function calcSubFee(sub: Subconta, row: RowState) {
   const feeIn = row.feeInOverride != null ? row.feeInOverride : (sub.in_tipo === "fixo" ? row.qtdIn * sub.in_val : roundUp2(row.volIn * (sub.in_val / 100)));
   const feeOut = row.feeOutOverride != null ? row.feeOutOverride : (sub.out_tipo === "fixo" ? row.qtdOut * sub.out_val : roundUp2(row.volOut * (sub.out_val / 100)));
   // For perc subcontas, repasse is calculated from the % field; for fixo, it's a fixed R$ amount
-  const repIn = sub.in_tipo === "perc" ? (sub.in_val > 0 ? feeIn * (row.repPercIn / sub.in_val) : 0) : row.repIn;
-  const repOut = sub.out_tipo === "perc" ? (sub.out_val > 0 ? feeOut * (row.repPercOut / sub.out_val) : 0) : row.repOut;
+  const repIn = sub.in_tipo === "perc" ? (sub.in_val > 0 ? feeIn * (row.repPercIn / sub.in_val) : 0) : row.qtdIn * row.repIn;
+  const repOut = sub.out_tipo === "perc" ? (sub.out_val > 0 ? feeOut * (row.repPercOut / sub.out_val) : 0) : row.qtdOut * row.repOut;
   return { feeIn, feeOut, repIn, repOut };
 }
 
