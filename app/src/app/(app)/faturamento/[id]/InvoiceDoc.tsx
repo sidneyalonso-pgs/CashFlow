@@ -170,9 +170,10 @@ export function TransacaoDoc({ inv, client, subcontas: rawSubcontas }: { inv: an
     Number(s.feeOut ?? 0) > 0
   );
   const totalApurado = subcontas.reduce((s: number, r: any) => {
-    const qIn = Number(r.qtdIn ?? r.tIn ?? 0);
-    const qOut = Number(r.qtdOut ?? r.tOut ?? 0);
-    return s + qIn * Number(r.valIn ?? 0) + qOut * Number(r.valOut ?? 0);
+    const fee = (r.feeIn != null || r.feeOut != null)
+      ? Number(r.feeIn ?? 0) + Number(r.feeOut ?? 0)
+      : Number(r.qtdIn ?? r.tIn ?? 0) * Number(r.valIn ?? 0) + Number(r.qtdOut ?? r.tOut ?? 0) * Number(r.valOut ?? 0);
+    return s + fee;
   }, 0) || Number(inv.total_faturado);
   const totalRepasse = subcontas.reduce((s: number, r: any) => s + Number(r.repasse ?? 0), 0) || Number(inv.total_repasse);
 
@@ -227,8 +228,8 @@ export function TransacaoDoc({ inv, client, subcontas: rawSubcontas }: { inv: an
           <tr className="bg-ps-navy/85 text-white">
             <th className="text-left px-3 py-2.5 font-semibold">Subconta</th>
             <th className="text-left px-3 py-2.5 font-semibold">Nº Conta</th>
-            <th className="text-right px-3 py-2.5 font-semibold">Qtd IN</th>
-            <th className="text-right px-3 py-2.5 font-semibold">Qtd OUT</th>
+            <th className="text-right px-3 py-2.5 font-semibold">Qtd IN | Movimentado</th>
+            <th className="text-right px-3 py-2.5 font-semibold">Qtd OUT | Movimentado</th>
             <th className="text-right px-3 py-2.5 font-semibold">Apurado</th>
             <th className="text-right px-3 py-2.5 font-semibold">Valor de Repasse</th>
           </tr>
@@ -244,8 +245,12 @@ export function TransacaoDoc({ inv, client, subcontas: rawSubcontas }: { inv: an
               <tr key={i} className="border-b border-ps-navy/5">
                 <td className="px-3 py-2.5"><p className="font-semibold text-ps-ink">{s.razao ?? "—"}</p>{s.cnpj && <p className="text-ps-muted text-[10px]">{s.cnpj}</p>}</td>
                 <td className="px-3 py-2.5 text-ps-muted">{s.num_conta ?? "—"}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-ps-muted">{(s.qtdIn ?? s.tIn ?? 0).toLocaleString("pt-BR")}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-ps-muted">{(s.qtdOut ?? s.tOut ?? 0).toLocaleString("pt-BR")}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums text-ps-muted">
+                  {Number(s.volIn ?? 0) > 0 ? N(s.volIn) : (s.qtdIn ?? s.tIn ?? 0).toLocaleString("pt-BR")}
+                </td>
+                <td className="px-3 py-2.5 text-right tabular-nums text-ps-muted">
+                  {Number(s.volOut ?? 0) > 0 ? N(s.volOut) : (s.qtdOut ?? s.tOut ?? 0).toLocaleString("pt-BR")}
+                </td>
                 <td className="px-3 py-2.5 text-right tabular-nums text-ps-ink">{N(apurado)}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-ps-green-700">{N(s.repasse ?? 0)}</td>
               </tr>
@@ -267,10 +272,10 @@ export function TransacaoDoc({ inv, client, subcontas: rawSubcontas }: { inv: an
           </tr>
         </tbody>
       </table>
-      {(client?.in_val || client?.out_val) && (
+      {(Number(client?.in_val) > 0 || Number(client?.out_val) > 0) && (
         <div className="border border-t-0 border-ps-navy/10 px-4 py-2 flex gap-6 text-[10px] text-ps-muted bg-white">
-          {client.in_val > 0 && <span>Tarifa PIX IN: R$ {Number(client.in_val).toFixed(2).replace(".", ",")}/tx</span>}
-          {client.out_val > 0 && <span>Tarifa PIX OUT: R$ {Number(client.out_val).toFixed(2).replace(".", ",")}/tx</span>}
+          {Number(client.in_val) > 0 && <span>Tarifa PIX IN: R$ {Number(client.in_val).toFixed(2).replace(".", ",")}/tx</span>}
+          {Number(client.out_val) > 0 && <span>Tarifa PIX OUT: R$ {Number(client.out_val).toFixed(2).replace(".", ",")}/tx</span>}
         </div>
       )}
       <div className="mt-5 flex justify-end">

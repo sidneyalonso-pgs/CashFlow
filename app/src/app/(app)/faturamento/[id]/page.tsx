@@ -291,10 +291,10 @@ function TransacaoDoc({ inv, client, subcontas }: { inv: any; client: any; subco
       </table>
 
       {/* Tarifas (rodapé da tabela) */}
-      {(client?.in_val || client?.out_val) && (
+      {(Number(client?.in_val) > 0 || Number(client?.out_val) > 0) && (
         <div className="border border-t-0 border-ps-navy/10 px-4 py-2 flex gap-6 text-[10px] text-ps-muted bg-white">
-          {client.in_val > 0 && <span>Tarifa PIX IN: R$ {Number(client.in_val).toFixed(2).replace(".", ",")}/tx</span>}
-          {client.out_val > 0 && <span>Tarifa PIX OUT: R$ {Number(client.out_val).toFixed(2).replace(".", ",")}/tx</span>}
+          {Number(client.in_val) > 0 && <span>Tarifa PIX IN: R$ {Number(client.in_val).toFixed(2).replace(".", ",")}/tx</span>}
+          {Number(client.out_val) > 0 && <span>Tarifa PIX OUT: R$ {Number(client.out_val).toFixed(2).replace(".", ",")}/tx</span>}
         </div>
       )}
 
