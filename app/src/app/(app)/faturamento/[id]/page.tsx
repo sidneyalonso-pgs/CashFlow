@@ -172,9 +172,10 @@ function MensalidadeDoc({ inv, client, subcontas }: { inv: any; client: any; sub
 
 function TransacaoDoc({ inv, client, subcontas }: { inv: any; client: any; subcontas: any[] }) {
   const totalApurado = subcontas.reduce((s: number, r: any) => {
-    const qIn = Number(r.qtdIn ?? r.tIn ?? 0);
-    const qOut = Number(r.qtdOut ?? r.tOut ?? 0);
-    return s + qIn * Number(r.valIn ?? 0) + qOut * Number(r.valOut ?? 0);
+    const fee = (r.feeIn != null || r.feeOut != null)
+      ? Number(r.feeIn ?? 0) + Number(r.feeOut ?? 0)
+      : Number(r.qtdIn ?? r.tIn ?? 0) * Number(r.valIn ?? 0) + Number(r.qtdOut ?? r.tOut ?? 0) * Number(r.valOut ?? 0);
+    return s + fee;
   }, 0) || Number(inv.total_faturado);
   const totalRepasse = subcontas.reduce((s: number, r: any) => s + Number(r.repasse ?? 0), 0) || Number(inv.total_repasse);
 
@@ -247,7 +248,9 @@ function TransacaoDoc({ inv, client, subcontas }: { inv: any; client: any; subco
           {subcontas.length > 0 ? subcontas.map((s: any, i: number) => {
             const qIn = Number(s.qtdIn ?? s.tIn ?? 0);
             const qOut = Number(s.qtdOut ?? s.tOut ?? 0);
-            const apurado = qIn * Number(s.valIn ?? 0) + qOut * Number(s.valOut ?? 0);
+            const apurado = (s.feeIn != null || s.feeOut != null)
+              ? Number(s.feeIn ?? 0) + Number(s.feeOut ?? 0)
+              : qIn * Number(s.valIn ?? 0) + qOut * Number(s.valOut ?? 0);
             return (
               <tr key={i} className="border-b border-ps-navy/5">
                 <td className="px-3 py-2.5">
