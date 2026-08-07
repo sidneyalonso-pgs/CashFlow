@@ -12,6 +12,8 @@ type Revenue = {
   category_id: string | null;
   expected_amount: number;
   realized_amount: number | null;
+  expected_date: string;
+  realized_date: string | null;
   notes: string | null;
   status: string;
 };
@@ -29,6 +31,7 @@ export function EditRevenueButton({
   const [isPending, startTransition] = useTransition();
 
   const currentAmount = revenue.status === "recebida" ? revenue.realized_amount ?? revenue.expected_amount : revenue.expected_amount;
+  const currentDate = revenue.status === "recebida" ? revenue.realized_date ?? revenue.expected_date : revenue.expected_date;
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
@@ -57,7 +60,16 @@ export function EditRevenueButton({
             defaultValue={revenue.category_id ?? ""}
             options={categories.map((c) => ({ value: c.id, label: c.name }))}
           />
-          <TextField label="Valor" name="amount" type="number" step="0.01" defaultValue={String(currentAmount)} required />
+          <div className="grid grid-cols-2 gap-3">
+            <TextField label="Valor" name="amount" type="number" step="0.01" defaultValue={String(currentAmount)} required />
+            <TextField
+              label={revenue.status === "recebida" ? "Data do recebimento" : "Data prevista"}
+              name="date"
+              type="date"
+              defaultValue={currentDate}
+              required
+            />
+          </div>
           <div>
             <label className="block text-sm text-ps-ink-2 mb-1">Observações</label>
             <textarea name="notes" rows={2} defaultValue={revenue.notes ?? ""} className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm" />

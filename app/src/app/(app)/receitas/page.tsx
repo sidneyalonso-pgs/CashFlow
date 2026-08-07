@@ -7,6 +7,7 @@ import { DataTable } from "@/components/DataTable";
 import { formatBRL } from "@/lib/calculations/money";
 import { RevenueSettleButton } from "./RevenueSettleButton";
 import { EditRevenueButton } from "./EditRevenueButton";
+import { RevenueRowActions } from "./RevenueRowActions";
 import { InlineRevenueBankAccountEdit } from "./InlineRevenueBankAccountEdit";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 
@@ -51,7 +52,7 @@ export default async function RevenuesPage({
 
   let query = supabase
     .from("revenues")
-    .select("id, description, category_id, expected_amount, realized_amount, expected_date, status, notes, receiving_bank_account_id, companies(legal_name, trade_name), categories(name), bank_accounts:receiving_bank_account_id(nickname, bank_name)")
+    .select("id, description, category_id, expected_amount, realized_amount, expected_date, realized_date, status, notes, receiving_bank_account_id, companies(legal_name, trade_name), categories(name), bank_accounts:receiving_bank_account_id(nickname, bank_name)")
     .is("deleted_at", null)
     .order(sortBy, { ascending: sortAsc });
 
@@ -163,11 +164,12 @@ export default async function RevenuesPage({
           {
             header: "Ações",
             cell: (r: any) => (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <EditRevenueButton revenue={r} categories={categories ?? []} />
                 {["estimada", "confirmada", "atrasada", "reprogramada"].includes(r.status) && (
                   <RevenueSettleButton revenueId={r.id} bankAccounts={bankAccounts ?? []} />
                 )}
+                <RevenueRowActions revenueId={r.id} status={r.status} />
               </div>
             ),
           },

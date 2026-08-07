@@ -142,11 +142,15 @@ export async function updateRevenue(revenueId: string, formData: FormData) {
   const description = String(formData.get("description") || "");
   const categoryId = String(formData.get("category_id") || "") || null;
   const amount = Number(formData.get("amount"));
+  const date = String(formData.get("date") || "");
   const notes = String(formData.get("notes") || "") || null;
 
-  if (!description || !amount || amount <= 0) {
-    return { error: "Preencha descrição e valor." };
+  if (!description || !amount || amount <= 0 || !date) {
+    return { error: "Preencha descrição, valor e data." };
   }
+
+  const dateError = assertReasonableDate(date, "Data");
+  if (dateError) return { error: dateError };
 
   const supabase = createClient();
   const { data: revenue } = await supabase.from("revenues").select("status").eq("id", revenueId).single();
@@ -159,6 +163,7 @@ export async function updateRevenue(revenueId: string, formData: FormData) {
 
   if (revenue?.status === "recebida") {
     update.realized_amount = amount;
+    update.realized_date = date;
 
     const { data: realizations } = await supabase
       .from("revenue_realizations")
@@ -168,10 +173,11 @@ export async function updateRevenue(revenueId: string, formData: FormData) {
       .limit(1);
 
     if (realizations && realizations.length > 0) {
-      await supabase.from("revenue_realizations").update({ amount }).eq("id", realizations[0].id);
+      await supabase.from("revenue_realizations").update({ amount, received_at: date }).eq("id", realizations[0].id);
     }
   } else {
     update.expected_amount = amount;
+    update.expected_date = date;
   }
 
   const { error } = await supabase.from("revenues").update(update).eq("id", revenueId);
@@ -179,6 +185,33 @@ export async function updateRevenue(revenueId: string, formData: FormData) {
   if (error) return { error: error.message };
 
   revalidatePath("/receitas");
+  revalidatePath("/cash-flow");
+  return { error: null };
+}
+
+export async function markRevenueAsPending(revenueId: string) {
+  const supabase = createClient();
+  await supabase.from("revenue_realizations").delete().eq("revenue_id", revenueId);
+  const { error } = await supabase
+    .from("revenues")
+    .update({ status: "estimada", realized_amount: null, realized_date: null })
+    .eq("id", revenueId);
+  if (error) return { error: error.message };
+  revalidatePath("/receitas");
+  revalidatePath("/cash-flow");
+  return { error: null };
+}
+
+export async function deleteRevenue(revenueId: string) {
+  const supabase = createClient();
+  await supabase.from("revenue_realizations").delete().eq("revenue_id", revenueId);
+  const { error } = await supabase
+    .from("revenues")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", revenueId);
+  if (error) return { error: error.message };
+  revalidatePath("/receitas");
+  revalidatePath("/cash-flow");
   return { error: null };
 }
 
