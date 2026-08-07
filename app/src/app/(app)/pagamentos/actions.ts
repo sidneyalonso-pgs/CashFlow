@@ -313,6 +313,10 @@ export async function updatePayment(paymentId: string, formData: FormData) {
 
       await supabase.from("payment_realizations").update(realizationUpdate).eq("id", realizations[0].id);
     }
+  } else {
+    // um pagamento nao pago nunca deve ter baixa (payment_realizations) associada,
+    // senao ele conta em dobro no Cash Flow (como saida e como provisao de saida)
+    await supabase.from("payment_realizations").delete().eq("payment_id", paymentId);
   }
 
   const { error } = await supabase.from("payments").update(update).eq("id", paymentId);

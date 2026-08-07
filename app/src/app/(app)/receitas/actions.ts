@@ -178,6 +178,10 @@ export async function updateRevenue(revenueId: string, formData: FormData) {
   } else {
     update.expected_amount = amount;
     update.expected_date = date;
+
+    // uma receita pendente nunca deve ter baixa (revenue_realizations) associada,
+    // senão ela conta em dobro no Cash Flow (como entrada e como provisão)
+    await supabase.from("revenue_realizations").delete().eq("revenue_id", revenueId);
   }
 
   const { error } = await supabase.from("revenues").update(update).eq("id", revenueId);
