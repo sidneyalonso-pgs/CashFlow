@@ -142,7 +142,8 @@ export default async function TransferenciasPage({
                 const from = r.companies as any;
                 const to = (r as any).to_company;
                 const fromName = from?.trade_name || from?.legal_name || "?";
-                const toName = to?.trade_name || to?.legal_name || "?";
+                // sem to_company (mesma empresa, so muda a conta bancaria): mostra a mesma empresa
+                const toName = to?.trade_name || to?.legal_name || fromName;
                 return (
                   <span className="text-sm text-ps-muted">
                     De <strong className="text-ps-ink">{fromName}</strong> → Para <strong className="text-ps-ink">{toName}</strong>
