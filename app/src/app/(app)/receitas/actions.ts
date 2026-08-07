@@ -113,6 +113,10 @@ export async function settleRevenue(revenueId: string, amount: number, receivedA
     data: { user },
   } = await supabase.auth.getUser();
 
+  // remove baixas anteriores antes de inserir a nova, senao a receita passa a
+  // contar 2x no Cash Flow (uma linha por baixa)
+  await supabase.from("revenue_realizations").delete().eq("revenue_id", revenueId);
+
   const { error: realizationError } = await supabase.from("revenue_realizations").insert({
     revenue_id: revenueId,
     amount,
@@ -135,6 +139,7 @@ export async function settleRevenue(revenueId: string, amount: number, receivedA
   if (error) return { error: error.message };
 
   revalidatePath("/receitas");
+  revalidatePath("/cash-flow");
   return { error: null };
 }
 

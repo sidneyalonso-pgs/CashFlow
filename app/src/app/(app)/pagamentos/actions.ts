@@ -182,6 +182,10 @@ export async function settlePayment(paymentId: string, amount: number, paidAt: s
     data: { user },
   } = await supabase.auth.getUser();
 
+  // remove baixas anteriores antes de inserir a nova, senao o pagamento passa a
+  // contar 2x no Cash Flow (uma linha por baixa)
+  await supabase.from("payment_realizations").delete().eq("payment_id", paymentId);
+
   const { error: realizationError } = await supabase.from("payment_realizations").insert({
     payment_id: paymentId,
     amount,
@@ -208,6 +212,7 @@ export async function settlePayment(paymentId: string, amount: number, paidAt: s
   if (error) return { error: error.message };
 
   revalidatePath("/pagamentos");
+  revalidatePath("/cash-flow");
   return { error: null };
 }
 
