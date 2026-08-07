@@ -109,10 +109,11 @@ export async function emitirFatura(data: {
     ? new Date(data.competencia + "-01").toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
     : data.competencia;
 
-  // Receita só para bets. Nos demais modelos o fee já é reconhecido como receita
-  // pelos lançamentos diários (CCME/FEE), então gerar receita aqui contaria em dobro.
+  // Receita só para bets e mensalidade (dinheiro que de fato entra para nós).
+  // No modelo transação o fee já é reconhecido pelos lançamentos diários (CCME/FEE)
+  // e o valor faturado é repasse do cliente, então gerar receita aqui contaria em dobro.
   let revenueId: string | null = null;
-  if (data.modelo === "bets" && data.total > 0) {
+  if ((data.modelo === "bets" || data.modelo === "mensalidade") && data.total > 0) {
     const { data: rev } = await supabase.from("revenues").insert({
       company_id: data.company_id,
       description: `Faturamento — ${clientName} (${competenciaLabel})`,
