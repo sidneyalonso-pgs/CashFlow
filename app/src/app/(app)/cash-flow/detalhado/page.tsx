@@ -4,6 +4,17 @@ import { PageHeader } from "@/components/PageHeader";
 import { FinancialCard } from "@/components/FinancialCard";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 import { formatBRL, sumMoney } from "@/lib/calculations/money";
+import { DetalhadoTable, type DayRow } from "./DetalhadoTable";
+
+function groupSum(items: Array<{ label: string; amount: number }>): Array<{ label: string; value: number }> {
+  const map = new Map<string, number>();
+  for (const it of items) {
+    map.set(it.label, (map.get(it.label) ?? 0) + it.amount);
+  }
+  return Array.from(map.entries())
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value);
+}
 
 export default async function CashFlowDetalhadoPage({
   searchParams,
@@ -25,20 +36,26 @@ export default async function CashFlowDetalhadoPage({
     .select("id, nickname, bank_name, initial_balance, counts_as_available_cash, company_id");
   let paymentRealizationsQuery = supabase
     .from("payment_realizations")
-    .select("amount, paid_at, payments!inner(company_id, paying_bank_account_id)")
+    .select("amount, paid_at, payments!inner(company_id, paying_bank_account_id, description, suppliers(legal_name))")
     .is("payments.deleted_at", null)
     .gte("paid_at", dateFrom)
     .lte("paid_at", dateTo);
   let provisionedPaymentsQuery = supabase
     .from("payments")
-    .select("gross_amount, due_date, company_id, paying_bank_account_id")
+    .select("gross_amount, due_date, company_id, paying_bank_account_id, description, suppliers(legal_name)")
     .is("deleted_at", null)
     .not("status", "in", '("pago","cancelado")')
     .gte("due_date", dateFrom)
     .lte("due_date", dateTo);
+  let revenueRealizationsQuery = supabase
+    .from("revenue_realizations")
+    .select("amount, received_at, revenues!inner(company_id, receiving_bank_account_id, description, categories(name))")
+    .is("revenues.deleted_at", null)
+    .gte("received_at", dateFrom)
+    .lte("received_at", dateTo);
   let provisionedRevenuesQuery = supabase
     .from("revenues")
-    .select("expected_amount, expected_date, company_id, receiving_bank_account_id")
+    .select("expected_amount, expected_date, company_id, receiving_bank_account_id, description, categories(name)")
     .is("deleted_at", null)
     .not("status", "in", '("recebida","cancelada")')
     .gte("expected_date", dateFrom)
@@ -53,6 +70,7 @@ export default async function CashFlowDetalhadoPage({
     bankAccountsQuery = bankAccountsQuery.eq("company_id", companyId);
     paymentRealizationsQuery = paymentRealizationsQuery.eq("payments.company_id", companyId);
     provisionedPaymentsQuery = provisionedPaymentsQuery.eq("company_id", companyId);
+    revenueRealizationsQuery = revenueRealizationsQuery.eq("revenues.company_id", companyId);
     provisionedRevenuesQuery = provisionedRevenuesQuery.eq("company_id", companyId);
     investmentsQuery = investmentsQuery.eq("company_id", companyId);
   }
@@ -61,6 +79,7 @@ export default async function CashFlowDetalhadoPage({
     { data: allBankAccounts },
     { data: paymentRealizationsRaw },
     { data: provisionedPaymentsRaw },
+    { data: revenueRealizationsRaw },
     { data: provisionedRevenuesRaw },
     { data: investmentsRaw },
     { data: companies },
@@ -68,6 +87,7 @@ export default async function CashFlowDetalhadoPage({
     bankAccountsQuery,
     paymentRealizationsQuery,
     provisionedPaymentsQuery,
+    revenueRealizationsQuery,
     provisionedRevenuesQuery,
     investmentsQuery,
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
@@ -79,6 +99,9 @@ export default async function CashFlowDetalhadoPage({
   const provisionedPayments = bankAccountId
     ? (provisionedPaymentsRaw ?? []).filter((p: any) => p.paying_bank_account_id === bankAccountId)
     : (provisionedPaymentsRaw ?? []);
+  const revenueRealizations = bankAccountId
+    ? (revenueRealizationsRaw ?? []).filter((r: any) => (r.revenues as any)?.receiving_bank_account_id === bankAccountId)
+    : (revenueRealizationsRaw ?? []);
   const provisionedRevenues = bankAccountId
     ? (provisionedRevenuesRaw ?? []).filter((r: any) => r.receiving_bank_account_id === bankAccountId)
     : (provisionedRevenuesRaw ?? []);
@@ -130,8 +153,7 @@ export default async function CashFlowDetalhadoPage({
     priorInvestments.map((i: any) => (i.tipo === "resgate" ? Number(i.applied_amount) : -Number(i.applied_amount)))
   );
 
-  let runningBalance = initialCashBalance.plus(priorInflows).minus(priorOutflows).plus(priorInvNet);
-  const openingBalance = runningBalance;
+  const openingBalance = initialCashBalance.plus(priorInflows).minus(priorOutflows).plus(priorInvNet).toNumber();
 
   // agrupar por dia
   const days: string[] = [];
@@ -139,30 +161,59 @@ export default async function CashFlowDetalhadoPage({
     days.push(d.toISOString().slice(0, 10));
   }
 
-  const dayRows = days.map((day) => {
-    const despesas = sumMoney(paymentRealizations.filter((p: any) => p.paid_at === day).map((p: any) => p.amount));
-    const provisoesPagamento = sumMoney(provisionedPayments.filter((p: any) => p.due_date === day).map((p: any) => p.gross_amount));
-    const provisoesReceita = sumMoney(provisionedRevenues.filter((r: any) => r.expected_date === day).map((r: any) => r.expected_amount));
-    const investimentoDia = investments
+  let runningBalance = openingBalance;
+
+  const dayRows: DayRow[] = days.map((day) => {
+    const saidasItems = paymentRealizations
+      .filter((p: any) => p.paid_at === day)
+      .map((p: any) => ({ label: p.payments?.suppliers?.legal_name ?? p.payments?.description ?? "Outros", amount: Number(p.amount) }));
+    const provisaoSaidasItems = provisionedPayments
+      .filter((p: any) => p.due_date === day)
+      .map((p: any) => ({ label: p.suppliers?.legal_name ?? p.description ?? "Outros", amount: Number(p.gross_amount) }));
+    const entradasItems = revenueRealizations
+      .filter((r: any) => r.received_at === day)
+      .map((r: any) => ({ label: r.revenues?.categories?.name ?? r.revenues?.description ?? "Outras", amount: Number(r.amount) }));
+    const provisaoEntradasItems = provisionedRevenues
+      .filter((r: any) => r.expected_date === day)
+      .map((r: any) => ({ label: r.categories?.name ?? r.description ?? "Outras", amount: Number(r.expected_amount) }));
+
+    const saidas = sumMoney(saidasItems.map((i) => i.amount)).toNumber();
+    const provisaoSaidas = sumMoney(provisaoSaidasItems.map((i) => i.amount)).toNumber();
+    const entradas = sumMoney(entradasItems.map((i) => i.amount)).toNumber();
+    const provisaoEntradas = sumMoney(provisaoEntradasItems.map((i) => i.amount)).toNumber();
+    const investimento = investments
       .filter((i: any) => i.applied_date === day)
       .reduce((acc: number, i: any) => acc + (i.tipo === "resgate" ? Number(i.applied_amount) : -Number(i.applied_amount)), 0);
 
-    // saldo em conta muda com despesas realizadas e resgates/aplicações; provisões ainda não afetam o saldo
-    runningBalance = runningBalance.minus(despesas).plus(investimentoDia);
+    // provisões ainda não afetam o saldo em conta — só saídas/entradas já baixadas e investimentos
+    runningBalance = runningBalance - saidas + entradas + investimento;
 
-    return { day, despesas, provisoesPagamento, provisoesReceita, investimentoDia, saldo: runningBalance };
+    return {
+      day,
+      saidas,
+      provisaoSaidas,
+      entradas,
+      provisaoEntradas,
+      investimento,
+      saldo: runningBalance,
+      saidasDetail: groupSum(saidasItems),
+      provisaoSaidasDetail: groupSum(provisaoSaidasItems),
+      entradasDetail: groupSum(entradasItems),
+      provisaoEntradasDetail: groupSum(provisaoEntradasItems),
+    };
   });
 
-  const totalDespesas = sumMoney(dayRows.map((r) => r.despesas));
-  const totalProvisoesPagamento = sumMoney(dayRows.map((r) => r.provisoesPagamento));
-  const totalProvisoesReceita = sumMoney(dayRows.map((r) => r.provisoesReceita));
-  const totalInvestimento = sumMoney(dayRows.map((r) => r.investimentoDia));
+  const totalSaidas = sumMoney(dayRows.map((r) => r.saidas));
+  const totalProvisaoSaidas = sumMoney(dayRows.map((r) => r.provisaoSaidas));
+  const totalEntradas = sumMoney(dayRows.map((r) => r.entradas));
+  const totalProvisaoEntradas = sumMoney(dayRows.map((r) => r.provisaoEntradas));
+  const totalInvestimento = sumMoney(dayRows.map((r) => r.investimento));
 
   return (
     <div>
       <PageHeader
         title="Cash Flow Detalhado"
-        subtitle="Despesas, provisões e investimentos por dia"
+        subtitle="Saídas, entradas, provisões e investimentos por dia"
         actions={
           <Link
             href="/cash-flow"
@@ -204,10 +255,11 @@ export default async function CashFlowDetalhadoPage({
         />
       </AutoSubmitForm>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <FinancialCard label="Despesas" value={formatBRL(totalDespesas)} tone="negative" />
-        <FinancialCard label="Provisões de pagamento" value={formatBRL(totalProvisoesPagamento)} />
-        <FinancialCard label="Provisões de receita" value={formatBRL(totalProvisoesReceita)} tone="positive" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <FinancialCard label="Saídas" value={formatBRL(totalSaidas)} tone="negative" />
+        <FinancialCard label="Provisão de saídas" value={formatBRL(totalProvisaoSaidas)} />
+        <FinancialCard label="Entradas" value={formatBRL(totalEntradas)} tone="positive" />
+        <FinancialCard label="Provisão de entradas" value={formatBRL(totalProvisaoEntradas)} />
         <FinancialCard
           label="Investimento (líquido)"
           value={formatBRL(totalInvestimento)}
@@ -215,61 +267,13 @@ export default async function CashFlowDetalhadoPage({
         />
       </div>
 
-      <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 overflow-hidden overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-ps-bg-2 text-ps-muted text-xs uppercase tracking-wide">
-            <tr>
-              <th className="text-left px-4 py-3">Dia</th>
-              <th className="text-left px-4 py-3">Despesas</th>
-              <th className="text-left px-4 py-3">Provisões de pagamento</th>
-              <th className="text-left px-4 py-3">Provisões de receita</th>
-              <th className="text-left px-4 py-3">Investimento</th>
-              <th className="text-left px-4 py-3">Saldo em conta</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="border-t border-ps-navy/5 bg-ps-bg-2/40">
-              <td className="px-4 py-3 font-medium text-ps-ink">Saldo inicial ({formatShort(dateFrom)})</td>
-              <td className="px-4 py-3 text-ps-muted">—</td>
-              <td className="px-4 py-3 text-ps-muted">—</td>
-              <td className="px-4 py-3 text-ps-muted">—</td>
-              <td className="px-4 py-3 text-ps-muted">—</td>
-              <td className="px-4 py-3 tabular-nums font-semibold">{formatBRL(openingBalance)}</td>
-            </tr>
-            {dayRows.map((row) => (
-              <tr key={row.day} className="border-t border-ps-navy/5 hover:bg-ps-bg-2/40">
-                <td className="px-4 py-3 font-medium">{formatShort(row.day)}</td>
-                <td className="px-4 py-3 tabular-nums text-red-600">
-                  {row.despesas.isZero() ? <span className="text-ps-muted">—</span> : formatBRL(row.despesas)}
-                </td>
-                <td className="px-4 py-3 tabular-nums text-amber-700">
-                  {row.provisoesPagamento.isZero() ? <span className="text-ps-muted">—</span> : formatBRL(row.provisoesPagamento)}
-                </td>
-                <td className="px-4 py-3 tabular-nums text-ps-green-700">
-                  {row.provisoesReceita.isZero() ? <span className="text-ps-muted">—</span> : formatBRL(row.provisoesReceita)}
-                </td>
-                <td className={`px-4 py-3 tabular-nums ${row.investimentoDia < 0 ? "text-red-600" : row.investimentoDia > 0 ? "text-ps-green-700" : "text-ps-muted"}`}>
-                  {row.investimentoDia === 0 ? "—" : formatBRL(row.investimentoDia)}
-                </td>
-                <td className={`px-4 py-3 tabular-nums font-semibold ${row.saldo.isNegative() ? "text-red-600" : ""}`}>
-                  {formatBRL(row.saldo)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DetalhadoTable openingBalance={openingBalance} dateFrom={dateFrom} rows={dayRows} />
 
       <p className="text-xs text-ps-muted mt-4">
-        Despesas = pagamentos já baixados na data. Provisões de pagamento/receita = valores com vencimento/previsão
-        na data mas ainda não baixados (não afetam o saldo em conta). Investimento = aplicações (saída) e resgates
-        (entrada) na data. Saldo em conta considera saldo inicial cadastrado + despesas realizadas + investimentos.
+        Clique em um dia para ver o detalhamento por fornecedor. Saídas/entradas = pagamentos e receitas já baixados
+        na data. Provisão de saídas/entradas = valores com vencimento/previsão na data mas ainda não baixados (não
+        afetam o saldo em conta). Investimento = aplicações (saída) e resgates (entrada) na data.
       </p>
     </div>
   );
-}
-
-function formatShort(iso: string) {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
 }
