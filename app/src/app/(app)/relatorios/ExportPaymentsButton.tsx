@@ -21,14 +21,17 @@ function lastDayOfMonth() {
 
 export function ExportPaymentsButton({
   companies,
+  bankAccounts,
 }: {
   companies: Array<{ id: string; legal_name: string; trade_name: string | null }>;
+  bankAccounts: Array<{ id: string; nickname: string | null; bank_name: string }>;
 }) {
   const [loading, setLoading] = useState(false);
   const [count, setCount] = useState<number | null>(null);
   const [dateFrom, setDateFrom] = useState(firstDayOfMonth());
   const [dateTo, setDateTo] = useState(lastDayOfMonth());
   const [companyId, setCompanyId] = useState("");
+  const [bankAccountId, setBankAccountId] = useState("");
   const [statusFiltro, setStatusFiltro] = useState("todos");
 
   async function handleExport() {
@@ -39,7 +42,7 @@ export function ExportPaymentsButton({
     let query = supabase
       .from("payments")
       .select(
-        "description, gross_amount, paid_amount, due_date, effective_payment_date, status, cost_type, fixed_variable, recurring, companies(legal_name, trade_name), suppliers(legal_name), categories(name), cost_centers(name)"
+        "description, gross_amount, paid_amount, due_date, effective_payment_date, status, cost_type, fixed_variable, recurring, companies(legal_name, trade_name), suppliers(legal_name), categories(name), cost_centers(name), bank_accounts:paying_bank_account_id(nickname, bank_name)"
       )
       .is("deleted_at", null)
       .neq("status", "cancelado")
@@ -47,6 +50,7 @@ export function ExportPaymentsButton({
       .order("due_date");
 
     if (companyId) query = query.eq("company_id", companyId);
+    if (bankAccountId) query = query.eq("paying_bank_account_id", bankAccountId);
     if (statusFiltro === "pago") query = query.eq("status", "pago");
     if (statusFiltro === "provisionado") query = query.neq("status", "pago");
 
@@ -56,6 +60,7 @@ export function ExportPaymentsButton({
     const header = [
       "Data",
       "Empresa",
+      "Banco",
       "Fornecedor",
       "Descrição",
       "Valor",
@@ -72,18 +77,12 @@ export function ExportPaymentsButton({
         const isPago = r.status === "pago";
         const data = isPago ? r.effective_payment_date ?? r.due_date : r.due_date;
         const valor = isPago ? r.paid_amount ?? r.gross_amount : r.gross_amount;
-        // fixed_variable ainda não é preenchido no cadastro: cai para o flag de recorrência
-        const fixoVar = r.fixed_variable
-          ? r.fixed_variable === "fixo"
-            ? "Fixo"
-            : "Variável"
-          : r.recurring
-          ? "Fixo"
-          : "Variável";
+        const fixoVar = r.fixed_variable === "variavel" ? "Variável" : r.fixed_variable === "fixo" ? "Fixo" : "";
 
         return [
           data ? formatDateBR(data) : "",
           companyLabel(r.companies),
+          r.bank_accounts?.nickname ?? r.bank_accounts?.bank_name ?? "",
           r.suppliers?.legal_name ?? "",
           r.description ?? "",
           formatNumberBR(valor),
@@ -114,7 +113,7 @@ export function ExportPaymentsButton({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         <div>
           <label className="block text-xs text-ps-muted mb-1">De</label>
           <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={selectCls + " w-full"} />
@@ -130,6 +129,17 @@ export function ExportPaymentsButton({
             {companies.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.trade_name || c.legal_name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-ps-muted mb-1">Banco</label>
+          <select value={bankAccountId} onChange={(e) => setBankAccountId(e.target.value)} className={selectCls + " w-full"}>
+            <option value="">Todos os bancos</option>
+            {bankAccounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.nickname ?? a.bank_name}
               </option>
             ))}
           </select>
