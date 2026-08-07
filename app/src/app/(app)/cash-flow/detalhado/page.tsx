@@ -211,7 +211,7 @@ export default async function CashFlowDetalhadoPage({
         <FinancialCard
           label="Investimento (líquido)"
           value={formatBRL(totalInvestimento)}
-          tone={totalInvestimento < 0 ? "negative" : totalInvestimento > 0 ? "positive" : "neutral"}
+          tone={totalInvestimento.isNegative() ? "negative" : totalInvestimento.isPositive() ? "positive" : "neutral"}
         />
       </div>
 
