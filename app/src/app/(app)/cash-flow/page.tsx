@@ -106,12 +106,23 @@ export default async function CashFlowPage({
       )
     : allTransfers;
 
-  const transferInflows = transfersFiltered
-    .filter((t) => INFLOW_TIPOS.includes(t.tipo))
-    .map((t) => ({ amount: Number(t.amount), received_at: t.transfer_date }));
-  const transferOutflows = transfersFiltered
-    .filter((t) => OUTFLOW_TIPOS.includes(t.tipo))
-    .map((t) => ({ amount: Number(t.amount), paid_at: t.transfer_date }));
+  // transferencia_interna (entre contas da propria empresa) so tem lado de entrada/saida
+  // quando se olha uma conta especifica - somada a nenhuma das duas, o efeito e nulo
+  const internalTransferInflows = bankAccountId
+    ? allTransfers.filter((t) => t.tipo === "transferencia_interna" && t.to_account_id === bankAccountId)
+    : [];
+  const internalTransferOutflows = bankAccountId
+    ? allTransfers.filter((t) => t.tipo === "transferencia_interna" && t.from_account_id === bankAccountId)
+    : [];
+
+  const transferInflows = [
+    ...transfersFiltered.filter((t) => INFLOW_TIPOS.includes(t.tipo)),
+    ...internalTransferInflows,
+  ].map((t) => ({ amount: Number(t.amount), received_at: t.transfer_date }));
+  const transferOutflows = [
+    ...transfersFiltered.filter((t) => OUTFLOW_TIPOS.includes(t.tipo)),
+    ...internalTransferOutflows,
+  ].map((t) => ({ amount: Number(t.amount), paid_at: t.transfer_date }));
 
   const initialCashBalance = sumMoney(
     (bankAccounts ?? []).filter((a: any) => a.counts_as_available_cash).map((a: any) => a.initial_balance)
