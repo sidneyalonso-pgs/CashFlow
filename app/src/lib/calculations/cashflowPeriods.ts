@@ -40,12 +40,6 @@ export function getWeekBuckets(year: number, month: number): Bucket[] {
     }
     if (weekEnd > lastDay) weekEnd = new Date(lastDay);
 
-    buckets.push({
-      label: `Semana ${weekNumber} (${formatDDMM(weekEnd)})`,
-      start: toISODate(cursor),
-      end: toISODate(weekEnd),
-    });
-
     // próxima segunda-feira
     const next = new Date(weekEnd);
     next.setUTCDate(weekEnd.getUTCDate() + 1);
@@ -53,6 +47,20 @@ export function getWeekBuckets(year: number, month: number): Bucket[] {
     if (nextIsoDow !== 1) {
       next.setUTCDate(next.getUTCDate() + (8 - nextIsoDow));
     }
+
+    // o label mostra a sexta-feira (como na planilha), mas o intervalo de dados
+    // se estende até o fim de semana (sabado/domingo), senao lancamentos nesses
+    // dias ficam fora de qualquer balde e desaparecem dos totais
+    const dataEnd = new Date(next);
+    dataEnd.setUTCDate(next.getUTCDate() - 1);
+    const bucketEnd = dataEnd > lastDay ? lastDay : dataEnd;
+
+    buckets.push({
+      label: `Semana ${weekNumber} (${formatDDMM(weekEnd)})`,
+      start: toISODate(cursor),
+      end: toISODate(bucketEnd),
+    });
+
     cursor = next;
     weekNumber++;
   }
