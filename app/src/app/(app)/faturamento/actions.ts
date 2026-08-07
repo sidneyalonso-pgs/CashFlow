@@ -114,13 +114,14 @@ export async function emitirFatura(data: {
   // e o valor faturado é repasse do cliente, então gerar receita aqui contaria em dobro.
   let revenueId: string | null = null;
   if ((data.modelo === "bets" || data.modelo === "mensalidade") && data.total > 0) {
-    const { data: rev } = await supabase.from("revenues").insert({
+    const { data: rev, error: revErr } = await supabase.from("revenues").insert({
       company_id: data.company_id,
       description: `Faturamento — ${clientName} (${competenciaLabel})`,
       expected_amount: data.total,
       expected_date: data.data_vencimento ?? new Date().toISOString().split("T")[0],
       status: "estimada",
     }).select("id").single();
+    if (revErr) return { error: `Fatura criada, mas a receita falhou: ${revErr.message}` };
     revenueId = rev?.id ?? null;
   }
 
@@ -129,18 +130,22 @@ export async function emitirFatura(data: {
   if (data.total_repasse > 0) {
     // payments.supplier_id é NOT NULL: reaproveita o fornecedor do cliente ou cria
     const { data: existingSupplier } = await supabase
-      .from("suppliers").select("id").eq("legal_name", clientName).maybeSingle();
-    const supplierId = existingSupplier?.id ?? (
-      await supabase.from("suppliers").insert({
+      .from("suppliers").select("id").eq("legal_name", clientName).limit(1).maybeSingle();
+
+    let supplierId = existingSupplier?.id ?? null;
+    if (!supplierId) {
+      const { data: newSupplier, error: supErr } = await supabase.from("suppliers").insert({
         legal_name: clientName,
         person_type: "juridica",
         status: "ativo",
         cost_type: "despesas",
-      }).select("id").single()
-    ).data?.id;
+      }).select("id").single();
+      if (supErr) return { error: `Fatura criada, mas o fornecedor do repasse falhou: ${supErr.message}` };
+      supplierId = newSupplier?.id ?? null;
+    }
 
     const repasseDate = data.data_repasse ?? new Date().toISOString().split("T")[0];
-    const { data: pay } = await supabase.from("payments").insert({
+    const { data: pay, error: payErr } = await supabase.from("payments").insert({
       company_id: data.company_id,
       supplier_id: supplierId,
       description: `Repasse — ${clientName} (${competenciaLabel})`,
@@ -151,6 +156,7 @@ export async function emitirFatura(data: {
       competence_date: repasseDate,
       status: "agendado",
     }).select("id").single();
+    if (payErr) return { error: `Fatura criada, mas o repasse falhou: ${payErr.message}` };
     paymentId = pay?.id ?? null;
   }
 
@@ -173,28 +179,56 @@ export async function baixarFatura(invoiceId: string, dataPgto: string) {
   const supabase = createClient();
   const { data: invoice } = await supabase
     .from("billing_invoices")
-    .select("revenue_id, payment_id")
+    .select("revenue_id, payment_id, total, total_repasse")
     .eq("id", invoiceId).single();
 
-  await supabase.from("billing_invoices").update({
+  if (!invoice) return { error: "Fatura não encontrada." };
+
+  const { error: invErr } = await supabase.from("billing_invoices").update({
     status: "pago", data_pgto: dataPgto,
   }).eq("id", invoiceId);
+  if (invErr) return { error: invErr.message };
 
-  if (invoice?.revenue_id) {
-    await supabase.from("revenues").update({
-      status: "recebida",
-      realized_amount: undefined,
-      realized_date: dataPgto,
-    }).eq("id", invoice.revenue_id);
-    await supabase.from("revenue_realizations").insert({
-      revenue_id: invoice.revenue_id,
-      amount: (await supabase.from("billing_invoices").select("total").eq("id", invoiceId).single()).data?.total,
-      received_at: dataPgto,
-    });
+  if (invoice.revenue_id) {
+    const amount = Number(invoice.total ?? 0);
+    if (amount > 0) {
+      const { error } = await supabase.from("revenues").update({
+        status: "recebida",
+        realized_amount: amount,
+        realized_date: dataPgto,
+      }).eq("id", invoice.revenue_id);
+      if (error) return { error: error.message };
+
+      // substitui a baixa anterior para a receita nao contar duas vezes
+      await supabase.from("revenue_realizations").delete().eq("revenue_id", invoice.revenue_id);
+      const { error: realErr } = await supabase.from("revenue_realizations").insert({
+        revenue_id: invoice.revenue_id,
+        amount,
+        received_at: dataPgto,
+      });
+      if (realErr) return { error: realErr.message };
+    }
   }
 
-  if (invoice?.payment_id) {
-    await supabase.from("payments").update({ status: "pago" }).eq("id", invoice.payment_id);
+  if (invoice.payment_id) {
+    const amount = Number(invoice.total_repasse ?? 0);
+    if (amount > 0) {
+      const { error } = await supabase.from("payments").update({
+        status: "pago",
+        paid_amount: amount,
+        effective_payment_date: dataPgto,
+      }).eq("id", invoice.payment_id);
+      if (error) return { error: error.message };
+
+      // sem esta baixa o repasse some do Cash Flow: sai de provisionado e nao entra em realizado
+      await supabase.from("payment_realizations").delete().eq("payment_id", invoice.payment_id);
+      const { error: realErr } = await supabase.from("payment_realizations").insert({
+        payment_id: invoice.payment_id,
+        amount,
+        paid_at: dataPgto,
+      });
+      if (realErr) return { error: realErr.message };
+    }
   }
 
   revalidatePath("/faturamento");
@@ -210,12 +244,29 @@ export async function cancelarFatura(invoiceId: string) {
   const { data: invoice } = await supabase
     .from("billing_invoices").select("revenue_id, payment_id").eq("id", invoiceId).single();
 
-  await supabase.from("billing_invoices").update({ status: "cancelado" }).eq("id", invoiceId);
-  if (invoice?.revenue_id) await supabase.from("revenues").update({ status: "cancelada" }).eq("id", invoice.revenue_id);
-  if (invoice?.payment_id) await supabase.from("payments").update({ status: "cancelado" }).eq("id", invoice.payment_id);
+  const { error } = await supabase.from("billing_invoices").update({ status: "cancelado" }).eq("id", invoiceId);
+  if (error) return { error: error.message };
+
+  // apaga as baixas junto: sem isso o Cash Flow continua contando a fatura cancelada,
+  // porque ele filtra os lançamentos por deleted_at, não por status
+  if (invoice?.revenue_id) {
+    await supabase.from("revenue_realizations").delete().eq("revenue_id", invoice.revenue_id);
+    await supabase.from("revenues").update({
+      status: "cancelada", realized_amount: null, realized_date: null,
+    }).eq("id", invoice.revenue_id);
+  }
+  if (invoice?.payment_id) {
+    await supabase.from("payment_realizations").delete().eq("payment_id", invoice.payment_id);
+    await supabase.from("payments").update({
+      status: "cancelado", paid_amount: null, effective_payment_date: null,
+    }).eq("id", invoice.payment_id);
+  }
 
   revalidatePath("/faturamento");
   revalidatePath("/faturamento/faturas");
+  revalidatePath("/receitas");
+  revalidatePath("/pagamentos");
+  revalidatePath("/cash-flow");
   return { error: null };
 }
 
