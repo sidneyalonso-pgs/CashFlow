@@ -194,7 +194,18 @@ export default async function CashFlowPage({
 
   return (
     <div>
-      <PageHeader title="Cash Flow" subtitle="Resumo executivo e evolução do saldo de caixa" />
+      <PageHeader
+        title="Cash Flow"
+        subtitle="Resumo executivo e evolução do saldo de caixa"
+        actions={
+          <Link
+            href="/cash-flow/detalhado"
+            className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
+          >
+            Ver Cash Flow Detalhado
+          </Link>
+        }
+      />
 
       <AutoSubmitForm className="flex flex-wrap gap-3 mb-6">
         <select name="company_id" defaultValue={companyId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
