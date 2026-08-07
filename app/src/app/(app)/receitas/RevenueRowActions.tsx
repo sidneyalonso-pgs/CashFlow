@@ -2,9 +2,18 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { deleteRevenue, markRevenueAsPending } from "./actions";
 
-export function RevenueRowActions({ revenueId, status }: { revenueId: string; status: string }) {
+export function RevenueRowActions({
+  revenueId,
+  status,
+  description,
+}: {
+  revenueId: string;
+  status: string;
+  description?: string;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [showDelete, setShowDelete] = useState(false);
@@ -19,11 +28,11 @@ export function RevenueRowActions({ revenueId, status }: { revenueId: string; st
   }
 
   function handleDelete() {
+    setShowDelete(false);
     startTransition(async () => {
       await deleteRevenue(revenueId);
       router.refresh();
     });
-    setShowDelete(false);
   }
 
   return (
@@ -39,28 +48,15 @@ export function RevenueRowActions({ revenueId, status }: { revenueId: string; st
         </button>
       </div>
 
-      {showDelete && (
-        <div className="fixed inset-0 bg-ps-navy-900/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-ps shadow-ps-lg p-6 w-full max-w-sm">
-            <h3 className="text-base font-bold text-ps-ink mb-2">Excluir receita?</h3>
-            <p className="text-sm text-ps-muted mb-5">Esta ação não pode ser desfeita. A receita será removida do Cash Flow.</p>
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setShowDelete(false)}
-                className="px-4 py-2 text-sm rounded-ps-sm border border-ps-navy/15 text-ps-ink hover:bg-ps-bg-2 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleDelete}
-                className="px-4 py-2 text-sm rounded-ps-sm bg-red-500 text-white font-medium hover:bg-red-600 transition-colors"
-              >
-                Excluir
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={showDelete}
+        title="Excluir receita?"
+        message="Esta ação não pode ser desfeita. A receita e sua baixa serão removidas do Cash Flow."
+        detail={description}
+        confirmLabel="Excluir receita"
+        onConfirm={handleDelete}
+        onCancel={() => setShowDelete(false)}
+      />
     </>
   );
 }

@@ -109,12 +109,13 @@ export async function emitirFatura(data: {
     ? new Date(data.competencia + "-01").toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
     : data.competencia;
 
-  // Create revenue (fee to receive)
+  // Receita só para bets. Nos demais modelos o fee já é reconhecido como receita
+  // pelos lançamentos diários (CCME/FEE), então gerar receita aqui contaria em dobro.
   let revenueId: string | null = null;
-  if (data.total > 0) {
+  if (data.modelo === "bets" && data.total > 0) {
     const { data: rev } = await supabase.from("revenues").insert({
       company_id: data.company_id,
-      description: `Fee Faturamento — ${clientName} (${competenciaLabel})`,
+      description: `Faturamento — ${clientName} (${competenciaLabel})`,
       expected_amount: data.total,
       expected_date: data.data_vencimento ?? new Date().toISOString().split("T")[0],
       status: "estimada",
@@ -125,12 +126,29 @@ export async function emitirFatura(data: {
   // Create payment (repasse to make)
   let paymentId: string | null = null;
   if (data.total_repasse > 0) {
+    // payments.supplier_id é NOT NULL: reaproveita o fornecedor do cliente ou cria
+    const { data: existingSupplier } = await supabase
+      .from("suppliers").select("id").eq("legal_name", clientName).maybeSingle();
+    const supplierId = existingSupplier?.id ?? (
+      await supabase.from("suppliers").insert({
+        legal_name: clientName,
+        person_type: "juridica",
+        status: "ativo",
+        cost_type: "despesas",
+      }).select("id").single()
+    ).data?.id;
+
+    const repasseDate = data.data_repasse ?? new Date().toISOString().split("T")[0];
     const { data: pay } = await supabase.from("payments").insert({
       company_id: data.company_id,
+      supplier_id: supplierId,
       description: `Repasse — ${clientName} (${competenciaLabel})`,
       gross_amount: data.total_repasse,
-      due_date: data.data_repasse ?? null,
-      status: "provisionado",
+      document_date: repasseDate,
+      due_date: repasseDate,
+      expected_payment_date: repasseDate,
+      competence_date: repasseDate,
+      status: "agendado",
     }).select("id").single();
     paymentId = pay?.id ?? null;
   }

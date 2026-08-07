@@ -254,6 +254,7 @@ export default async function PaymentsPage({
                     displayStatus={p.displayStatus}
                     grossAmount={p.gross_amount}
                     dueDate={p.due_date}
+                    description={p.description}
                   />
                 </td>
               </tr>

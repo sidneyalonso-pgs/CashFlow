@@ -169,7 +169,7 @@ export default async function RevenuesPage({
                 {["estimada", "confirmada", "atrasada", "reprogramada"].includes(r.status) && (
                   <RevenueSettleButton revenueId={r.id} bankAccounts={bankAccounts ?? []} />
                 )}
-                <RevenueRowActions revenueId={r.id} status={r.status} />
+                <RevenueRowActions revenueId={r.id} status={r.status} description={r.description} />
               </div>
             ),
           },

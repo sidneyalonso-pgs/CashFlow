@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { deletePayment, quickMarkPaid, markPaymentAsOpen, createRecurringFromPayment } from "./actions";
 
 export function PaymentRowActions({
@@ -9,11 +10,13 @@ export function PaymentRowActions({
   displayStatus,
   grossAmount,
   dueDate,
+  description,
 }: {
   paymentId: string;
   displayStatus: string;
   grossAmount: number;
   dueDate: string | null;
+  description?: string;
 }) {
   const [isPending, startTransition] = useTransition();
   const [showDelete, setShowDelete] = useState(false);
@@ -161,29 +164,15 @@ export function PaymentRowActions({
         </div>
       )}
 
-      {/* Modal excluir */}
-      {showDelete && (
-        <div className="fixed inset-0 bg-ps-navy-900/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-ps shadow-ps-lg p-6 w-full max-w-sm">
-            <h3 className="text-base font-bold text-ps-ink mb-2">Excluir pagamento?</h3>
-            <p className="text-sm text-ps-muted mb-5">Esta ação não pode ser desfeita. O pagamento será removido do Cash Flow.</p>
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setShowDelete(false)}
-                className="px-4 py-2 text-sm rounded-ps-sm border border-ps-navy/15 text-ps-ink hover:bg-ps-bg-2 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleDelete}
-                className="px-4 py-2 text-sm rounded-ps-sm bg-red-500 text-white font-medium hover:bg-red-600 transition-colors"
-              >
-                Excluir
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={showDelete}
+        title="Excluir pagamento?"
+        message="Esta ação não pode ser desfeita. O pagamento e sua baixa serão removidos do Cash Flow."
+        detail={description}
+        confirmLabel="Excluir pagamento"
+        onConfirm={handleDelete}
+        onCancel={() => setShowDelete(false)}
+      />
 
       {/* Modal marcar como pago */}
       {showMarkPaid && (
