@@ -140,8 +140,9 @@ export function EmitirFaturaForm({
   const mens = client?.modelo === "mensalidade" ? calcMensalidade(faixas, numContas) : null;
   const totalFaturado = client?.modelo === "mensalidade" ? (mens?.val ?? 0) : isBets ? bTotal : feeIn + feeOut;
   const descontoVal = totalFaturado * (descontoPerc / 100);
-  const total = totalFaturado - descontoVal;
   const totalRepasse = (client?.modelo === "mensalidade" || isBets) ? 0 : repasseIn + repasseOut;
+  // total = receita liquida da PagSmile (fee), descontando o repasse que sera devolvido ao cliente
+  const total = totalFaturado - descontoVal - totalRepasse;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
