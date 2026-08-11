@@ -49,7 +49,7 @@ export default async function MovementsPage({
   return (
     <div>
       <PageHeader
-        title="Movimentações"
+        title="Extrato geral"
         subtitle="Consulta consolidada de pagamentos (saídas) previstos e realizados"
       />
 
