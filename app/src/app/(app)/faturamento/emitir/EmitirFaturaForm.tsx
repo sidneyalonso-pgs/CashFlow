@@ -65,6 +65,10 @@ export function EmitirFaturaForm({
   const [qtdOut, setQtdOut] = useState(0);
   const [volumeIn, setVolumeIn] = useState(0);
   const [volumeOut, setVolumeOut] = useState(0);
+  const [feeInOverride, setFeeInOverride] = useState<number | null>(null);
+  const [feeOutOverride, setFeeOutOverride] = useState<number | null>(null);
+  const [repInOverride, setRepInOverride] = useState<number | null>(null);
+  const [repOutOverride, setRepOutOverride] = useState<number | null>(null);
   const [numContas, setNumContas] = useState(0);
   const [descontoPerc, setDescontoPerc] = useState(0);
   const [dataVencimento, setDataVencimento] = useState("");
@@ -90,6 +94,10 @@ export function EmitirFaturaForm({
 
   function handleClientChange(id: string) {
     setClientId(id);
+    setFeeInOverride(null);
+    setFeeOutOverride(null);
+    setRepInOverride(null);
+    setRepOutOverride(null);
     const c = clients.find(x => x.id === id);
     if (c?.modelo === "mensalidade") setNumContas(subcontaCounts[id] ?? 0);
     // init subconta rows
@@ -124,10 +132,11 @@ export function EmitirFaturaForm({
     }
   }
 
-  const feeIn = hasSubcontas ? aggFeeIn : isBets ? bQtdPixIn * (client?.in_val ?? 0) : (client ? (client.in_tipo === "fixo" ? qtdIn * client.in_val : volumeIn * (client.in_val / 100)) : 0);
-  const feeOut = hasSubcontas ? aggFeeOut : isBets ? bQtdPixOut * (client?.out_val ?? 0) : (client ? (client.out_tipo === "fixo" ? qtdOut * client.out_val : volumeOut * (client.out_val / 100)) : 0);
-  const repasseIn = hasSubcontas ? aggRepIn : (client ? (client.in_tipo === "perc" ? volumeIn * (client.rep_in / 100) : qtdIn * client.rep_in) : 0);
-  const repasseOut = hasSubcontas ? aggRepOut : (client ? (client.out_tipo === "perc" ? volumeOut * (client.rep_out / 100) : qtdOut * client.rep_out) : 0);
+  const simpleTransacao = client?.modelo === "transacao" && !hasSubcontas;
+  const feeIn = hasSubcontas ? aggFeeIn : isBets ? bQtdPixIn * (client?.in_val ?? 0) : simpleTransacao && feeInOverride != null ? feeInOverride : (client ? (client.in_tipo === "fixo" ? qtdIn * client.in_val : volumeIn * (client.in_val / 100)) : 0);
+  const feeOut = hasSubcontas ? aggFeeOut : isBets ? bQtdPixOut * (client?.out_val ?? 0) : simpleTransacao && feeOutOverride != null ? feeOutOverride : (client ? (client.out_tipo === "fixo" ? qtdOut * client.out_val : volumeOut * (client.out_val / 100)) : 0);
+  const repasseIn = hasSubcontas ? aggRepIn : simpleTransacao && repInOverride != null ? repInOverride : (client ? (client.in_tipo === "perc" ? volumeIn * (client.rep_in / 100) : qtdIn * client.rep_in) : 0);
+  const repasseOut = hasSubcontas ? aggRepOut : simpleTransacao && repOutOverride != null ? repOutOverride : (client ? (client.out_tipo === "perc" ? volumeOut * (client.rep_out / 100) : qtdOut * client.rep_out) : 0);
 
   // Bets-specific totals
   const bFeeNegadas = bQtdNegadas * 0.10;
@@ -463,7 +472,9 @@ export function EmitirFaturaForm({
                   {client.in_tipo !== "fixo" && (
                     <div className="mt-2"><label className={labelCls}>Volume PIX IN (R$)</label><input type="number" min="0" step="0.01" value={volumeIn} onChange={e => setVolumeIn(Number(e.target.value))} className={inputCls} /></div>
                   )}
-                  <p className="text-xs text-ps-muted mt-1">Fee: {fmt(feeIn)} | Repasse: {fmt(repasseIn)}</p>
+                  <p className="text-xs text-ps-muted mt-1">
+                    Fee calculado: {fmt(client.in_tipo === "fixo" ? qtdIn * client.in_val : volumeIn * (client.in_val / 100))} | Repasse calculado: {fmt(client.in_tipo === "perc" ? volumeIn * (client.rep_in / 100) : qtdIn * client.rep_in)}
+                  </p>
                 </div>
                 <div>
                   <label className={labelCls}>Qtd PIX OUT</label>
@@ -471,7 +482,42 @@ export function EmitirFaturaForm({
                   {client.out_tipo !== "fixo" && (
                     <div className="mt-2"><label className={labelCls}>Volume PIX OUT (R$)</label><input type="number" min="0" step="0.01" value={volumeOut} onChange={e => setVolumeOut(Number(e.target.value))} className={inputCls} /></div>
                   )}
-                  <p className="text-xs text-ps-muted mt-1">Fee: {fmt(feeOut)} | Repasse: {fmt(repasseOut)}</p>
+                  <p className="text-xs text-ps-muted mt-1">
+                    Fee calculado: {fmt(client.out_tipo === "fixo" ? qtdOut * client.out_val : volumeOut * (client.out_val / 100))} | Repasse calculado: {fmt(client.out_tipo === "perc" ? volumeOut * (client.rep_out / 100) : qtdOut * client.rep_out)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t border-ps-navy/5 pt-3">
+                <p className="text-xs font-semibold text-ps-ink mb-2">Ajuste manual (opcional)</p>
+                <p className="text-xs text-ps-muted mb-3">
+                  Se a tarifa apurada não bater exatamente com o cálculo por %, informe aqui o fee e o repasse reais e eles substituem o valor calculado.
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>Fee IN manual</label>
+                    <input type="number" min="0" step="0.01" placeholder="calculado"
+                      value={feeInOverride ?? ""} onChange={e => setFeeInOverride(e.target.value === "" ? null : Number(e.target.value))}
+                      className={inputCls + " text-ps-green-700 font-semibold"} />
+                    <div className="mt-2">
+                      <label className={labelCls}>Repasse IN manual</label>
+                      <input type="number" min="0" step="0.01" placeholder="calculado"
+                        value={repInOverride ?? ""} onChange={e => setRepInOverride(e.target.value === "" ? null : Number(e.target.value))}
+                        className={inputCls} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Fee OUT manual</label>
+                    <input type="number" min="0" step="0.01" placeholder="calculado"
+                      value={feeOutOverride ?? ""} onChange={e => setFeeOutOverride(e.target.value === "" ? null : Number(e.target.value))}
+                      className={inputCls + " text-ps-green-700 font-semibold"} />
+                    <div className="mt-2">
+                      <label className={labelCls}>Repasse OUT manual</label>
+                      <input type="number" min="0" step="0.01" placeholder="calculado"
+                        value={repOutOverride ?? ""} onChange={e => setRepOutOverride(e.target.value === "" ? null : Number(e.target.value))}
+                        className={inputCls} />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
