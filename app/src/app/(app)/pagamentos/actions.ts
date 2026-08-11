@@ -31,7 +31,7 @@ export async function createPaidPayment(formData: FormData) {
 
   const { data: supplier } = await supabase
     .from("suppliers")
-    .select("legal_name, cost_type, cost_structure, default_description")
+    .select("legal_name, cost_type, cost_structure, default_description, chart_account_id")
     .eq("id", supplierId)
     .single();
 
@@ -47,6 +47,7 @@ export async function createPaidPayment(formData: FormData) {
       cost_center_id: costCenterId,
       cost_type: supplier?.cost_type ?? "despesas",
       fixed_variable: supplier?.cost_structure ?? null,
+      chart_account_id: supplier?.chart_account_id ?? null,
       paying_bank_account_id: bankAccountId,
       document_date: paidAt,
       due_date: paidAt,
@@ -123,7 +124,7 @@ export async function createScheduledPayment(formData: FormData) {
 
   const { data: supplier } = await supabase
     .from("suppliers")
-    .select("legal_name, cost_type, cost_structure, default_description")
+    .select("legal_name, cost_type, cost_structure, default_description, chart_account_id")
     .eq("id", supplierId)
     .single();
 
@@ -489,7 +490,7 @@ export async function createBulkPayments(rows: Array<{
 
     const { data: supplier } = await supabase
       .from("suppliers")
-      .select("legal_name, cost_type, cost_structure, default_description")
+      .select("legal_name, cost_type, cost_structure, default_description, chart_account_id")
       .eq("id", row.supplier_id)
       .single();
 
@@ -509,6 +510,7 @@ export async function createBulkPayments(rows: Array<{
         paying_bank_account_id: row.bank_account_id || null,
         cost_type: supplier?.cost_type ?? "despesas",
       fixed_variable: supplier?.cost_structure ?? null,
+      chart_account_id: supplier?.chart_account_id ?? null,
         document_date: row.date,
         due_date: row.date,
         expected_payment_date: row.date,

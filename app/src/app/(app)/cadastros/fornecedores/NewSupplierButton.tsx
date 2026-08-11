@@ -14,9 +14,11 @@ const COST_TYPES = [
 export function NewSupplierButton({
   categories,
   costCenters,
+  chartAccounts,
 }: {
   categories: Array<{ id: string; name: string }>;
   costCenters: Array<{ id: string; code: string; name: string }>;
+  chartAccounts: Array<{ id: string; codigo: string; descricao: string }>;
 }) {
   const [open, setOpen] = useState(false);
   const [costType, setCostType] = useState("despesas");
@@ -70,6 +72,11 @@ export function NewSupplierButton({
             label="Departamento (centro de custo)"
             name="default_cost_center_id"
             options={costCenters.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }))}
+          />
+          <SelectField
+            label="Conta contábil"
+            name="chart_account_id"
+            options={chartAccounts.map((c) => ({ value: c.id, label: `${c.codigo} - ${c.descricao}` }))}
           />
           <div>
             <label className="block text-sm text-ps-ink-2 mb-1">

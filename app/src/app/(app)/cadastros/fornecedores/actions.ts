@@ -39,6 +39,7 @@ export async function createSupplier(formData: FormData) {
     default_category_id: String(formData.get("default_category_id") || "") || null,
     default_cost_center_id: String(formData.get("default_cost_center_id") || "") || null,
     default_description: String(formData.get("default_description") || "") || null,
+    chart_account_id: String(formData.get("chart_account_id") || "") || null,
   });
 
   if (error) return { error: error.message };
@@ -77,6 +78,7 @@ export async function updateSupplier(supplierId: string, formData: FormData) {
       default_description: defaultDescription,
       is_recurring: isRecurring,
       cost_structure: costStructure,
+      chart_account_id: String(formData.get("chart_account_id") || "") || null,
     })
     .eq("id", supplierId);
 
@@ -115,7 +117,7 @@ export async function generateRecurringProvisions(
 
   const { data: supplier } = await supabase
     .from("suppliers")
-    .select("legal_name, cost_type, default_category_id, default_cost_center_id, default_description, recurring_amount, recurring_week_of_month, is_recurring")
+    .select("legal_name, cost_type, chart_account_id, default_category_id, default_cost_center_id, default_description, recurring_amount, recurring_week_of_month, is_recurring")
     .eq("id", supplierId)
     .single();
 
@@ -162,6 +164,7 @@ export async function generateRecurringProvisions(
       category_id: supplier?.default_category_id,
       cost_center_id: supplier?.default_cost_center_id,
       cost_type: supplier?.cost_type ?? "despesas",
+      chart_account_id: supplier?.chart_account_id ?? null,
       document_date: dueDate,
       due_date: dueDate,
       expected_payment_date: dueDate,

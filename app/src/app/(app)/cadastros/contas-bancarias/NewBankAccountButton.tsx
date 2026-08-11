@@ -17,8 +17,10 @@ const ACCOUNT_TYPES = [
 
 export function NewBankAccountButton({
   companies,
+  chartAccounts,
 }: {
   companies: Array<{ id: string; legal_name: string; trade_name: string | null }>;
+  chartAccounts: Array<{ id: string; codigo: string; descricao: string }>;
 }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +67,11 @@ export function NewBankAccountButton({
             label="Considera no caixa disponível"
             name="counts_as_available_cash"
             defaultChecked
+          />
+          <SelectField
+            label="Conta contábil"
+            name="chart_account_id"
+            options={chartAccounts.map((c) => ({ value: c.id, label: `${c.codigo} - ${c.descricao}` }))}
           />
 
           {error && <p className="text-sm text-red-600">{error}</p>}

@@ -18,7 +18,10 @@ export async function createCategory(formData: FormData) {
   }
 
   const supabase = createClient();
-  const { error } = await supabase.from("categories").insert(parsed.data);
+  const { error } = await supabase.from("categories").insert({
+    ...parsed.data,
+    chart_account_id: String(formData.get("chart_account_id") || "") || null,
+  });
 
   if (error) return { error: error.message };
 
@@ -41,7 +44,13 @@ export async function updateCategory(categoryId: string, formData: FormData) {
   }
 
   const supabase = createClient();
-  const { error } = await supabase.from("categories").update(parsed.data).eq("id", categoryId);
+  const { error } = await supabase
+    .from("categories")
+    .update({
+      ...parsed.data,
+      chart_account_id: String(formData.get("chart_account_id") || "") || null,
+    })
+    .eq("id", categoryId);
 
   if (error) return { error: error.message };
 

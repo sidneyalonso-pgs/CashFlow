@@ -29,14 +29,17 @@ type Account = {
   initial_balance: number;
   counts_as_available_cash: boolean;
   status: string;
+  chart_account_id: string | null;
 };
 
 export function EditBankAccountButton({
   account,
   companies,
+  chartAccounts,
 }: {
   account: Account;
   companies: Array<{ id: string; legal_name: string; trade_name: string | null }>;
+  chartAccounts: Array<{ id: string; codigo: string; descricao: string }>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -95,6 +98,12 @@ export function EditBankAccountButton({
             label="Considera no caixa disponível"
             name="counts_as_available_cash"
             defaultChecked={account.counts_as_available_cash}
+          />
+          <SelectField
+            label="Conta contábil"
+            name="chart_account_id"
+            defaultValue={account.chart_account_id ?? ""}
+            options={chartAccounts.map((c) => ({ value: c.id, label: `${c.codigo} - ${c.descricao}` }))}
           />
           <SelectField
             label="Status"

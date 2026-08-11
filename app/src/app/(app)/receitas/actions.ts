@@ -26,6 +26,10 @@ export async function createReceivedRevenue(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const { data: category } = categoryId
+    ? await supabase.from("categories").select("chart_account_id").eq("id", categoryId).single()
+    : { data: null };
+
   const { data: revenue, error } = await supabase
     .from("revenues")
     .insert({
@@ -34,6 +38,7 @@ export async function createReceivedRevenue(formData: FormData) {
       expected_amount: amount,
       realized_amount: amount,
       category_id: categoryId,
+      chart_account_id: category?.chart_account_id ?? null,
       expected_date: receivedAt,
       realized_date: receivedAt,
       receiving_bank_account_id: bankAccountId,
@@ -83,11 +88,16 @@ export async function createEstimatedRevenue(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const { data: category } = categoryId
+    ? await supabase.from("categories").select("chart_account_id").eq("id", categoryId).single()
+    : { data: null };
+
   const { error } = await supabase.from("revenues").insert({
     company_id: companyId,
     description,
     expected_amount: amount,
     category_id: categoryId,
+    chart_account_id: category?.chart_account_id ?? null,
     expected_date: expectedDate,
     probability_pct: probability,
     notes,

@@ -6,6 +6,7 @@ const REGISTRATIONS = [
   { href: "/cadastros/contas-bancarias", label: "Contas bancárias", description: "Contas correntes, pagamento e investimento" },
   { href: "/cadastros/fornecedores", label: "Fornecedores", description: "Fornecedores e prestadores de serviço" },
   { href: "/cadastros/categorias", label: "Categorias", description: "Classificação de entradas e saídas" },
+  { href: "/cadastros/plano-de-contas", label: "Plano de contas", description: "Códigos contábeis para o relatório De-Para" },
   { href: "/cadastros/centros-de-custo", label: "Centros de custo", description: "Estrutura de centros de custo" },
   { href: "/cadastros/projetos", label: "Projetos", description: "Projetos por empresa e centro de custo" },
 ];

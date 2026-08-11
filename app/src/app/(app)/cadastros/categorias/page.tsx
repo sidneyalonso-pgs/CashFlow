@@ -13,17 +13,20 @@ const DIRECTION_LABELS: Record<string, string> = {
 
 export default async function CategoriesPage() {
   const supabase = createClient();
-  const { data: categories } = await supabase
-    .from("categories")
-    .select("id, name, allowed_direction, financial_nature, economic_classification, fpa_classification, status")
-    .order("name");
+  const [{ data: categories }, { data: chartAccounts }] = await Promise.all([
+    supabase
+      .from("categories")
+      .select("id, name, allowed_direction, financial_nature, economic_classification, fpa_classification, status, chart_account_id")
+      .order("name"),
+    supabase.from("chart_of_accounts").select("id, codigo, descricao").eq("status", "ativo").order("codigo"),
+  ]);
 
   return (
     <div>
       <PageHeader
         title="Categorias"
         subtitle="Classificação de entradas e saídas"
-        actions={<NewCategoryButton />}
+        actions={<NewCategoryButton chartAccounts={chartAccounts ?? []} />}
       />
 
       <DataTable
@@ -36,7 +39,7 @@ export default async function CategoriesPage() {
           { header: "Classificação econômica", cell: (c) => c.economic_classification ?? "—" },
           { header: "FP&A", cell: (c) => c.fpa_classification ?? "—" },
           { header: "Status", cell: (c) => <StatusBadge status={c.status} /> },
-          { header: "Ações", cell: (c) => <EditCategoryButton category={c} /> },
+          { header: "Ações", cell: (c) => <EditCategoryButton category={c} chartAccounts={chartAccounts ?? []} /> },
         ]}
       />
     </div>

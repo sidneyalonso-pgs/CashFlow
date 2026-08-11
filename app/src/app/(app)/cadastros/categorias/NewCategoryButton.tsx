@@ -5,7 +5,11 @@ import { Modal } from "@/components/Modal";
 import { TextField, SelectField } from "@/components/FormField";
 import { createCategory } from "./actions";
 
-export function NewCategoryButton() {
+export function NewCategoryButton({
+  chartAccounts,
+}: {
+  chartAccounts: Array<{ id: string; codigo: string; descricao: string }>;
+}) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -46,6 +50,11 @@ export function NewCategoryButton() {
           <TextField label="Natureza financeira" name="financial_nature" placeholder="Ex: operacional" />
           <TextField label="Classificação econômica" name="economic_classification" placeholder="Ex: custo" />
           <TextField label="Classificação FP&A" name="fpa_classification" placeholder="Ex: custo_direto" />
+          <SelectField
+            label="Conta contábil"
+            name="chart_account_id"
+            options={chartAccounts.map((c) => ({ value: c.id, label: `${c.codigo} - ${c.descricao}` }))}
+          />
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 

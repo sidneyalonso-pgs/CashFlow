@@ -19,14 +19,15 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
 
 export default async function BankAccountsPage() {
   const supabase = createClient();
-  const [{ data: accounts }, { data: companies }] = await Promise.all([
+  const [{ data: accounts }, { data: companies }, { data: chartAccounts }] = await Promise.all([
     supabase
       .from("bank_accounts")
       .select(
-        "id, bank_name, bank_code, branch, nickname, account_number, account_type, currency, initial_balance, counts_as_available_cash, status, company_id, companies(legal_name, trade_name)"
+        "id, bank_name, bank_code, branch, nickname, account_number, account_type, currency, initial_balance, counts_as_available_cash, status, company_id, chart_account_id, companies(legal_name, trade_name)"
       )
       .order("bank_name"),
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
+    supabase.from("chart_of_accounts").select("id, codigo, descricao").eq("status", "ativo").order("codigo"),
   ]);
 
   return (
@@ -34,7 +35,7 @@ export default async function BankAccountsPage() {
       <PageHeader
         title="Contas bancárias"
         subtitle="Contas correntes, de pagamento e investimento do grupo"
-        actions={<NewBankAccountButton companies={companies ?? []} />}
+        actions={<NewBankAccountButton companies={companies ?? []} chartAccounts={chartAccounts ?? []} />}
       />
 
       <DataTable
@@ -51,7 +52,7 @@ export default async function BankAccountsPage() {
             cell: (a: any) => <span className="tabular-nums">{formatBRL(a.initial_balance)}</span>,
           },
           { header: "Status", cell: (a: any) => <StatusBadge status={a.status} /> },
-          { header: "Ações", cell: (a: any) => <EditBankAccountButton account={a} companies={companies ?? []} /> },
+          { header: "Ações", cell: (a: any) => <EditBankAccountButton account={a} companies={companies ?? []} chartAccounts={chartAccounts ?? []} /> },
         ]}
       />
     </div>

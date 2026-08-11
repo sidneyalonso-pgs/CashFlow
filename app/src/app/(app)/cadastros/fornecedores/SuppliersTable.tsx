@@ -13,12 +13,14 @@ type Supplier = {
   default_description: string | null;
   status: string;
   is_recurring: boolean | null;
+  chart_account_id: string | null;
   categories: { name: string } | null;
   cost_centers: { code: string; name: string } | null;
 };
 
 type Category = { id: string; name: string };
 type CostCenter = { id: string; code: string; name: string };
+type ChartAccount = { id: string; codigo: string; descricao: string };
 
 const COST_TYPES = [
   { value: "despesas", label: "Despesas" },
@@ -30,10 +32,12 @@ function SupplierRow({
   supplier,
   categories,
   costCenters,
+  chartAccounts,
 }: {
   supplier: Supplier;
   categories: Category[];
   costCenters: CostCenter[];
+  chartAccounts: ChartAccount[];
 }) {
   const [isPending, startTransition] = useTransition();
   const [dirty, setDirty] = useState(false);
@@ -48,6 +52,7 @@ function SupplierRow({
   const [description, setDescription] = useState(supplier.default_description ?? "");
   const [status, setStatus] = useState(supplier.status);
   const [isRecurring, setIsRecurring] = useState(supplier.is_recurring ?? false);
+  const [chartAccountId, setChartAccountId] = useState(supplier.chart_account_id ?? "");
 
   function mark(setter: (v: any) => void, value: any) {
     setter(value);
@@ -64,6 +69,7 @@ function SupplierRow({
     fd.set("default_cost_center_id", costCenterId);
     fd.set("default_description", description);
     fd.set("status", status);
+    fd.set("chart_account_id", chartAccountId);
     fd.set("tax_id", "");
     if (isRecurring) fd.set("is_recurring", "on");
     if (description) fd.set("propagate_description", "on");
@@ -159,6 +165,16 @@ function SupplierRow({
         />
       </td>
 
+      {/* Conta contábil */}
+      <td className="px-3 py-2 min-w-[180px]">
+        <select value={chartAccountId} onChange={(e) => mark(setChartAccountId, e.target.value)} className={cellCls}>
+          <option value="">—</option>
+          {chartAccounts.map((c) => (
+            <option key={c.id} value={c.id}>{c.codigo} - {c.descricao}</option>
+          ))}
+        </select>
+      </td>
+
       {/* Status */}
       <td className="px-3 py-2 min-w-[110px]">
         <select value={status} onChange={(e) => mark(setStatus, e.target.value)} className={cellCls}>
@@ -189,10 +205,12 @@ export function SuppliersTable({
   suppliers,
   categories,
   costCenters,
+  chartAccounts,
 }: {
   suppliers: Supplier[];
   categories: Category[];
   costCenters: CostCenter[];
+  chartAccounts: ChartAccount[];
 }) {
   const thCls = "text-left px-3 py-3 text-xs uppercase tracking-wide text-ps-muted whitespace-nowrap";
 
@@ -208,17 +226,18 @@ export function SuppliersTable({
             <th className={thCls}>Categoria</th>
             <th className={thCls}>Departamento</th>
             <th className={thCls}>Descrição padrão</th>
+            <th className={thCls}>Conta contábil</th>
             <th className={thCls}>Status</th>
             <th className={thCls}></th>
           </tr>
         </thead>
         <tbody>
           {suppliers.map((s) => (
-            <SupplierRow key={s.id} supplier={s} categories={categories} costCenters={costCenters} />
+            <SupplierRow key={s.id} supplier={s} categories={categories} costCenters={costCenters} chartAccounts={chartAccounts} />
           ))}
           {suppliers.length === 0 && (
             <tr>
-              <td colSpan={9} className="px-4 py-8 text-center text-ps-muted text-sm">
+              <td colSpan={10} className="px-4 py-8 text-center text-ps-muted text-sm">
                 Nenhum fornecedor cadastrado.
               </td>
             </tr>

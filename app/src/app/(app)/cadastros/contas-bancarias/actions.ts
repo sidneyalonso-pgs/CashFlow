@@ -23,7 +23,10 @@ export async function createBankAccount(formData: FormData) {
   }
 
   const supabase = createClient();
-  const { error } = await supabase.from("bank_accounts").insert(parsed.data);
+  const { error } = await supabase.from("bank_accounts").insert({
+    ...parsed.data,
+    chart_account_id: String(formData.get("chart_account_id") || "") || null,
+  });
 
   if (error) return { error: error.message };
 
@@ -51,7 +54,13 @@ export async function updateBankAccount(accountId: string, formData: FormData) {
   }
 
   const supabase = createClient();
-  const { error } = await supabase.from("bank_accounts").update(parsed.data).eq("id", accountId);
+  const { error } = await supabase
+    .from("bank_accounts")
+    .update({
+      ...parsed.data,
+      chart_account_id: String(formData.get("chart_account_id") || "") || null,
+    })
+    .eq("id", accountId);
 
   if (error) return { error: error.message };
 

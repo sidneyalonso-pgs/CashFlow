@@ -14,9 +14,16 @@ type Category = {
   economic_classification: string | null;
   fpa_classification: string | null;
   status: string;
+  chart_account_id: string | null;
 };
 
-export function EditCategoryButton({ category }: { category: Category }) {
+export function EditCategoryButton({
+  category,
+  chartAccounts,
+}: {
+  category: Category;
+  chartAccounts: Array<{ id: string; codigo: string; descricao: string }>;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +67,12 @@ export function EditCategoryButton({ category }: { category: Category }) {
             defaultValue={category.economic_classification ?? ""}
           />
           <TextField label="Classificação FP&A" name="fpa_classification" defaultValue={category.fpa_classification ?? ""} />
+          <SelectField
+            label="Conta contábil"
+            name="chart_account_id"
+            defaultValue={category.chart_account_id ?? ""}
+            options={chartAccounts.map((c) => ({ value: c.id, label: `${c.codigo} - ${c.descricao}` }))}
+          />
           <SelectField
             label="Status"
             name="status"

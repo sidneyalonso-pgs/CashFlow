@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
   for (const template of templates ?? []) {
     const { data: supplier } = await supabase
       .from("suppliers")
-      .select("cost_type")
+      .select("cost_type, chart_account_id")
       .eq("id", template.supplier_id)
       .single();
 
@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
       category_id: template.category_id,
       cost_center_id: template.cost_center_id,
       cost_type: supplier?.cost_type ?? "despesas",
+      chart_account_id: supplier?.chart_account_id ?? null,
       paying_bank_account_id: template.paying_bank_account_id,
       description: template.description,
       currency: "BRL",
