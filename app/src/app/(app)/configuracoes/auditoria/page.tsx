@@ -54,7 +54,7 @@ export default async function AuditPage({
         rowKey={(l: any) => l.id}
         columns={[
           { header: "Data/hora", cell: (l: any) => new Date(l.created_at).toLocaleString("pt-BR") },
-          { header: "Usuário", cell: (l: any) => l.profiles?.full_name ?? "—" },
+          { header: "Usuário", cell: (l: any) => l.profiles?.full_name ?? "Sistema" },
           { header: "Ação", cell: (l: any) => ACTION_LABELS[l.action] ?? l.action },
           { header: "Entidade", cell: (l: any) => l.entity_type },
           { header: "ID do registro", cell: (l: any) => <span className="font-mono text-xs">{l.entity_id}</span> },
