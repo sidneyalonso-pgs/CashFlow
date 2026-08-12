@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function reconcileEntry(
   bankEntryId: string,
-  entityType: "payment" | "revenue" | "investment_application" | "investment_redemption",
+  entityType: "payment" | "revenue" | "investment_application" | "investment_redemption" | "transfer",
   entityId: string
 ) {
   const supabase = createClient();
@@ -66,8 +66,11 @@ export async function unreconcileEntry(bankEntryId: string) {
     .single();
 
   if (rec) {
-    const table = rec.entity_type === "payment" ? "payments" : "revenues";
-    await supabase.from(table).update({ reconciliation_status: "pendente" }).eq("id", rec.entity_id);
+    // Só pagamentos e receitas têm o campo reconciliation_status — investimentos e transferências não
+    if (rec.entity_type === "payment" || rec.entity_type === "revenue") {
+      const table = rec.entity_type === "payment" ? "payments" : "revenues";
+      await supabase.from(table).update({ reconciliation_status: "pendente" }).eq("id", rec.entity_id);
+    }
     await supabase.from("reconciliations").delete().eq("bank_statement_entry_id", bankEntryId);
   }
 

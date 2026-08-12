@@ -18,6 +18,16 @@ const BANK_COLORS: Record<string, string> = {
   "Nubank": "bg-purple-600",
 };
 
+const TRANSFER_LABELS: Record<string, string> = {
+  pix_enviado: "Pix enviado",
+  pix_recebido: "Pix recebido",
+  ted_enviado: "TED enviado",
+  ted_recebido: "TED recebido",
+  reembolso: "Reembolso",
+  debito_bancario: "Débito bancário",
+  transferencia_interna: "Transferência entre contas",
+};
+
 function bankDot(bankName: string | null) {
   const key = Object.keys(BANK_COLORS).find((k) =>
     (bankName ?? "").toLowerCase().includes(k.toLowerCase())
@@ -74,6 +84,8 @@ export default async function ReconciliationPage({
   let revenueCandidates: any[] = [];
   let investmentApplicationCandidates: any[] = [];
   let investmentRedemptionCandidates: any[] = [];
+  let transferOutflowCandidates: any[] = [];
+  let transferInflowCandidates: any[] = [];
   let openImport: any = null;
 
   if (openImportId) {
@@ -91,7 +103,7 @@ export default async function ReconciliationPage({
     // Entradas conciliadas deste import
     const { data: reconciledData } = await supabase
       .from("bank_statement_entries")
-      .select("id, entry_date, bank_description, amount, direction, reconciliation_status, reconciliations(entity_type, entity_id, payments(description, gross_amount, effective_payment_date), revenues(description, realized_amount, realized_date), investments(institution, product, applied_amount, applied_date, redeemed_amount, redeemed_date))")
+      .select("id, entry_date, bank_description, amount, direction, reconciliation_status, reconciliations(entity_type, entity_id, payments(description, gross_amount, effective_payment_date), revenues(description, realized_amount, realized_date), investments(institution, product, applied_amount, applied_date, redeemed_amount, redeemed_date), transfers(tipo, description, counterpart_name, amount, transfer_date))")
       .eq("import_id", openImportId)
       .in("reconciliation_status", ["conciliado_manualmente", "ignorado"])
       .order("entry_date");
@@ -126,7 +138,7 @@ export default async function ReconciliationPage({
         .lte("realized_date", maxDate);
       if (companyId) revenuesQuery = revenuesQuery.eq("company_id", companyId);
 
-      const [{ data: paymentsData }, { data: revenuesData }, { data: investmentsData }] = await Promise.all([
+      const [{ data: paymentsData }, { data: revenuesData }, { data: investmentsData }, { data: transfersData }] = await Promise.all([
         paymentsQuery,
         revenuesQuery,
         supabase
@@ -135,12 +147,24 @@ export default async function ReconciliationPage({
           .eq("bank_account_id", bankAccountId)
           .gte("applied_date", minDate)
           .lte("applied_date", maxDate),
+        supabase
+          .from("transfers")
+          .select("id, tipo, description, counterpart_name, amount, transfer_date, from_account_id, to_account_id")
+          .gte("transfer_date", minDate)
+          .lte("transfer_date", maxDate)
+          .or(`from_account_id.eq.${bankAccountId},to_account_id.eq.${bankAccountId}`),
       ]);
 
       const reconciledInvestmentIds = new Set(
         (reconciledData ?? [])
           .flatMap((e: any) => e.reconciliations ?? [])
           .filter((r: any) => r.entity_type === "investment_application" || r.entity_type === "investment_redemption")
+          .map((r: any) => r.entity_id)
+      );
+      const reconciledTransferIds = new Set(
+        (reconciledData ?? [])
+          .flatMap((e: any) => e.reconciliations ?? [])
+          .filter((r: any) => r.entity_type === "transfer")
           .map((r: any) => r.entity_id)
       );
 
@@ -185,6 +209,21 @@ export default async function ReconciliationPage({
         }
       }
 
+      for (const t of transfersData ?? []) {
+        if (reconciledTransferIds.has(t.id)) continue;
+        const label = `${TRANSFER_LABELS[t.tipo] ?? t.tipo}${t.counterpart_name ? ` — ${t.counterpart_name}` : t.description ? ` — ${t.description}` : ""}`;
+        const candidate = {
+          key: `transfer:${t.id}`,
+          entityType: "transfer" as const,
+          entityId: t.id,
+          label,
+          amount: Number(t.amount),
+          date: t.transfer_date,
+        };
+        if (t.from_account_id === bankAccountId) transferOutflowCandidates.push(candidate);
+        if (t.to_account_id === bankAccountId) transferInflowCandidates.push(candidate);
+      }
+
       // Montar mapa de conciliados
       for (const e of reconciledData ?? []) {
         const rec = (e.reconciliations as any)?.[0];
@@ -197,6 +236,10 @@ export default async function ReconciliationPage({
           reconciledMap[e.id] = { key: `investment_application:${rec.entity_id}`, label: `Aplicação: ${rec.investments.product} — ${rec.investments.institution}`, amount: Number(rec.investments.applied_amount), date: rec.investments.applied_date };
         } else if (rec.entity_type === "investment_redemption" && rec.investments) {
           reconciledMap[e.id] = { key: `investment_redemption:${rec.entity_id}`, label: `Resgate: ${rec.investments.product} — ${rec.investments.institution}`, amount: Number(rec.investments.redeemed_amount), date: rec.investments.redeemed_date };
+        } else if (rec.entity_type === "transfer" && rec.transfers) {
+          const t = rec.transfers;
+          const label = `${TRANSFER_LABELS[t.tipo] ?? t.tipo}${t.counterpart_name ? ` — ${t.counterpart_name}` : t.description ? ` — ${t.description}` : ""}`;
+          reconciledMap[e.id] = { key: `transfer:${rec.entity_id}`, label, amount: Number(t.amount), date: t.transfer_date };
         }
       }
     }
@@ -331,8 +374,8 @@ export default async function ReconciliationPage({
                             entry={entry}
                             candidates={
                               entry.direction === "entrada"
-                                ? [...revenueCandidates, ...investmentRedemptionCandidates]
-                                : [...paymentCandidates, ...investmentApplicationCandidates]
+                                ? [...revenueCandidates, ...investmentRedemptionCandidates, ...transferInflowCandidates]
+                                : [...paymentCandidates, ...investmentApplicationCandidates, ...transferOutflowCandidates]
                             }
                           />
                         ))}
