@@ -7,6 +7,7 @@ export type StatementRow = {
   description: string;
   amount: number; // negativo = saída, positivo = entrada
   balance: number | null; // saldo do banco após a linha, se disponível
+  externalId?: string; // FITID do OFX — identificador único do banco pra essa transação
 };
 
 export type ParsedStatement = {
@@ -83,6 +84,47 @@ export function parseBankStatementText(text: string): ParsedStatement {
         )} — pode haver um lançamento faltando ou fora de ordem.`
       );
     }
+  }
+
+  return { rows, warnings };
+}
+
+// Parser de extrato bancário no formato OFX (Open Financial Exchange).
+// Cada transação já vem em campos estruturados (data, valor, descrição, ID único do banco),
+// então não precisa adivinhar layout de coluna como no CSV/PDF.
+export function parseOfxStatement(text: string): ParsedStatement {
+  const rows: StatementRow[] = [];
+  const warnings: string[] = [];
+
+  const blocks = text.match(/<STMTTRN>([\s\S]*?)<\/STMTTRN>/gi) ?? [];
+
+  for (const block of blocks) {
+    const amountMatch = block.match(/<TRNAMT>([^<\r\n]+)/i);
+    const dateMatch = block.match(/<DTPOSTED>([^<\r\n]+)/i);
+    const memoMatch = block.match(/<MEMO>([^<\r\n]+)/i);
+    const nameMatch = block.match(/<NAME>([^<\r\n]+)/i);
+    const fitIdMatch = block.match(/<FITID>([^<\r\n]+)/i);
+
+    if (!amountMatch || !dateMatch) continue;
+
+    const amount = parseFloat(amountMatch[1].trim());
+    if (Number.isNaN(amount)) continue;
+
+    const rawDate = dateMatch[1].trim().slice(0, 8); // YYYYMMDD — ignora hora se vier junto
+    if (rawDate.length !== 8) continue;
+    const isoDate = `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`;
+
+    rows.push({
+      date: isoDate,
+      description: (memoMatch?.[1] ?? nameMatch?.[1] ?? "").trim(),
+      amount,
+      balance: null,
+      externalId: fitIdMatch?.[1]?.trim() || undefined,
+    });
+  }
+
+  if (rows.length === 0) {
+    warnings.push('Não encontrei nenhuma transação ("STMTTRN") no arquivo OFX.');
   }
 
   return { rows, warnings };

@@ -31,14 +31,18 @@ export async function importBankStatement(
 
   if (importError || !importRecord) return { error: importError?.message ?? "Falha ao criar importação" };
 
-  // Buscar entradas já existentes nessa conta para deduplicar
+  // Buscar entradas já existentes nessa conta para deduplicar.
+  // Se a linha tem external_id (FITID do OFX), a comparação é exata — não precisa de fuzzy match.
   const dates = [...new Set(rows.map((r) => r.date))];
   const { data: existing } = await supabase
     .from("bank_statement_entries")
-    .select("entry_date, bank_description, amount, direction")
+    .select("entry_date, bank_description, amount, direction, external_id")
     .eq("bank_account_id", bankAccountId)
     .in("entry_date", dates);
 
+  const existingExternalIds = new Set(
+    (existing ?? []).map((e: any) => e.external_id).filter((id: string | null) => !!id)
+  );
   const existingKeys = new Set(
     (existing ?? []).map(
       (e: any) => `${e.entry_date}|${e.bank_description}|${e.amount}|${e.direction}`
@@ -48,8 +52,13 @@ export async function importBankStatement(
   let imported = 0;
   for (const row of rows) {
     const direction = row.amount >= 0 ? "entrada" : "saida";
-    const key = `${row.date}|${row.description}|${Math.abs(row.amount)}|${direction}`;
-    if (existingKeys.has(key)) continue; // duplicata — pula
+
+    if (row.externalId) {
+      if (existingExternalIds.has(row.externalId)) continue; // duplicata — pula
+    } else {
+      const key = `${row.date}|${row.description}|${Math.abs(row.amount)}|${direction}`;
+      if (existingKeys.has(key)) continue; // duplicata — pula
+    }
 
     const { error } = await supabase.from("bank_statement_entries").insert({
       import_id: importRecord.id,
@@ -59,6 +68,7 @@ export async function importBankStatement(
       amount: Math.abs(row.amount),
       direction,
       bank_balance: row.balance,
+      external_id: row.externalId ?? null,
     });
 
     if (!error) imported++;

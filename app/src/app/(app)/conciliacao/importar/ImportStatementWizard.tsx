@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
-import { parseBankStatementText, type StatementRow } from "@/lib/parsing/bankStatement";
+import { parseBankStatementText, parseOfxStatement, type StatementRow } from "@/lib/parsing/bankStatement";
 import { formatBRL } from "@/lib/calculations/money";
 import { importBankStatement } from "./actions";
 
@@ -33,19 +33,32 @@ export function ImportStatementWizard({
     setResult(null);
     setFileName(file.name);
 
-    let text: string;
-    if (file.name.toLowerCase().endsWith(".csv")) {
-      text = await file.text();
+    const lowerName = file.name.toLowerCase();
+    const isOfx = lowerName.endsWith(".ofx") || lowerName.endsWith(".qfx");
+
+    let parsed: ReturnType<typeof parseBankStatementText>;
+    if (isOfx) {
+      const text = await file.text();
+      parsed = parseOfxStatement(text);
     } else {
-      const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer);
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      text = XLSX.utils.sheet_to_csv(sheet, { FS: ";" });
+      let text: string;
+      if (lowerName.endsWith(".csv")) {
+        text = await file.text();
+      } else {
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer);
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        text = XLSX.utils.sheet_to_csv(sheet, { FS: ";" });
+      }
+      parsed = parseBankStatementText(text);
     }
 
-    const parsed = parseBankStatementText(text);
     if (parsed.rows.length === 0) {
-      setError("Não encontrei linhas de transação no arquivo. Confira se ele tem colunas de Data, Descrição e Valor.");
+      setError(
+        isOfx
+          ? "Não encontrei transações no arquivo OFX."
+          : "Não encontrei linhas de transação no arquivo. Confira se ele tem colunas de Data, Descrição e Valor."
+      );
       return;
     }
     setRows(parsed.rows);
@@ -106,10 +119,10 @@ export function ImportStatementWizard({
           </select>
         </div>
         <p className="text-sm text-ps-muted">
-          Aceita o extrato exportado direto do banco (CSV com colunas Data, Descrição, Valor e Saldo) ou uma
-          planilha Excel no mesmo formato.
+          Aceita o extrato em <strong>OFX</strong> (recomendado — evita duplicidade automaticamente), CSV (colunas
+          Data, Descrição, Valor e Saldo) ou uma planilha Excel no mesmo formato.
         </p>
-        <input type="file" accept=".xlsx,.csv" onChange={handleFile} className="text-sm" />
+        <input type="file" accept=".ofx,.qfx,.xlsx,.csv" onChange={handleFile} className="text-sm" />
         {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
 
