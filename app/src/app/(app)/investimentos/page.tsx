@@ -1,18 +1,33 @@
 import { companyLabel } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
+import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 import { formatBRL } from "@/lib/calculations/money";
 import { NewInvestmentButton } from "./NewInvestmentButton";
 import { DeleteInvestmentButton } from "./DeleteInvestmentButton";
 
-export default async function InvestmentsPage() {
+export default async function InvestmentsPage({
+  searchParams,
+}: {
+  searchParams: { company_id?: string; bank_account_id?: string; date_from?: string; date_to?: string };
+}) {
   const supabase = createClient();
+  const companyId = searchParams.company_id;
+  const bankAccountId = searchParams.bank_account_id;
+  const dateFrom = searchParams.date_from;
+  const dateTo = searchParams.date_to;
+
+  let investmentsQuery = supabase
+    .from("investments")
+    .select("id, tipo, product, applied_amount, applied_date, is_opening_balance, company_id, bank_account_id, companies(legal_name, trade_name), bank_accounts(bank_name, nickname)")
+    .order("applied_date", { ascending: false });
+  if (companyId) investmentsQuery = investmentsQuery.eq("company_id", companyId);
+  if (bankAccountId) investmentsQuery = investmentsQuery.eq("bank_account_id", bankAccountId);
+  if (dateFrom) investmentsQuery = investmentsQuery.gte("applied_date", dateFrom);
+  if (dateTo) investmentsQuery = investmentsQuery.lte("applied_date", dateTo);
 
   const [{ data: investments }, { data: companies }, { data: bankAccounts }] = await Promise.all([
-    supabase
-      .from("investments")
-      .select("id, tipo, product, applied_amount, applied_date, is_opening_balance, companies(legal_name, trade_name), bank_accounts(bank_name, nickname)")
-      .order("applied_date", { ascending: false }),
+    investmentsQuery,
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
     supabase.from("bank_accounts").select("id, bank_name, nickname, company_id").order("bank_name"),
   ]);
@@ -72,6 +87,37 @@ export default async function InvestmentsPage() {
         subtitle="Aplicações e resgates financeiros"
         actions={<NewInvestmentButton companies={companies ?? []} bankAccounts={bankAccounts ?? []} />}
       />
+
+      <AutoSubmitForm className="flex flex-wrap gap-3 mb-6">
+        <select name="company_id" defaultValue={companyId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+          <option value="">Todas as empresas</option>
+          {(companies ?? []).map((c: any) => (
+            <option key={c.id} value={c.id}>
+              {c.trade_name || c.legal_name}
+            </option>
+          ))}
+        </select>
+        <select name="bank_account_id" defaultValue={bankAccountId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+          <option value="">Todas as contas</option>
+          {(bankAccounts ?? []).map((a: any) => (
+            <option key={a.id} value={a.id}>
+              {a.nickname ?? a.bank_name}
+            </option>
+          ))}
+        </select>
+        <input
+          type="date"
+          name="date_from"
+          defaultValue={dateFrom ?? ""}
+          className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+        />
+        <input
+          type="date"
+          name="date_to"
+          defaultValue={dateTo ?? ""}
+          className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+        />
+      </AutoSubmitForm>
 
       {/* Cards de resumo */}
       <div className="grid grid-cols-3 gap-4 mb-6">
