@@ -217,6 +217,12 @@ export default async function CashFlowDetalhadoPage({
     .plus(priorTransferNet)
     .toNumber();
 
+  // saldo investido inicial: todo aplicação/resgate anterior ao período, incluindo os marcados
+  // como saldo de abertura (eles representam principal já investido, não um movimento de caixa novo)
+  const openingInvestedBalance = sumMoney(
+    priorInvestments.map((i: any) => (i.tipo === "resgate" ? -Number(i.applied_amount) : Number(i.applied_amount)))
+  ).toNumber();
+
   // agrupar por dia
   const days: string[] = [];
   for (let d = new Date(dateFrom + "T00:00:00Z"); d.toISOString().slice(0, 10) <= dateTo; d.setUTCDate(d.getUTCDate() + 1)) {
@@ -226,6 +232,7 @@ export default async function CashFlowDetalhadoPage({
   let runningBalance = openingBalance;
   let cumulativeProvisaoSaidas = 0;
   let cumulativeProvisaoEntradas = 0;
+  let cumulativeInvested = openingInvestedBalance;
 
   const dayRows: DayRow[] = days.map((day) => {
     const saidasItems = paymentRealizations
@@ -267,14 +274,24 @@ export default async function CashFlowDetalhadoPage({
       .filter((i: any) => i.applied_date === day && !i.is_opening_balance)
       .reduce((acc: number, i: any) => acc + (i.tipo === "resgate" ? Number(i.applied_amount) : -Number(i.applied_amount)), 0);
 
-    // provisões ainda não afetam o saldo em conta — só saídas/entradas já baixadas e investimentos
+    // saldo investido: soma de tudo aplicado menos resgatado até esse dia, incluindo entradas
+    // marcadas como saldo de abertura (não são movimento de caixa, mas são principal investido)
+    const investedDelta = investments
+      .filter((i: any) => i.applied_date === day)
+      .reduce((acc: number, i: any) => acc + (i.tipo === "resgate" ? -Number(i.applied_amount) : Number(i.applied_amount)), 0);
+    cumulativeInvested += investedDelta;
+
+    // saldo em conta ainda não afetado por provisões — só saídas/entradas já baixadas e investimentos
     runningBalance = runningBalance - saidas + entradas + investimento;
 
-    // saldo projetado: saldo realizado, descontando o bloqueado e as provisões (saída e entrada)
-    // acumuladas até esse dia — mostra quanto vai sobrar de caixa livre após os pagamentos previstos
+    // "saldo da conta" (visão de caixa livre): saldo realizado, descontando o bloqueado e as
+    // provisões (saída e entrada) acumuladas até esse dia
     cumulativeProvisaoSaidas += provisaoSaidas;
     cumulativeProvisaoEntradas += provisaoEntradas;
-    const saldoProjetado = runningBalance - blockedBalance - cumulativeProvisaoSaidas + cumulativeProvisaoEntradas;
+    const saldoConta = runningBalance - blockedBalance - cumulativeProvisaoSaidas + cumulativeProvisaoEntradas;
+
+    // "saldo projetado": saldo da conta (acima) + tudo que está investido — visão de patrimônio total
+    const saldoProjetado = saldoConta + cumulativeInvested;
 
     return {
       day,
@@ -283,7 +300,7 @@ export default async function CashFlowDetalhadoPage({
       entradas,
       provisaoEntradas,
       investimento,
-      saldo: runningBalance,
+      saldo: saldoConta,
       saldoProjetado,
       saidasDetail: groupSum(saidasItems),
       provisaoSaidasDetail: groupSum(provisaoSaidasItems),
@@ -357,14 +374,20 @@ export default async function CashFlowDetalhadoPage({
         {blockedBalance !== 0 && <FinancialCard label="Saldo bloqueado" value={formatBRL(blockedBalance)} tone="negative" />}
       </div>
 
-      <DetalhadoTable openingBalance={openingBalance} dateFrom={dateFrom} rows={dayRows} blockedBalance={blockedBalance} />
+      <DetalhadoTable
+        openingSaldoConta={openingBalance - blockedBalance}
+        openingSaldoProjetado={openingBalance - blockedBalance + openingInvestedBalance}
+        dateFrom={dateFrom}
+        rows={dayRows}
+      />
 
       <p className="text-xs text-ps-muted mt-4">
         Clique em um dia para ver o detalhamento por fornecedor. Saídas/entradas = pagamentos e receitas já baixados
-        na data. Provisão de saídas/entradas = valores com vencimento/previsão na data mas ainda não baixados (não
-        afetam o saldo em conta). Investimento = aplicações (saída) e resgates (entrada) na data. Saldo projetado =
-        saldo em conta menos o saldo bloqueado e as provisões acumuladas (saídas e entradas) até aquele dia —
-        estimativa de caixa livre após os pagamentos e recebimentos previstos.
+        na data. Provisão de saídas/entradas = valores com vencimento/previsão na data mas ainda não baixados.
+        Investimento = aplicações (saída) e resgates (entrada) na data. Saldo da conta = saldo realizado, descontando
+        o saldo bloqueado e as provisões (saídas e entradas) acumuladas até aquele dia — estimativa de caixa livre
+        após os pagamentos e recebimentos previstos. Saldo projetado = saldo da conta + tudo o que está investido
+        (aplicações menos resgates acumulados) — visão de patrimônio total, caixa livre + investimentos.
       </p>
     </div>
   );

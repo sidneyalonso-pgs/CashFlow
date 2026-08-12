@@ -45,15 +45,15 @@ function BreakdownList({ title, items, tone }: { title: string; items: Breakdown
 }
 
 export function DetalhadoTable({
-  openingBalance,
+  openingSaldoConta,
+  openingSaldoProjetado,
   dateFrom,
   rows,
-  blockedBalance,
 }: {
-  openingBalance: number;
+  openingSaldoConta: number;
+  openingSaldoProjetado: number;
   dateFrom: string;
   rows: DayRow[];
-  blockedBalance: number;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -82,10 +82,8 @@ export function DetalhadoTable({
             <td className="px-4 py-3 text-ps-muted">—</td>
             <td className="px-4 py-3 text-ps-muted">—</td>
             <td className="px-4 py-3 text-ps-muted">—</td>
-            <td className="px-4 py-3 tabular-nums font-semibold">{formatBRL(openingBalance)}</td>
-            <td className="px-4 py-3 tabular-nums font-semibold text-ps-muted">
-              {formatBRL(openingBalance - blockedBalance)}
-            </td>
+            <td className="px-4 py-3 tabular-nums font-semibold">{formatBRL(openingSaldoConta)}</td>
+            <td className="px-4 py-3 tabular-nums font-semibold text-ps-muted">{formatBRL(openingSaldoProjetado)}</td>
           </tr>
           {rows.map((row) => {
             const hasDetail =
