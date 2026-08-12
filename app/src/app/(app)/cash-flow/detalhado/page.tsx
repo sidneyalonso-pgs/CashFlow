@@ -270,9 +270,12 @@ export default async function CashFlowDetalhadoPage({
     const provisaoSaidas = sumMoney(provisaoSaidasItems.map((i) => i.amount)).toNumber();
     const entradas = sumMoney(entradasItems.map((i) => i.amount)).toNumber();
     const provisaoEntradas = sumMoney(provisaoEntradasItems.map((i) => i.amount)).toNumber();
-    const investimento = investments
+    // efeito no caixa (aplicação tira dinheiro da conta, resgate devolve) — usado só pra calcular o saldo
+    const investimentoCashEffect = investments
       .filter((i: any) => i.applied_date === day && !i.is_opening_balance)
       .reduce((acc: number, i: any) => acc + (i.tipo === "resgate" ? Number(i.applied_amount) : -Number(i.applied_amount)), 0);
+    // valor exibido: positivo quando aplicou mais do que resgatou no dia (visão de investimento, não de caixa)
+    const investimento = -investimentoCashEffect;
 
     // saldo investido: soma de tudo aplicado menos resgatado até esse dia, incluindo entradas
     // marcadas como saldo de abertura (não são movimento de caixa, mas são principal investido)
@@ -282,7 +285,7 @@ export default async function CashFlowDetalhadoPage({
     cumulativeInvested += investedDelta;
 
     // saldo em conta ainda não afetado por provisões — só saídas/entradas já baixadas e investimentos
-    runningBalance = runningBalance - saidas + entradas + investimento;
+    runningBalance = runningBalance - saidas + entradas + investimentoCashEffect;
 
     // "saldo da conta": saldo realizado, descontando as provisões (saída e entrada) acumuladas até
     // esse dia. O saldo bloqueado NÃO é descontado aqui — ele já faz parte do saldo bancário real,
@@ -315,6 +318,10 @@ export default async function CashFlowDetalhadoPage({
   const totalEntradas = sumMoney(dayRows.map((r) => r.entradas));
   const totalProvisaoEntradas = sumMoney(dayRows.map((r) => r.provisaoEntradas));
   const totalInvestimento = sumMoney(dayRows.map((r) => r.investimento));
+
+  // saldo total = saldo bancário real no fim do período (sem descontar provisão, igual o extrato do banco)
+  const saldoTotalFinal = openingBalance + totalEntradas.toNumber() - totalSaidas.toNumber() - totalInvestimento.toNumber();
+  const saldoDisponivel = saldoTotalFinal - blockedBalance;
 
   return (
     <div>
@@ -362,7 +369,7 @@ export default async function CashFlowDetalhadoPage({
         />
       </AutoSubmitForm>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
         <FinancialCard label="Saídas" value={formatBRL(totalSaidas)} tone="negative" />
         <FinancialCard label="Provisão de saídas" value={formatBRL(totalProvisaoSaidas)} />
         <FinancialCard label="Entradas" value={formatBRL(totalEntradas)} tone="positive" />
@@ -372,7 +379,12 @@ export default async function CashFlowDetalhadoPage({
           value={formatBRL(totalInvestimento)}
           tone={totalInvestimento.isNegative() ? "negative" : totalInvestimento.isPositive() ? "positive" : "neutral"}
         />
-        {blockedBalance !== 0 && <FinancialCard label="Saldo bloqueado" value={formatBRL(blockedBalance)} tone="negative" />}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <FinancialCard label="Saldo disponível" value={formatBRL(saldoDisponivel)} tone={saldoDisponivel < 0 ? "negative" : "positive"} />
+        <FinancialCard label="Saldo bloqueado" value={formatBRL(blockedBalance)} tone="neutral" />
+        <FinancialCard label="Saldo total" value={formatBRL(saldoTotalFinal)} tone={saldoTotalFinal < 0 ? "negative" : "positive"} />
       </div>
 
       <DetalhadoTable
@@ -385,11 +397,12 @@ export default async function CashFlowDetalhadoPage({
       <p className="text-xs text-ps-muted mt-4">
         Clique em um dia para ver o detalhamento por fornecedor. Saídas/entradas = pagamentos e receitas já baixados
         na data. Provisão de saídas/entradas = valores com vencimento/previsão na data mas ainda não baixados.
-        Investimento = aplicações (saída) e resgates (entrada) na data. Saldo da conta = saldo realizado, descontando
-        as provisões (saídas e entradas) acumuladas até aquele dia — estimativa de caixa livre após os pagamentos e
-        recebimentos previstos. Saldo projetado = saldo da conta + tudo o que está investido (aplicações menos
-        resgates acumulados) — visão de patrimônio total, caixa livre + investimentos. O saldo bloqueado (card acima)
-        já faz parte do saldo da conta — é só informativo, não é descontado.
+        Investimento (líquido) = aplicações menos resgates no período — positivo quando aplicou mais do que resgatou.
+        Saldo total = saldo bancário real no fim do período (igual ao extrato do banco, com o bloqueado incluído).
+        Saldo disponível = saldo total menos o bloqueado. Na tabela abaixo, Saldo da conta = saldo realizado
+        descontando as provisões (saídas e entradas) acumuladas até aquele dia — estimativa de caixa livre após os
+        pagamentos e recebimentos previstos. Saldo projetado = saldo da conta + tudo o que está investido (aplicações
+        menos resgates acumulados) — visão de patrimônio total, caixa livre + investimentos.
       </p>
     </div>
   );
