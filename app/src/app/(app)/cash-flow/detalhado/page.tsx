@@ -284,11 +284,12 @@ export default async function CashFlowDetalhadoPage({
     // saldo em conta ainda não afetado por provisões — só saídas/entradas já baixadas e investimentos
     runningBalance = runningBalance - saidas + entradas + investimento;
 
-    // "saldo da conta" (visão de caixa livre): saldo realizado, descontando o bloqueado e as
-    // provisões (saída e entrada) acumuladas até esse dia
+    // "saldo da conta": saldo realizado, descontando as provisões (saída e entrada) acumuladas até
+    // esse dia. O saldo bloqueado NÃO é descontado aqui — ele já faz parte do saldo bancário real,
+    // só é exibido separadamente (card "Saldo bloqueado") como informação.
     cumulativeProvisaoSaidas += provisaoSaidas;
     cumulativeProvisaoEntradas += provisaoEntradas;
-    const saldoConta = runningBalance - blockedBalance - cumulativeProvisaoSaidas + cumulativeProvisaoEntradas;
+    const saldoConta = runningBalance - cumulativeProvisaoSaidas + cumulativeProvisaoEntradas;
 
     // "saldo projetado": saldo da conta (acima) + tudo que está investido — visão de patrimônio total
     const saldoProjetado = saldoConta + cumulativeInvested;
@@ -375,8 +376,8 @@ export default async function CashFlowDetalhadoPage({
       </div>
 
       <DetalhadoTable
-        openingSaldoConta={openingBalance - blockedBalance}
-        openingSaldoProjetado={openingBalance - blockedBalance + openingInvestedBalance}
+        openingSaldoConta={openingBalance}
+        openingSaldoProjetado={openingBalance + openingInvestedBalance}
         dateFrom={dateFrom}
         rows={dayRows}
       />
@@ -385,9 +386,10 @@ export default async function CashFlowDetalhadoPage({
         Clique em um dia para ver o detalhamento por fornecedor. Saídas/entradas = pagamentos e receitas já baixados
         na data. Provisão de saídas/entradas = valores com vencimento/previsão na data mas ainda não baixados.
         Investimento = aplicações (saída) e resgates (entrada) na data. Saldo da conta = saldo realizado, descontando
-        o saldo bloqueado e as provisões (saídas e entradas) acumuladas até aquele dia — estimativa de caixa livre
-        após os pagamentos e recebimentos previstos. Saldo projetado = saldo da conta + tudo o que está investido
-        (aplicações menos resgates acumulados) — visão de patrimônio total, caixa livre + investimentos.
+        as provisões (saídas e entradas) acumuladas até aquele dia — estimativa de caixa livre após os pagamentos e
+        recebimentos previstos. Saldo projetado = saldo da conta + tudo o que está investido (aplicações menos
+        resgates acumulados) — visão de patrimônio total, caixa livre + investimentos. O saldo bloqueado (card acima)
+        já faz parte do saldo da conta — é só informativo, não é descontado.
       </p>
     </div>
   );
