@@ -71,7 +71,7 @@ export function DetalhadoTable({
             <th className="text-left px-4 py-3">Provisão de entradas</th>
             <th className="text-left px-4 py-3">Investimento</th>
             <th className="text-left px-4 py-3">Saldo da conta</th>
-            <th className="text-left px-4 py-3">Saldo projetado</th>
+            <th className="text-left px-4 py-3">Saldo C/C + Investimentos</th>
           </tr>
         </thead>
         <tbody>

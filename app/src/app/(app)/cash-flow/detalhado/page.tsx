@@ -375,9 +375,9 @@ export default async function CashFlowDetalhadoPage({
         <FinancialCard label="Entradas" value={formatBRL(totalEntradas)} tone="positive" />
         <FinancialCard label="Provisão de entradas" value={formatBRL(totalProvisaoEntradas)} />
         <FinancialCard
-          label="Investimento (líquido)"
-          value={formatBRL(totalInvestimento)}
-          tone={totalInvestimento.isNegative() ? "negative" : totalInvestimento.isPositive() ? "positive" : "neutral"}
+          label="Total investido"
+          value={formatBRL(cumulativeInvested)}
+          tone={cumulativeInvested < 0 ? "negative" : cumulativeInvested > 0 ? "positive" : "neutral"}
         />
       </div>
 
@@ -397,12 +397,13 @@ export default async function CashFlowDetalhadoPage({
       <p className="text-xs text-ps-muted mt-4">
         Clique em um dia para ver o detalhamento por fornecedor. Saídas/entradas = pagamentos e receitas já baixados
         na data. Provisão de saídas/entradas = valores com vencimento/previsão na data mas ainda não baixados.
-        Investimento (líquido) = aplicações menos resgates no período — positivo quando aplicou mais do que resgatou.
-        Saldo total = saldo bancário real no fim do período (igual ao extrato do banco, com o bloqueado incluído).
-        Saldo disponível = saldo total menos o bloqueado. Na tabela abaixo, Saldo da conta = saldo realizado
-        descontando as provisões (saídas e entradas) acumuladas até aquele dia — estimativa de caixa livre após os
-        pagamentos e recebimentos previstos. Saldo projetado = saldo da conta + tudo o que está investido (aplicações
-        menos resgates acumulados) — visão de patrimônio total, caixa livre + investimentos.
+        Total investido = histórico acumulado de tudo que está aplicado até o fim do período (aplicações menos
+        resgates desde o início), não só o líquido do mês — por isso não some nem fica negativo num mês em que só
+        houve resgate. Saldo total = saldo bancário real no fim do período (igual ao extrato do banco, com o
+        bloqueado incluído). Saldo disponível = saldo total menos o bloqueado. Na tabela abaixo, Saldo da conta =
+        saldo realizado descontando as provisões (saídas e entradas) acumuladas até aquele dia — estimativa de caixa
+        livre após os pagamentos e recebimentos previstos. Saldo C/C + Investimentos = saldo da conta + tudo o que
+        está investido — visão de patrimônio total, caixa livre + investimentos.
       </p>
     </div>
   );
