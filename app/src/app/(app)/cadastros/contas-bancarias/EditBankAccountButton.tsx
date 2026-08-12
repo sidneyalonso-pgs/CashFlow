@@ -27,6 +27,7 @@ type Account = {
   account_type: string;
   currency: string;
   initial_balance: number;
+  blocked_balance: number;
   counts_as_available_cash: boolean;
   status: string;
   chart_account_id: string | null;
@@ -93,6 +94,14 @@ export function EditBankAccountButton({
             type="number"
             step="0.01"
             defaultValue={String(account.initial_balance)}
+          />
+          <TextField
+            label="Saldo bloqueado"
+            name="blocked_balance"
+            type="number"
+            step="0.01"
+            defaultValue={String(account.blocked_balance ?? 0)}
+            placeholder="Ex: garantia, bloqueio judicial..."
           />
           <CheckboxField
             label="Considera no caixa disponível"

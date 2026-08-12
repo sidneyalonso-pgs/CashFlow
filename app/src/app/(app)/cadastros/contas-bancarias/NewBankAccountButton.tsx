@@ -63,6 +63,14 @@ export function NewBankAccountButton({
           <TextField label="Apelido" name="nickname" placeholder="Ex: Conta principal" />
           <SelectField label="Tipo da conta" name="account_type" required options={ACCOUNT_TYPES} />
           <TextField label="Saldo inicial" name="initial_balance" type="number" step="0.01" defaultValue="0" />
+          <TextField
+            label="Saldo bloqueado"
+            name="blocked_balance"
+            type="number"
+            step="0.01"
+            defaultValue="0"
+            placeholder="Ex: garantia, bloqueio judicial..."
+          />
           <CheckboxField
             label="Considera no caixa disponível"
             name="counts_as_available_cash"

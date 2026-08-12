@@ -26,6 +26,7 @@ export const bankAccountSchema = z.object({
   ]),
   currency: z.string().default("BRL"),
   initial_balance: z.coerce.number().default(0),
+  blocked_balance: z.coerce.number().default(0),
   counts_as_available_cash: z.coerce.boolean().default(true),
   status: z.enum(["ativo", "inativo"]).default("ativo"),
 });

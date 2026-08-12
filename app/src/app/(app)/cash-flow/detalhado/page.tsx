@@ -43,7 +43,7 @@ export default async function CashFlowDetalhadoPage({
 
   let bankAccountsQuery = supabase
     .from("bank_accounts")
-    .select("id, nickname, bank_name, initial_balance, counts_as_available_cash, company_id");
+    .select("id, nickname, bank_name, initial_balance, blocked_balance, counts_as_available_cash, company_id");
   let paymentRealizationsQuery = supabase
     .from("payment_realizations")
     .select("amount, paid_at, payments!inner(company_id, paying_bank_account_id, description, suppliers(legal_name))")
@@ -182,6 +182,11 @@ export default async function CashFlowDetalhadoPage({
   const initialCashBalance = sumMoney(
     (allBankAccounts ?? []).filter((a: any) => a.counts_as_available_cash).map((a: any) => a.initial_balance)
   );
+  const blockedBalance = sumMoney(
+    (bankAccountId ? (allBankAccounts ?? []).filter((a: any) => a.id === bankAccountId) : allBankAccounts ?? []).map(
+      (a: any) => a.blocked_balance ?? 0
+    )
+  ).toNumber();
   const priorInflows = sumMoney(priorRevenues.map((r: any) => r.amount));
   const priorOutflows = sumMoney(priorPayments.map((p: any) => p.amount));
   const priorInvNet = sumMoney(
@@ -219,6 +224,8 @@ export default async function CashFlowDetalhadoPage({
   }
 
   let runningBalance = openingBalance;
+  let cumulativeProvisaoSaidas = 0;
+  let cumulativeProvisaoEntradas = 0;
 
   const dayRows: DayRow[] = days.map((day) => {
     const saidasItems = paymentRealizations
@@ -263,6 +270,12 @@ export default async function CashFlowDetalhadoPage({
     // provisões ainda não afetam o saldo em conta — só saídas/entradas já baixadas e investimentos
     runningBalance = runningBalance - saidas + entradas + investimento;
 
+    // saldo projetado: saldo realizado, descontando o bloqueado e as provisões (saída e entrada)
+    // acumuladas até esse dia — mostra quanto vai sobrar de caixa livre após os pagamentos previstos
+    cumulativeProvisaoSaidas += provisaoSaidas;
+    cumulativeProvisaoEntradas += provisaoEntradas;
+    const saldoProjetado = runningBalance - blockedBalance - cumulativeProvisaoSaidas + cumulativeProvisaoEntradas;
+
     return {
       day,
       saidas,
@@ -271,6 +284,7 @@ export default async function CashFlowDetalhadoPage({
       provisaoEntradas,
       investimento,
       saldo: runningBalance,
+      saldoProjetado,
       saidasDetail: groupSum(saidasItems),
       provisaoSaidasDetail: groupSum(provisaoSaidasItems),
       entradasDetail: groupSum(entradasItems),
@@ -340,14 +354,17 @@ export default async function CashFlowDetalhadoPage({
           value={formatBRL(totalInvestimento)}
           tone={totalInvestimento.isNegative() ? "negative" : totalInvestimento.isPositive() ? "positive" : "neutral"}
         />
+        {blockedBalance !== 0 && <FinancialCard label="Saldo bloqueado" value={formatBRL(blockedBalance)} tone="negative" />}
       </div>
 
-      <DetalhadoTable openingBalance={openingBalance} dateFrom={dateFrom} rows={dayRows} />
+      <DetalhadoTable openingBalance={openingBalance} dateFrom={dateFrom} rows={dayRows} blockedBalance={blockedBalance} />
 
       <p className="text-xs text-ps-muted mt-4">
         Clique em um dia para ver o detalhamento por fornecedor. Saídas/entradas = pagamentos e receitas já baixados
         na data. Provisão de saídas/entradas = valores com vencimento/previsão na data mas ainda não baixados (não
-        afetam o saldo em conta). Investimento = aplicações (saída) e resgates (entrada) na data.
+        afetam o saldo em conta). Investimento = aplicações (saída) e resgates (entrada) na data. Saldo projetado =
+        saldo em conta menos o saldo bloqueado e as provisões acumuladas (saídas e entradas) até aquele dia —
+        estimativa de caixa livre após os pagamentos e recebimentos previstos.
       </p>
     </div>
   );

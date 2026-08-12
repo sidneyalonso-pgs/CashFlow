@@ -15,6 +15,7 @@ export async function createBankAccount(formData: FormData) {
     account_type: formData.get("account_type"),
     currency: formData.get("currency") || "BRL",
     initial_balance: formData.get("initial_balance") || 0,
+    blocked_balance: formData.get("blocked_balance") || 0,
     counts_as_available_cash: formData.get("counts_as_available_cash") === "on",
   });
 
@@ -45,6 +46,7 @@ export async function updateBankAccount(accountId: string, formData: FormData) {
     account_type: formData.get("account_type"),
     currency: formData.get("currency") || "BRL",
     initial_balance: formData.get("initial_balance") || 0,
+    blocked_balance: formData.get("blocked_balance") || 0,
     counts_as_available_cash: formData.get("counts_as_available_cash") === "on",
     status: formData.get("status") || "ativo",
   });

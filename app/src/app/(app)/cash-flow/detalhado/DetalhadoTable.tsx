@@ -13,6 +13,7 @@ export type DayRow = {
   provisaoEntradas: number;
   investimento: number;
   saldo: number;
+  saldoProjetado: number;
   saidasDetail: Breakdown[];
   provisaoSaidasDetail: Breakdown[];
   entradasDetail: Breakdown[];
@@ -43,7 +44,17 @@ function BreakdownList({ title, items, tone }: { title: string; items: Breakdown
   );
 }
 
-export function DetalhadoTable({ openingBalance, dateFrom, rows }: { openingBalance: number; dateFrom: string; rows: DayRow[] }) {
+export function DetalhadoTable({
+  openingBalance,
+  dateFrom,
+  rows,
+  blockedBalance,
+}: {
+  openingBalance: number;
+  dateFrom: string;
+  rows: DayRow[];
+  blockedBalance: number;
+}) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const toggle = (day: string) => setExpanded((prev) => ({ ...prev, [day]: !prev[day] }));
@@ -60,6 +71,7 @@ export function DetalhadoTable({ openingBalance, dateFrom, rows }: { openingBala
             <th className="text-left px-4 py-3">Provisão de entradas</th>
             <th className="text-left px-4 py-3">Investimento</th>
             <th className="text-left px-4 py-3">Saldo da conta</th>
+            <th className="text-left px-4 py-3">Saldo projetado</th>
           </tr>
         </thead>
         <tbody>
@@ -71,6 +83,9 @@ export function DetalhadoTable({ openingBalance, dateFrom, rows }: { openingBala
             <td className="px-4 py-3 text-ps-muted">—</td>
             <td className="px-4 py-3 text-ps-muted">—</td>
             <td className="px-4 py-3 tabular-nums font-semibold">{formatBRL(openingBalance)}</td>
+            <td className="px-4 py-3 tabular-nums font-semibold text-ps-muted">
+              {formatBRL(openingBalance - blockedBalance)}
+            </td>
           </tr>
           {rows.map((row) => {
             const hasDetail =
@@ -115,10 +130,13 @@ export function DetalhadoTable({ openingBalance, dateFrom, rows }: { openingBala
                   <td className={`px-4 py-3 tabular-nums font-semibold ${row.saldo < 0 ? "text-red-600" : ""}`}>
                     {formatBRL(row.saldo)}
                   </td>
+                  <td className={`px-4 py-3 tabular-nums font-semibold ${row.saldoProjetado < 0 ? "text-red-600" : "text-ps-muted"}`}>
+                    {formatBRL(row.saldoProjetado)}
+                  </td>
                 </tr>
                 {isOpen && hasDetail && (
                   <tr className="border-t border-ps-navy/5 bg-ps-bg-2/30">
-                    <td colSpan={7} className="px-4 py-4">
+                    <td colSpan={8} className="px-4 py-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         <BreakdownList title="Saídas por fornecedor" items={row.saidasDetail} tone="red" />
                         <BreakdownList title="Provisão de saídas por fornecedor" items={row.provisaoSaidasDetail} tone="amber" />

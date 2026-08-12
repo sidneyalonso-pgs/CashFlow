@@ -23,7 +23,7 @@ export default async function BankAccountsPage() {
     supabase
       .from("bank_accounts")
       .select(
-        "id, bank_name, bank_code, branch, nickname, account_number, account_type, currency, initial_balance, counts_as_available_cash, status, company_id, chart_account_id, companies(legal_name, trade_name)"
+        "id, bank_name, bank_code, branch, nickname, account_number, account_type, currency, initial_balance, blocked_balance, counts_as_available_cash, status, company_id, chart_account_id, companies(legal_name, trade_name)"
       )
       .order("bank_name"),
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
