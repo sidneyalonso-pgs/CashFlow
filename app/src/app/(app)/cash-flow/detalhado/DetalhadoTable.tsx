@@ -18,6 +18,7 @@ export type DayRow = {
   provisaoSaidasDetail: Breakdown[];
   entradasDetail: Breakdown[];
   provisaoEntradasDetail: Breakdown[];
+  investimentoDetail: Breakdown[];
 };
 
 function formatShort(iso: string) {
@@ -37,6 +38,25 @@ function BreakdownList({ title, items, tone }: { title: string; items: Breakdown
           <li key={it.label} className="flex items-center justify-between gap-4 text-sm">
             <span className="text-ps-ink">{it.label}</span>
             <span className={`tabular-nums font-medium ${toneClass}`}>{formatBRL(it.value)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function InvestmentBreakdownList({ items }: { items: Breakdown[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <p className="text-xs uppercase tracking-wide text-ps-muted font-mono mb-1">Investimentos</p>
+      <ul className="space-y-0.5">
+        {items.map((it) => (
+          <li key={it.label} className="flex items-center justify-between gap-4 text-sm">
+            <span className="text-ps-ink">{it.label}</span>
+            <span className={`tabular-nums font-medium ${it.value >= 0 ? "text-ps-green-700" : "text-red-600"}`}>
+              {formatBRL(it.value)}
+            </span>
           </li>
         ))}
       </ul>
@@ -90,7 +110,8 @@ export function DetalhadoTable({
               row.saidasDetail.length > 0 ||
               row.provisaoSaidasDetail.length > 0 ||
               row.entradasDetail.length > 0 ||
-              row.provisaoEntradasDetail.length > 0;
+              row.provisaoEntradasDetail.length > 0 ||
+              row.investimentoDetail.length > 0;
             const isOpen = !!expanded[row.day];
             return (
               <Fragment key={row.day}>
@@ -135,11 +156,12 @@ export function DetalhadoTable({
                 {isOpen && hasDetail && (
                   <tr className="border-t border-ps-navy/5 bg-ps-bg-2/30">
                     <td colSpan={8} className="px-4 py-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
                         <BreakdownList title="Saídas por fornecedor" items={row.saidasDetail} tone="red" />
                         <BreakdownList title="Provisão de saídas por fornecedor" items={row.provisaoSaidasDetail} tone="amber" />
                         <BreakdownList title="Entradas" items={row.entradasDetail} tone="green" />
                         <BreakdownList title="Provisão de entradas" items={row.provisaoEntradasDetail} tone="teal" />
+                        <InvestmentBreakdownList items={row.investimentoDetail} />
                       </div>
                     </td>
                   </tr>

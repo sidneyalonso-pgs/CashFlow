@@ -72,7 +72,7 @@ export default async function CashFlowDetalhadoPage({
     .lte("expected_date", dateTo);
   let investmentsQuery = supabase
     .from("investments")
-    .select("tipo, applied_amount, applied_date, company_id, bank_account_id, is_opening_balance")
+    .select("tipo, product, institution, applied_amount, applied_date, company_id, bank_account_id, is_opening_balance")
     .gte("applied_date", dateFrom)
     .lte("applied_date", dateTo);
   let transfersQuery = supabase
@@ -271,9 +271,16 @@ export default async function CashFlowDetalhadoPage({
     const entradas = sumMoney(entradasItems.map((i) => i.amount)).toNumber();
     const provisaoEntradas = sumMoney(provisaoEntradasItems.map((i) => i.amount)).toNumber();
     // efeito no caixa (aplicação tira dinheiro da conta, resgate devolve) — usado só pra calcular o saldo
-    const investimentoCashEffect = investments
-      .filter((i: any) => i.applied_date === day && !i.is_opening_balance)
-      .reduce((acc: number, i: any) => acc + (i.tipo === "resgate" ? Number(i.applied_amount) : -Number(i.applied_amount)), 0);
+    const investimentoDoDia = investments.filter((i: any) => i.applied_date === day && !i.is_opening_balance);
+    const investimentoCashEffect = investimentoDoDia.reduce(
+      (acc: number, i: any) => acc + (i.tipo === "resgate" ? Number(i.applied_amount) : -Number(i.applied_amount)),
+      0
+    );
+    // itens do dia pro detalhamento: resgate = crédito na conta (positivo), aplicação = débito (negativo)
+    const investimentoItems = investimentoDoDia.map((i: any) => ({
+      label: `${i.tipo === "resgate" ? "Resgate" : "Aplicação"}: ${i.product ?? i.institution ?? "Investimento"}`,
+      amount: i.tipo === "resgate" ? Number(i.applied_amount) : -Number(i.applied_amount),
+    }));
     // valor exibido: positivo quando aplicou mais do que resgatou no dia (visão de investimento, não de caixa)
     const investimento = -investimentoCashEffect;
 
@@ -310,6 +317,7 @@ export default async function CashFlowDetalhadoPage({
       provisaoSaidasDetail: groupSum(provisaoSaidasItems),
       entradasDetail: groupSum(entradasItems),
       provisaoEntradasDetail: groupSum(provisaoEntradasItems),
+      investimentoDetail: groupSum(investimentoItems),
     };
   });
 
