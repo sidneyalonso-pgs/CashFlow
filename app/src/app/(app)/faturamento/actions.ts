@@ -159,7 +159,9 @@ export async function emitirFatura(data: {
       supplierId = newSupplier?.id ?? null;
     }
 
-    const repasseDate = data.data_repasse ?? new Date().toISOString().split("T")[0];
+    // provisiona na data de vencimento (a data de repasse é só a expectativa de quando o
+    // dinheiro sai de fato — a baixa real acontece depois, com a data efetiva do pagamento)
+    const repasseDate = data.data_vencimento ?? data.data_repasse ?? new Date().toISOString().split("T")[0];
     const { data: pay, error: payErr } = await supabase.from("payments").insert({
       company_id: data.company_id,
       supplier_id: supplierId,
