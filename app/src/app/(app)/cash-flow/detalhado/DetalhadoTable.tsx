@@ -1,9 +1,10 @@
 "use client";
 
 import { Fragment, useState } from "react";
+import Link from "next/link";
 import { formatBRL } from "@/lib/calculations/money";
 
-type Breakdown = { label: string; value: number };
+type Breakdown = { label: string; value: number; href?: string };
 
 export type DayRow = {
   day: string;
@@ -34,9 +35,9 @@ function BreakdownList({ title, items, tone }: { title: string; items: Breakdown
     <div>
       <p className="text-xs uppercase tracking-wide text-ps-muted font-mono mb-1">{title}</p>
       <ul className="space-y-0.5">
-        {items.map((it) => (
-          <li key={it.label} className="flex items-center justify-between gap-4 text-sm">
-            <span className="text-ps-ink">{it.label}</span>
+        {items.map((it, idx) => (
+          <li key={`${it.label}-${idx}`} className="flex items-center justify-between gap-4 text-sm">
+            <ItemLabel item={it} />
             <span className={`tabular-nums font-medium ${toneClass}`}>{formatBRL(it.value)}</span>
           </li>
         ))}
@@ -45,15 +46,26 @@ function BreakdownList({ title, items, tone }: { title: string; items: Breakdown
   );
 }
 
+function ItemLabel({ item }: { item: Breakdown }) {
+  if (item.href) {
+    return (
+      <Link href={item.href} className="text-ps-navy underline decoration-dotted hover:decoration-solid">
+        {item.label}
+      </Link>
+    );
+  }
+  return <span className="text-ps-ink">{item.label}</span>;
+}
+
 function InvestmentBreakdownList({ items }: { items: Breakdown[] }) {
   if (items.length === 0) return null;
   return (
     <div>
       <p className="text-xs uppercase tracking-wide text-ps-muted font-mono mb-1">Investimentos</p>
       <ul className="space-y-0.5">
-        {items.map((it) => (
-          <li key={it.label} className="flex items-center justify-between gap-4 text-sm">
-            <span className="text-ps-ink">{it.label}</span>
+        {items.map((it, idx) => (
+          <li key={`${it.label}-${idx}`} className="flex items-center justify-between gap-4 text-sm">
+            <ItemLabel item={it} />
             <span className={`tabular-nums font-medium ${it.value >= 0 ? "text-ps-green-700" : "text-red-600"}`}>
               {formatBRL(it.value)}
             </span>

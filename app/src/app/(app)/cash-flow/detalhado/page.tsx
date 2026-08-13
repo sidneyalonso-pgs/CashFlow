@@ -16,13 +16,19 @@ const TRANSFER_LABELS: Record<string, string> = {
   transferencia_interna: "Transferência entre contas",
 };
 
-function groupSum(items: Array<{ label: string; amount: number }>): Array<{ label: string; value: number }> {
-  const map = new Map<string, number>();
+function groupSum(
+  items: Array<{ label: string; amount: number; href?: string }>
+): Array<{ label: string; value: number; href?: string }> {
+  // agrupa por rótulo + link — assim só junta linhas que são de fato o mesmo lançamento
+  // repetido; registros diferentes (href diferente) continuam separados e clicáveis
+  const map = new Map<string, { value: number; href?: string }>();
   for (const it of items) {
-    map.set(it.label, (map.get(it.label) ?? 0) + it.amount);
+    const key = `${it.label}|${it.href ?? ""}`;
+    const existing = map.get(key);
+    map.set(key, { value: (existing?.value ?? 0) + it.amount, href: it.href });
   }
   return Array.from(map.entries())
-    .map(([label, value]) => ({ label, value }))
+    .map(([key, v]) => ({ label: key.split("|")[0], value: v.value, href: v.href }))
     .sort((a, b) => b.value - a.value);
 }
 
@@ -46,38 +52,38 @@ export default async function CashFlowDetalhadoPage({
     .select("id, nickname, bank_name, initial_balance, blocked_balance, counts_as_available_cash, company_id");
   let paymentRealizationsQuery = supabase
     .from("payment_realizations")
-    .select("amount, paid_at, payments!inner(company_id, paying_bank_account_id, description, suppliers(legal_name))")
+    .select("amount, paid_at, payments!inner(id, company_id, paying_bank_account_id, description, suppliers(legal_name))")
     .is("payments.deleted_at", null)
     .gte("paid_at", dateFrom)
     .lte("paid_at", dateTo);
   let provisionedPaymentsQuery = supabase
     .from("payments")
-    .select("gross_amount, due_date, company_id, paying_bank_account_id, description, suppliers(legal_name)")
+    .select("id, gross_amount, due_date, company_id, paying_bank_account_id, description, suppliers(legal_name)")
     .is("deleted_at", null)
     .not("status", "in", '("pago","cancelado")')
     .gte("due_date", dateFrom)
     .lte("due_date", dateTo);
   let revenueRealizationsQuery = supabase
     .from("revenue_realizations")
-    .select("amount, received_at, revenues!inner(company_id, receiving_bank_account_id, description, categories(name))")
+    .select("amount, received_at, revenues!inner(id, company_id, receiving_bank_account_id, description, categories(name))")
     .is("revenues.deleted_at", null)
     .gte("received_at", dateFrom)
     .lte("received_at", dateTo);
   let provisionedRevenuesQuery = supabase
     .from("revenues")
-    .select("expected_amount, expected_date, company_id, receiving_bank_account_id, description, categories(name)")
+    .select("id, expected_amount, expected_date, company_id, receiving_bank_account_id, description, categories(name)")
     .is("deleted_at", null)
     .not("status", "in", '("recebida","cancelada")')
     .gte("expected_date", dateFrom)
     .lte("expected_date", dateTo);
   let investmentsQuery = supabase
     .from("investments")
-    .select("tipo, product, institution, applied_amount, applied_date, company_id, bank_account_id, is_opening_balance")
+    .select("id, tipo, product, institution, applied_amount, applied_date, company_id, bank_account_id, is_opening_balance")
     .gte("applied_date", dateFrom)
     .lte("applied_date", dateTo);
   let transfersQuery = supabase
     .from("transfers")
-    .select("tipo, amount, transfer_date, description, counterpart_name, company_id, from_account_id, to_account_id")
+    .select("id, tipo, amount, transfer_date, description, counterpart_name, company_id, from_account_id, to_account_id")
     .gte("transfer_date", dateFrom)
     .lte("transfer_date", dateTo);
 
@@ -235,18 +241,36 @@ export default async function CashFlowDetalhadoPage({
   let cumulativeInvested = openingInvestedBalance;
 
   const dayRows: DayRow[] = days.map((day) => {
-    const saidasItems = paymentRealizations
+    type Item = { label: string; amount: number; href?: string };
+
+    const saidasItems: Item[] = paymentRealizations
       .filter((p: any) => p.paid_at === day)
-      .map((p: any) => ({ label: p.payments?.suppliers?.legal_name ?? p.payments?.description ?? "Outros", amount: Number(p.amount) }));
-    const provisaoSaidasItems = provisionedPayments
+      .map((p: any) => ({
+        label: p.payments?.suppliers?.legal_name ?? p.payments?.description ?? "Outros",
+        amount: Number(p.amount),
+        href: p.payments?.id ? `/pagamentos/${p.payments.id}` : undefined,
+      }));
+    const provisaoSaidasItems: Item[] = provisionedPayments
       .filter((p: any) => p.due_date === day)
-      .map((p: any) => ({ label: p.suppliers?.legal_name ?? p.description ?? "Outros", amount: Number(p.gross_amount) }));
-    const entradasItems = revenueRealizations
+      .map((p: any) => ({
+        label: p.suppliers?.legal_name ?? p.description ?? "Outros",
+        amount: Number(p.gross_amount),
+        href: p.id ? `/pagamentos/${p.id}` : undefined,
+      }));
+    const entradasItems: Item[] = revenueRealizations
       .filter((r: any) => r.received_at === day)
-      .map((r: any) => ({ label: r.revenues?.categories?.name ?? r.revenues?.description ?? "Outras", amount: Number(r.amount) }));
-    const provisaoEntradasItems = provisionedRevenues
+      .map((r: any) => ({
+        label: r.revenues?.categories?.name ?? r.revenues?.description ?? "Outras",
+        amount: Number(r.amount),
+        href: r.revenues?.id ? `/receitas#${r.revenues.id}` : undefined,
+      }));
+    const provisaoEntradasItems: Item[] = provisionedRevenues
       .filter((r: any) => r.expected_date === day)
-      .map((r: any) => ({ label: r.categories?.name ?? r.description ?? "Outras", amount: Number(r.expected_amount) }));
+      .map((r: any) => ({
+        label: r.categories?.name ?? r.description ?? "Outras",
+        amount: Number(r.expected_amount),
+        href: r.id ? `/receitas#${r.id}` : undefined,
+      }));
 
     // transferências entram como saída/entrada realizada, igual ao resumo executivo
     saidasItems.push(
@@ -255,6 +279,7 @@ export default async function CashFlowDetalhadoPage({
         .map((t: any) => ({
           label: t.counterpart_name ?? t.description ?? TRANSFER_LABELS[t.tipo] ?? "Transferência",
           amount: Number(t.amount),
+          href: t.id ? `/transferencias?mes=${day.slice(0, 7)}#${t.id}` : undefined,
         }))
     );
     entradasItems.push(
@@ -263,24 +288,28 @@ export default async function CashFlowDetalhadoPage({
         .map((t: any) => ({
           label: t.counterpart_name ?? t.description ?? TRANSFER_LABELS[t.tipo] ?? "Transferência",
           amount: Number(t.amount),
+          href: t.id ? `/transferencias?mes=${day.slice(0, 7)}#${t.id}` : undefined,
         }))
     );
 
     // partida dobrada do investimento: resgate credita a conta corrente (entrada) e debita a
     // posição investida; aplicação debita a conta corrente (saída) e credita a posição investida.
     // Aparece nos dois lados pra ficar visível — tanto em Saídas/Entradas quanto em Investimentos.
+    // Os dois lados linkam pro mesmo lançamento em Investimentos, pra editar/corrigir rápido.
     const investimentoDoDia = investments.filter((i: any) => i.applied_date === day && !i.is_opening_balance);
     for (const inv of investimentoDoDia) {
       const label = `${inv.tipo === "resgate" ? "Resgate" : "Aplicação"}: ${inv.product ?? inv.institution ?? "Investimento"}`;
+      const href = `/investimentos#${inv.id}`;
       if (inv.tipo === "resgate") {
-        entradasItems.push({ label, amount: Number(inv.applied_amount) });
+        entradasItems.push({ label, amount: Number(inv.applied_amount), href });
       } else {
-        saidasItems.push({ label, amount: Number(inv.applied_amount) });
+        saidasItems.push({ label, amount: Number(inv.applied_amount), href });
       }
     }
-    const investimentoItems = investimentoDoDia.map((i: any) => ({
+    const investimentoItems: Item[] = investimentoDoDia.map((i: any) => ({
       label: `${i.tipo === "resgate" ? "Resgate" : "Aplicação"}: ${i.product ?? i.institution ?? "Investimento"}`,
       amount: i.tipo === "resgate" ? -Number(i.applied_amount) : Number(i.applied_amount),
+      href: `/investimentos#${i.id}`,
     }));
 
     const saidas = sumMoney(saidasItems.map((i) => i.amount)).toNumber();

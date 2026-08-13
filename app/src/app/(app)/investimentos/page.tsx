@@ -57,7 +57,7 @@ export default async function InvestmentsPage({
         </thead>
         <tbody>
           {rows.map((i: any) => (
-            <tr key={i.id} className="border-t border-ps-navy/5 hover:bg-ps-bg-2/40">
+            <tr id={i.id} key={i.id} className="border-t border-ps-navy/5 hover:bg-ps-bg-2/40 target:bg-yellow-50 target:ring-2 target:ring-yellow-300">
               <td className="px-4 py-3">{companyLabel(i.companies)}</td>
               <td className="px-4 py-3 text-ps-muted">{i.bank_accounts?.nickname ?? i.bank_accounts?.bank_name ?? "—"}</td>
               <td className="px-4 py-3 font-medium">
