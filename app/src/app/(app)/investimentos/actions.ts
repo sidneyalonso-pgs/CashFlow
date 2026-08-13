@@ -43,6 +43,7 @@ export async function createInvestment(formData: FormData) {
 
   revalidatePath("/investimentos");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   revalidatePath("/movimentacoes");
   return { error: null };
 }
@@ -53,6 +54,7 @@ export async function deleteInvestment(investmentId: string) {
   if (error) return { error: error.message };
   revalidatePath("/investimentos");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   revalidatePath("/movimentacoes");
   return { error: null };
 }
@@ -78,6 +80,7 @@ export async function updateInvestment(investmentId: string, formData: FormData)
   if (error) return { error: error.message };
   revalidatePath("/investimentos");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   return { error: null };
 }
 
@@ -90,5 +93,7 @@ export async function redeemInvestment(investmentId: string, amount: number, red
   const { error } = await supabase.from("investments").update({ redeemed_amount: newRedeemed, redeemed_date: redeemedDate, status }).eq("id", investmentId);
   if (error) return { error: error.message };
   revalidatePath("/investimentos");
+  revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   return { error: null };
 }

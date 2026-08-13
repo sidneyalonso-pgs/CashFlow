@@ -49,6 +49,7 @@ export async function createTransfer(formData: FormData) {
 
   revalidatePath("/transferencias");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   revalidatePath("/");
   return { error: null };
 }
@@ -82,6 +83,7 @@ export async function updateTransfer(id: string, formData: FormData) {
   if (error) return { error: error.message };
   revalidatePath("/transferencias");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   revalidatePath("/");
   return { error: null };
 }
@@ -92,6 +94,7 @@ export async function deleteTransfer(id: string) {
   if (error) return { error: error.message };
   revalidatePath("/transferencias");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   revalidatePath("/");
   return { error: null };
 }

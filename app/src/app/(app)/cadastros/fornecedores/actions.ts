@@ -180,6 +180,7 @@ export async function generateRecurringProvisions(
 
   revalidatePath("/pagamentos");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   return { error: null, created };
 }
 

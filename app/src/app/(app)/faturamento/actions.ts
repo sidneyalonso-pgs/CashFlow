@@ -172,6 +172,7 @@ export async function emitirFatura(data: {
   revalidatePath("/receitas");
   revalidatePath("/pagamentos");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   return { error: null, id: invoice.id };
 }
 
@@ -236,6 +237,7 @@ export async function baixarFatura(invoiceId: string, dataPgto: string) {
   revalidatePath("/receitas");
   revalidatePath("/pagamentos");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   return { error: null };
 }
 
@@ -267,6 +269,7 @@ export async function cancelarFatura(invoiceId: string) {
   revalidatePath("/receitas");
   revalidatePath("/pagamentos");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   return { error: null };
 }
 

@@ -109,6 +109,7 @@ export async function importRevenues(rows: ImportRow[]) {
 
   revalidatePath("/receitas");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   revalidatePath("/movimentacoes");
   return { total: rows.length, created, errors };
 }

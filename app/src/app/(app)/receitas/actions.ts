@@ -150,6 +150,7 @@ export async function settleRevenue(revenueId: string, amount: number, receivedA
 
   revalidatePath("/receitas");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   return { error: null };
 }
 
@@ -205,6 +206,7 @@ export async function updateRevenue(revenueId: string, formData: FormData) {
 
   revalidatePath("/receitas");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   return { error: null };
 }
 
@@ -218,6 +220,7 @@ export async function markRevenueAsPending(revenueId: string) {
   if (error) return { error: error.message };
   revalidatePath("/receitas");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   return { error: null };
 }
 
@@ -231,6 +234,7 @@ export async function deleteRevenue(revenueId: string) {
   if (error) return { error: error.message };
   revalidatePath("/receitas");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   return { error: null };
 }
 
@@ -243,6 +247,7 @@ export async function updateRevenueBankAccount(revenueId: string, bankAccountId:
   if (error) return { error: error.message };
   revalidatePath("/receitas");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   return { error: null };
 }
 

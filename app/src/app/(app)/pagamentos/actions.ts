@@ -216,6 +216,7 @@ export async function settlePayment(paymentId: string, amount: number, paidAt: s
 
   revalidatePath("/pagamentos");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   return { error: null };
 }
 
@@ -345,6 +346,7 @@ export async function updatePaymentBankAccount(paymentId: string, bankAccountId:
   if (error) return { error: error.message };
   revalidatePath("/pagamentos");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   return { error: null };
 }
 
@@ -387,6 +389,7 @@ export async function updatePaymentDueDate(paymentId: string, dueDate: string) {
   revalidatePath("/pagamentos");
   revalidatePath(`/pagamentos/${paymentId}`);
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   revalidatePath("/");
   return { error: null };
 }
@@ -410,6 +413,7 @@ export async function deletePayment(paymentId: string) {
   if (error) return { error: error.message };
   revalidatePath("/pagamentos");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   return { error: null };
 }
 
@@ -445,6 +449,7 @@ export async function quickMarkPaid(paymentId: string, paidAt: string, amount: n
   if (error) return { error: error.message };
   revalidatePath("/pagamentos");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   return { error: null };
 }
 
@@ -458,6 +463,7 @@ export async function markPaymentAsOpen(paymentId: string) {
   if (error) return { error: error.message };
   revalidatePath("/pagamentos");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   return { error: null };
 }
 
@@ -537,6 +543,7 @@ export async function createBulkPayments(rows: Array<{
 
   revalidatePath("/pagamentos");
   revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   return { errors };
 }
 
