@@ -176,7 +176,7 @@ export async function emitirFatura(data: {
   return { error: null, id: invoice.id };
 }
 
-export async function baixarFatura(invoiceId: string, dataPgto: string) {
+export async function baixarFatura(invoiceId: string, dataPgto: string, bankAccountId?: string) {
   const supabase = createClient();
   const { data: invoice } = await supabase
     .from("billing_invoices")
@@ -197,6 +197,7 @@ export async function baixarFatura(invoiceId: string, dataPgto: string) {
         status: "recebida",
         realized_amount: amount,
         realized_date: dataPgto,
+        receiving_bank_account_id: bankAccountId ?? null,
       }).eq("id", invoice.revenue_id);
       if (error) return { error: error.message };
 
@@ -206,6 +207,7 @@ export async function baixarFatura(invoiceId: string, dataPgto: string) {
         revenue_id: invoice.revenue_id,
         amount,
         received_at: dataPgto,
+        bank_account_id: bankAccountId ?? null,
       });
       if (realErr) return { error: realErr.message };
     }
@@ -218,6 +220,8 @@ export async function baixarFatura(invoiceId: string, dataPgto: string) {
         status: "pago",
         paid_amount: amount,
         effective_payment_date: dataPgto,
+        // sem isso o repasse não aparece no Cash Flow ao filtrar por uma conta específica
+        paying_bank_account_id: bankAccountId ?? null,
       }).eq("id", invoice.payment_id);
       if (error) return { error: error.message };
 
@@ -227,6 +231,7 @@ export async function baixarFatura(invoiceId: string, dataPgto: string) {
         payment_id: invoice.payment_id,
         amount,
         paid_at: dataPgto,
+        bank_account_id: bankAccountId ?? null,
       });
       if (realErr) return { error: realErr.message };
     }

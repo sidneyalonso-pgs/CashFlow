@@ -547,6 +547,12 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
   if (!inv) notFound();
 
+  const { data: bankAccounts } = await supabase
+    .from("bank_accounts")
+    .select("id, nickname, bank_name")
+    .eq("company_id", inv.company_id)
+    .order("bank_name");
+
   const client = inv.billing_clients as any;
   const company = null;
 
@@ -624,7 +630,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
                 </div>
               )}
             </div>
-            <InvoiceActions invoiceId={inv.id} status={inv.status} dataVencimento={inv.data_vencimento} />
+            <InvoiceActions invoiceId={inv.id} status={inv.status} dataVencimento={inv.data_vencimento} bankAccounts={bankAccounts ?? []} />
           </div>
 
           {(inv.revenue_id || inv.payment_id) && (
