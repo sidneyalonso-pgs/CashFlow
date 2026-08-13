@@ -191,7 +191,9 @@ export default async function CashFlowDetalhadoPage({
     : (priorInvestmentsRaw ?? []);
 
   const initialCashBalance = sumMoney(
-    (allBankAccounts ?? []).filter((a: any) => a.counts_as_available_cash).map((a: any) => a.initial_balance)
+    (bankAccountId ? (allBankAccounts ?? []).filter((a: any) => a.id === bankAccountId) : allBankAccounts ?? [])
+      .filter((a: any) => a.counts_as_available_cash)
+      .map((a: any) => a.initial_balance)
   );
   const blockedBalance = sumMoney(
     (bankAccountId ? (allBankAccounts ?? []).filter((a: any) => a.id === bankAccountId) : allBankAccounts ?? []).map(
