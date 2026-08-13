@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
-import { FinancialCard } from "@/components/FinancialCard";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 import { formatBRL, sumMoney } from "@/lib/calculations/money";
 import { DetalhadoTable, type DayRow } from "./DetalhadoTable";
@@ -15,6 +14,11 @@ const TRANSFER_LABELS: Record<string, string> = {
   debito_bancario: "Débito bancário",
   transferencia_interna: "Transferência entre contas",
 };
+
+function formatShort(iso: string) {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
 
 function groupSum(
   items: Array<{ label: string; amount: number; href?: string }>
@@ -419,22 +423,65 @@ export default async function CashFlowDetalhadoPage({
         </button>
       </AutoSubmitForm>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
-        <FinancialCard label="Saídas" value={formatBRL(totalSaidas)} tone="negative" />
-        <FinancialCard label="Provisão de saídas" value={formatBRL(totalProvisaoSaidas)} />
-        <FinancialCard label="Entradas" value={formatBRL(totalEntradas)} tone="positive" />
-        <FinancialCard label="Provisão de entradas" value={formatBRL(totalProvisaoEntradas)} />
-        <FinancialCard
-          label="Total investido"
-          value={formatBRL(cumulativeInvested)}
-          tone={cumulativeInvested < 0 ? "negative" : cumulativeInvested > 0 ? "positive" : "neutral"}
-        />
+      <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5 mb-4">
+        <p className="text-xs uppercase tracking-wide text-ps-muted font-semibold mb-4">Movimento do período</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-ps-navy/10">
+          <div className="sm:pr-6">
+            <p className="text-sm text-ps-muted mb-1">Saídas</p>
+            <p className="text-2xl font-semibold tabular-nums text-red-600">{formatBRL(totalSaidas)}</p>
+            {!totalProvisaoSaidas.isZero() && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full mt-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />+ {formatBRL(totalProvisaoSaidas)} previsto
+              </span>
+            )}
+          </div>
+          <div className="sm:px-6 pt-4 sm:pt-0">
+            <p className="text-sm text-ps-muted mb-1">Entradas</p>
+            <p className="text-2xl font-semibold tabular-nums text-ps-green-700">{formatBRL(totalEntradas)}</p>
+            {!totalProvisaoEntradas.isZero() && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full mt-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />+ {formatBRL(totalProvisaoEntradas)} previsto
+              </span>
+            )}
+          </div>
+          <div className="sm:pl-6 pt-4 sm:pt-0">
+            <p className="text-sm text-ps-muted mb-1">Total investido</p>
+            <p className={`text-2xl font-semibold tabular-nums ${cumulativeInvested < 0 ? "text-red-600" : "text-ps-green-700"}`}>
+              {formatBRL(cumulativeInvested)}
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <FinancialCard label="Saldo disponível" value={formatBRL(saldoDisponivel)} tone={saldoDisponivel < 0 ? "negative" : "positive"} />
-        <FinancialCard label="Saldo bloqueado" value={formatBRL(blockedBalance)} tone="neutral" />
-        <FinancialCard label="Saldo total" value={formatBRL(saldoTotalFinal)} tone={saldoTotalFinal < 0 ? "negative" : "positive"} />
+      <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5 mb-6">
+        <div className="flex items-baseline justify-between mb-3">
+          <p className="text-xs uppercase tracking-wide text-ps-muted font-semibold">Saldo bancário</p>
+          <span className="text-xs text-ps-muted">em {formatShort(dateTo)}</span>
+        </div>
+        <p className={`text-4xl font-bold tabular-nums mb-5 ${saldoTotalFinal < 0 ? "text-red-600" : "text-ps-green-700"}`}>
+          {formatBRL(saldoTotalFinal)}
+        </p>
+        <div className="grid grid-cols-2 divide-x divide-ps-navy/10 border-t border-ps-navy/10 pt-4">
+          <div>
+            <p className="text-xs text-ps-muted mb-1 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-sm bg-red-500" />
+              Saldo disponível
+            </p>
+            <p className={`text-lg font-semibold tabular-nums ${saldoDisponivel < 0 ? "text-red-600" : "text-ps-ink"}`}>
+              {formatBRL(saldoDisponivel)}
+            </p>
+          </div>
+          <div className="pl-6">
+            <p className="text-xs text-ps-muted mb-1 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-sm bg-amber-500" />
+              Saldo bloqueado
+            </p>
+            <p className="text-lg font-semibold tabular-nums text-ps-ink">{formatBRL(blockedBalance)}</p>
+          </div>
+        </div>
+        <p className="text-xs text-ps-muted mt-4 pt-4 border-t border-ps-navy/10">
+          Saldo total = disponível + bloqueado. É o valor real de hoje, sem contar provisões ainda não baixadas.
+        </p>
       </div>
 
       <DetalhadoTable
