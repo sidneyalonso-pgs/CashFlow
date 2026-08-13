@@ -266,23 +266,32 @@ export default async function CashFlowDetalhadoPage({
         }))
     );
 
+    // partida dobrada do investimento: resgate credita a conta corrente (entrada) e debita a
+    // posição investida; aplicação debita a conta corrente (saída) e credita a posição investida.
+    // Aparece nos dois lados pra ficar visível — tanto em Saídas/Entradas quanto em Investimentos.
+    const investimentoDoDia = investments.filter((i: any) => i.applied_date === day && !i.is_opening_balance);
+    for (const inv of investimentoDoDia) {
+      const label = `${inv.tipo === "resgate" ? "Resgate" : "Aplicação"}: ${inv.product ?? inv.institution ?? "Investimento"}`;
+      if (inv.tipo === "resgate") {
+        entradasItems.push({ label, amount: Number(inv.applied_amount) });
+      } else {
+        saidasItems.push({ label, amount: Number(inv.applied_amount) });
+      }
+    }
+    const investimentoItems = investimentoDoDia.map((i: any) => ({
+      label: `${i.tipo === "resgate" ? "Resgate" : "Aplicação"}: ${i.product ?? i.institution ?? "Investimento"}`,
+      amount: i.tipo === "resgate" ? -Number(i.applied_amount) : Number(i.applied_amount),
+    }));
+
     const saidas = sumMoney(saidasItems.map((i) => i.amount)).toNumber();
     const provisaoSaidas = sumMoney(provisaoSaidasItems.map((i) => i.amount)).toNumber();
     const entradas = sumMoney(entradasItems.map((i) => i.amount)).toNumber();
     const provisaoEntradas = sumMoney(provisaoEntradasItems.map((i) => i.amount)).toNumber();
-    // efeito no caixa (aplicação tira dinheiro da conta, resgate devolve) — usado só pra calcular o saldo
-    const investimentoDoDia = investments.filter((i: any) => i.applied_date === day && !i.is_opening_balance);
-    const investimentoCashEffect = investimentoDoDia.reduce(
-      (acc: number, i: any) => acc + (i.tipo === "resgate" ? Number(i.applied_amount) : -Number(i.applied_amount)),
+    // valor exibido no card/coluna de investimento: positivo quando aplicou mais do que resgatou no dia
+    const investimento = investimentoDoDia.reduce(
+      (acc: number, i: any) => acc + (i.tipo === "resgate" ? -Number(i.applied_amount) : Number(i.applied_amount)),
       0
     );
-    // itens do dia pro detalhamento: resgate = crédito na conta (positivo), aplicação = débito (negativo)
-    const investimentoItems = investimentoDoDia.map((i: any) => ({
-      label: `${i.tipo === "resgate" ? "Resgate" : "Aplicação"}: ${i.product ?? i.institution ?? "Investimento"}`,
-      amount: i.tipo === "resgate" ? Number(i.applied_amount) : -Number(i.applied_amount),
-    }));
-    // valor exibido: positivo quando aplicou mais do que resgatou no dia (visão de investimento, não de caixa)
-    const investimento = -investimentoCashEffect;
 
     // saldo investido: soma de tudo aplicado menos resgatado até esse dia, incluindo entradas
     // marcadas como saldo de abertura (não são movimento de caixa, mas são principal investido)
@@ -291,8 +300,8 @@ export default async function CashFlowDetalhadoPage({
       .reduce((acc: number, i: any) => acc + (i.tipo === "resgate" ? -Number(i.applied_amount) : Number(i.applied_amount)), 0);
     cumulativeInvested += investedDelta;
 
-    // saldo em conta ainda não afetado por provisões — só saídas/entradas já baixadas e investimentos
-    runningBalance = runningBalance - saidas + entradas + investimentoCashEffect;
+    // saldo em conta ainda não afetado por provisões — saídas/entradas já inclui o efeito de caixa do investimento
+    runningBalance = runningBalance - saidas + entradas;
 
     // "saldo da conta": saldo realizado, descontando as provisões (saída e entrada) acumuladas até
     // esse dia. O saldo bloqueado NÃO é descontado aqui — ele já faz parte do saldo bancário real,
@@ -325,10 +334,8 @@ export default async function CashFlowDetalhadoPage({
   const totalProvisaoSaidas = sumMoney(dayRows.map((r) => r.provisaoSaidas));
   const totalEntradas = sumMoney(dayRows.map((r) => r.entradas));
   const totalProvisaoEntradas = sumMoney(dayRows.map((r) => r.provisaoEntradas));
-  const totalInvestimento = sumMoney(dayRows.map((r) => r.investimento));
-
   // saldo total = saldo bancário real no fim do período (sem descontar provisão, igual o extrato do banco)
-  const saldoTotalFinal = openingBalance + totalEntradas.toNumber() - totalSaidas.toNumber() - totalInvestimento.toNumber();
+  const saldoTotalFinal = openingBalance + totalEntradas.toNumber() - totalSaidas.toNumber();
   const saldoDisponivel = saldoTotalFinal - blockedBalance;
 
   return (
@@ -346,7 +353,7 @@ export default async function CashFlowDetalhadoPage({
         }
       />
 
-      <AutoSubmitForm className="flex flex-wrap gap-3 mb-6">
+      <AutoSubmitForm className="flex flex-wrap items-center gap-3 mb-6" dateBlurSubmit={false}>
         <select name="company_id" defaultValue={companyId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
           <option value="">Todas as empresas</option>
           {(companies ?? []).map((c: any) => (
@@ -375,6 +382,12 @@ export default async function CashFlowDetalhadoPage({
           defaultValue={dateTo}
           className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
         />
+        <button
+          type="submit"
+          className="bg-ps-navy text-white text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-navy-700 transition-colors"
+        >
+          Filtrar
+        </button>
       </AutoSubmitForm>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
@@ -404,14 +417,16 @@ export default async function CashFlowDetalhadoPage({
 
       <p className="text-xs text-ps-muted mt-4">
         Clique em um dia para ver o detalhamento por fornecedor. Saídas/entradas = pagamentos e receitas já baixados
-        na data. Provisão de saídas/entradas = valores com vencimento/previsão na data mas ainda não baixados.
-        Total investido = histórico acumulado de tudo que está aplicado até o fim do período (aplicações menos
-        resgates desde o início), não só o líquido do mês — por isso não some nem fica negativo num mês em que só
-        houve resgate. Saldo total = saldo bancário real no fim do período (igual ao extrato do banco, com o
-        bloqueado incluído). Saldo disponível = saldo total menos o bloqueado. Na tabela abaixo, Saldo da conta =
-        saldo realizado descontando as provisões (saídas e entradas) acumuladas até aquele dia — estimativa de caixa
-        livre após os pagamentos e recebimentos previstos. Saldo C/C + Investimentos = saldo da conta + tudo o que
-        está investido — visão de patrimônio total, caixa livre + investimentos.
+        na data. Provisão de saídas/entradas = valores com vencimento/previsão na data mas ainda não baixados. Um
+        resgate de investimento aparece em dois lugares no mesmo dia: crédito em Entradas (dinheiro entrando na
+        conta) e débito em Investimentos (saindo da posição investida) — uma aplicação é o espelho disso (débito em
+        Saídas, crédito em Investimentos). Total investido = histórico acumulado de tudo que está aplicado até o fim
+        do período (aplicações menos resgates desde o início), não só o líquido do mês — por isso não some nem fica
+        negativo num mês em que só houve resgate. Saldo total = saldo bancário real no fim do período (igual ao
+        extrato do banco, com o bloqueado incluído). Saldo disponível = saldo total menos o bloqueado. Na tabela
+        abaixo, Saldo da conta = saldo realizado descontando as provisões (saídas e entradas) acumuladas até aquele
+        dia — estimativa de caixa livre após os pagamentos e recebimentos previstos. Saldo C/C + Investimentos =
+        saldo da conta + tudo o que está investido — visão de patrimônio total, caixa livre + investimentos.
       </p>
     </div>
   );
