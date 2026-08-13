@@ -3,6 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
+// Todo faturamento (bets e repasse) é recebido/pago pela conta Inter da empresa —
+// resolve automaticamente pra não depender de escolha manual em cada fatura.
+async function getInterAccountId(supabase: ReturnType<typeof createClient>, companyId: string) {
+  const { data } = await supabase
+    .from("bank_accounts")
+    .select("id")
+    .eq("company_id", companyId)
+    .or("nickname.ilike.%inter%,bank_name.ilike.%inter%")
+    .limit(1)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
 export async function createBillingClient(data: {
   razao: string; cnpj?: string; email_cobranca?: string; chave_pix?: string;
   agencia?: string; conta?: string; num_conta?: string; contrato: boolean;
@@ -92,6 +105,7 @@ export async function emitirFatura(data: {
   const { data: client } = await supabase
     .from("billing_clients").select("razao").eq("id", data.client_id).single();
   const clientName = client?.razao ?? "Cliente";
+  const interAccountId = await getInterAccountId(supabase, data.company_id);
 
   const { data: invoice, error: invError } = await supabase
     .from("billing_invoices")
@@ -119,6 +133,7 @@ export async function emitirFatura(data: {
       description: `Faturamento — ${clientName} (${competenciaLabel})`,
       expected_amount: data.total,
       expected_date: data.data_vencimento ?? new Date().toISOString().split("T")[0],
+      receiving_bank_account_id: interAccountId,
       status: "estimada",
     }).select("id").single();
     if (revErr) return { error: `Fatura criada, mas a receita falhou: ${revErr.message}` };
@@ -154,6 +169,7 @@ export async function emitirFatura(data: {
       due_date: repasseDate,
       expected_payment_date: repasseDate,
       competence_date: repasseDate,
+      paying_bank_account_id: interAccountId,
       status: "agendado",
     }).select("id").single();
     if (payErr) return { error: `Fatura criada, mas o repasse falhou: ${payErr.message}` };
@@ -176,14 +192,16 @@ export async function emitirFatura(data: {
   return { error: null, id: invoice.id };
 }
 
-export async function baixarFatura(invoiceId: string, dataPgto: string, bankAccountId?: string) {
+export async function baixarFatura(invoiceId: string, dataPgto: string) {
   const supabase = createClient();
   const { data: invoice } = await supabase
     .from("billing_invoices")
-    .select("revenue_id, payment_id, total, total_repasse")
+    .select("company_id, revenue_id, payment_id, total, total_repasse")
     .eq("id", invoiceId).single();
 
   if (!invoice) return { error: "Fatura não encontrada." };
+
+  const interAccountId = await getInterAccountId(supabase, invoice.company_id);
 
   const { error: invErr } = await supabase.from("billing_invoices").update({
     status: "pago", data_pgto: dataPgto,
@@ -197,7 +215,7 @@ export async function baixarFatura(invoiceId: string, dataPgto: string, bankAcco
         status: "recebida",
         realized_amount: amount,
         realized_date: dataPgto,
-        receiving_bank_account_id: bankAccountId ?? null,
+        receiving_bank_account_id: interAccountId,
       }).eq("id", invoice.revenue_id);
       if (error) return { error: error.message };
 
@@ -207,7 +225,7 @@ export async function baixarFatura(invoiceId: string, dataPgto: string, bankAcco
         revenue_id: invoice.revenue_id,
         amount,
         received_at: dataPgto,
-        bank_account_id: bankAccountId ?? null,
+        bank_account_id: interAccountId,
       });
       if (realErr) return { error: realErr.message };
     }
@@ -221,7 +239,7 @@ export async function baixarFatura(invoiceId: string, dataPgto: string, bankAcco
         paid_amount: amount,
         effective_payment_date: dataPgto,
         // sem isso o repasse não aparece no Cash Flow ao filtrar por uma conta específica
-        paying_bank_account_id: bankAccountId ?? null,
+        paying_bank_account_id: interAccountId,
       }).eq("id", invoice.payment_id);
       if (error) return { error: error.message };
 
@@ -231,7 +249,7 @@ export async function baixarFatura(invoiceId: string, dataPgto: string, bankAcco
         payment_id: invoice.payment_id,
         amount,
         paid_at: dataPgto,
-        bank_account_id: bankAccountId ?? null,
+        bank_account_id: interAccountId,
       });
       if (realErr) return { error: realErr.message };
     }
