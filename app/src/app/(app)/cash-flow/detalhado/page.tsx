@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
+import { CollapsiblePanel } from "@/components/CollapsiblePanel";
 import { formatBRL, sumMoney } from "@/lib/calculations/money";
 import { DetalhadoTable, type DayRow } from "./DetalhadoTable";
 
@@ -423,66 +424,61 @@ export default async function CashFlowDetalhadoPage({
         </button>
       </AutoSubmitForm>
 
-      <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5 mb-4">
-        <p className="text-xs uppercase tracking-wide text-ps-muted font-semibold mb-4">Movimento do período</p>
+      <CollapsiblePanel title="Movimento do período">
         <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-ps-navy/10">
           <div className="sm:pr-6">
-            <p className="text-sm text-ps-muted mb-1">Saídas</p>
-            <p className="text-2xl font-semibold tabular-nums text-red-600">{formatBRL(totalSaidas)}</p>
+            <p className="text-xs text-ps-muted mb-0.5">Saídas</p>
+            <p className="text-xl font-semibold tabular-nums text-red-600">{formatBRL(totalSaidas)}</p>
             {!totalProvisaoSaidas.isZero() && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full mt-2">
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full mt-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />+ {formatBRL(totalProvisaoSaidas)} previsto
               </span>
             )}
           </div>
-          <div className="sm:px-6 pt-4 sm:pt-0">
-            <p className="text-sm text-ps-muted mb-1">Entradas</p>
-            <p className="text-2xl font-semibold tabular-nums text-ps-green-700">{formatBRL(totalEntradas)}</p>
+          <div className="sm:px-6 pt-2 sm:pt-0">
+            <p className="text-xs text-ps-muted mb-0.5">Entradas</p>
+            <p className="text-xl font-semibold tabular-nums text-ps-green-700">{formatBRL(totalEntradas)}</p>
             {!totalProvisaoEntradas.isZero() && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full mt-2">
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full mt-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />+ {formatBRL(totalProvisaoEntradas)} previsto
               </span>
             )}
           </div>
-          <div className="sm:pl-6 pt-4 sm:pt-0">
-            <p className="text-sm text-ps-muted mb-1">Total investido</p>
-            <p className={`text-2xl font-semibold tabular-nums ${cumulativeInvested < 0 ? "text-red-600" : "text-ps-green-700"}`}>
+          <div className="sm:pl-6 pt-2 sm:pt-0">
+            <p className="text-xs text-ps-muted mb-0.5">Total investido</p>
+            <p className={`text-xl font-semibold tabular-nums ${cumulativeInvested < 0 ? "text-red-600" : "text-ps-green-700"}`}>
               {formatBRL(cumulativeInvested)}
             </p>
           </div>
         </div>
-      </div>
+      </CollapsiblePanel>
 
-      <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5 mb-6">
-        <div className="flex items-baseline justify-between mb-3">
-          <p className="text-xs uppercase tracking-wide text-ps-muted font-semibold">Saldo bancário</p>
-          <span className="text-xs text-ps-muted">em {formatShort(dateTo)}</span>
-        </div>
-        <p className={`text-4xl font-bold tabular-nums mb-5 ${saldoTotalFinal < 0 ? "text-red-600" : "text-ps-green-700"}`}>
+      <CollapsiblePanel title="Saldo bancário" right={<span className="text-xs text-ps-muted">em {formatShort(dateTo)}</span>}>
+        <p className={`text-2xl font-bold tabular-nums mb-3 ${saldoTotalFinal < 0 ? "text-red-600" : "text-ps-green-700"}`}>
           {formatBRL(saldoTotalFinal)}
         </p>
-        <div className="grid grid-cols-2 divide-x divide-ps-navy/10 border-t border-ps-navy/10 pt-4">
+        <div className="grid grid-cols-2 divide-x divide-ps-navy/10 border-t border-ps-navy/10 pt-3">
           <div>
-            <p className="text-xs text-ps-muted mb-1 flex items-center gap-1.5">
+            <p className="text-xs text-ps-muted mb-0.5 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-sm bg-red-500" />
               Saldo disponível
             </p>
-            <p className={`text-lg font-semibold tabular-nums ${saldoDisponivel < 0 ? "text-red-600" : "text-ps-ink"}`}>
+            <p className={`text-base font-semibold tabular-nums ${saldoDisponivel < 0 ? "text-red-600" : "text-ps-ink"}`}>
               {formatBRL(saldoDisponivel)}
             </p>
           </div>
           <div className="pl-6">
-            <p className="text-xs text-ps-muted mb-1 flex items-center gap-1.5">
+            <p className="text-xs text-ps-muted mb-0.5 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-sm bg-amber-500" />
               Saldo bloqueado
             </p>
-            <p className="text-lg font-semibold tabular-nums text-ps-ink">{formatBRL(blockedBalance)}</p>
+            <p className="text-base font-semibold tabular-nums text-ps-ink">{formatBRL(blockedBalance)}</p>
           </div>
         </div>
-        <p className="text-xs text-ps-muted mt-4 pt-4 border-t border-ps-navy/10">
+        <p className="text-xs text-ps-muted mt-3 pt-3 border-t border-ps-navy/10">
           Saldo total = disponível + bloqueado. É o valor real de hoje, sem contar provisões ainda não baixadas.
         </p>
-      </div>
+      </CollapsiblePanel>
 
       <DetalhadoTable
         openingSaldoConta={openingBalance}
