@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { FinancialCard } from "@/components/FinancialCard";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 import { formatBRL, sumMoney } from "@/lib/calculations/money";
-import { getWeekBuckets, getMonthBuckets, getQuarterBuckets, type Bucket } from "@/lib/calculations/cashflowPeriods";
+import { getWeekBuckets, getMonthBuckets, getQuarterBuckets, shiftDay, type Bucket } from "@/lib/calculations/cashflowPeriods";
 import { scopeAccounts, transferDirection } from "@/lib/calculations/transfers";
 
 type Granularity = "semana" | "mes" | "trimestre";
@@ -325,12 +325,6 @@ export default async function CashFlowPage({
 
     </div>
   );
-}
-
-function shiftDay(iso: string, days: number) {
-  const d = new Date(iso + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
 }
 
 function formatShort(iso: string) {
