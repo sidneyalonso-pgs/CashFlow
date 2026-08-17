@@ -146,8 +146,7 @@ export default async function CashFlowPage({
   }));
 
   const outflows = [
-    ...(pagamentosFiltro === "provisionados" ? [] : ((paymentRealizations ?? []) as Array<{ amount: number; paid_at: string }>)),
-    ...(pagamentosFiltro === "realizados" ? [] : provisionedOutflows),
+    ...((paymentRealizations ?? []) as Array<{ amount: number; paid_at: string }>),
     ...invOutflows,
     ...transferOutflows,
   ];
@@ -156,14 +155,13 @@ export default async function CashFlowPage({
     received_at: r.expected_date,
   }));
 
-  // O saldo segue o filtro: só realizado (bate com o banco) ou projetado (com as provisões).
-  // As colunas de provisão, abaixo, aparecem sempre — é como o Detalhado faz.
+  // Entradas/Saídas são sempre só o realizado e a provisão fica só em "A receber"/"A pagar" —
+  // as colunas nunca mostram o mesmo valor duas vezes. O filtro decide apenas se o saldo é o
+  // realizado (bate com o extrato) ou o projetado (somando as provisões do período).
   const projetado = pagamentosFiltro !== "realizados";
-  const somenteProvisionado = pagamentosFiltro === "provisionados";
 
   const inflows = [
-    ...(somenteProvisionado ? [] : ((revenueRealizations ?? []) as Array<{ amount: number; received_at: string }>)),
-    ...(projetado ? provisionedInflows : []),
+    ...((revenueRealizations ?? []) as Array<{ amount: number; received_at: string }>),
     ...invInflows,
     ...transferInflows,
   ];
@@ -196,7 +194,11 @@ export default async function CashFlowPage({
   const bucketRows = buckets.map((b) => {
     const bucketInflows = sumInRange(inflows, inflowDates, b.start, b.end);
     const bucketOutflows = sumInRange(outflows, outflowDates, b.start, b.end);
+    const bucketProvInflows = sumInRange(provisionedInflows, provInflowDates, b.start, b.end);
+    const bucketProvOutflows = sumInRange(provisionedOutflows, provOutflowDates, b.start, b.end);
+
     runningBalance = runningBalance.plus(bucketInflows).minus(bucketOutflows);
+    if (projetado) runningBalance = runningBalance.plus(bucketProvInflows).minus(bucketProvOutflows);
 
     const bucketInvDelta = allInvestments
       .filter((_, idx) => invDates[idx] >= b.start && invDates[idx] <= b.end)
@@ -207,8 +209,8 @@ export default async function CashFlowPage({
       ...b,
       inflows: bucketInflows,
       outflows: bucketOutflows,
-      provInflows: sumInRange(provisionedInflows, provInflowDates, b.start, b.end),
-      provOutflows: sumInRange(provisionedOutflows, provOutflowDates, b.start, b.end),
+      provInflows: bucketProvInflows,
+      provOutflows: bucketProvOutflows,
       balance: runningBalance,
       invBalance: runningInvBalance,
     };
@@ -264,10 +266,9 @@ export default async function CashFlowPage({
           <option value="mes">Por mês</option>
           <option value="trimestre">Por trimestre</option>
         </select>
-        <select name="pagamentos" defaultValue={pagamentosFiltro} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="realizados">Realizados</option>
-          <option value="provisionados">Provisionados (a pagar/receber)</option>
-          <option value="ambos">Realizados + Provisionados</option>
+        <select name="pagamentos" defaultValue={projetado ? "ambos" : "realizados"} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+          <option value="realizados">Saldo realizado</option>
+          <option value="ambos">Saldo projetado (+ provisões)</option>
         </select>
         {granularity === "semana" && (
           <select name="mes" defaultValue={month} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
@@ -305,7 +306,7 @@ export default async function CashFlowPage({
           <strong className="text-amber-700">{formatBRL(totalProvOutflows)} a pagar</strong> —{" "}
           {projetado
             ? "já somados no saldo projetado."
-            : "fora do saldo acima, que mostra só o realizado. Troque o filtro para “Provisionados” ou “Ambos” para ver o saldo projetado."}
+            : "fora do saldo acima, que mostra só o realizado. Troque para “Saldo projetado” para incluí-los."}
         </p>
       )}
 
@@ -313,11 +314,10 @@ export default async function CashFlowPage({
         <h3 className="font-semibold text-ps-ink">
           Evolução do Saldo — {granularity === "semana" ? "Semanal" : granularity === "mes" ? "Mensal" : "Trimestral"}
         </h3>
-        {pagamentosFiltro === "provisionados" && (
-          <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 rounded px-2 py-0.5">Projeção (provisionados)</span>
-        )}
-        {pagamentosFiltro === "ambos" && (
-          <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded px-2 py-0.5">Realizados + Projeção</span>
+        {projetado && (
+          <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 rounded px-2 py-0.5">
+            Saldo projetado (com provisões)
+          </span>
         )}
       </div>
       <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 overflow-hidden overflow-x-auto">

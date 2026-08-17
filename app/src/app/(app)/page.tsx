@@ -122,11 +122,11 @@ export default async function DashboardPage({
     .filter(isTransferIn)
     .map((t) => ({ amount: Number(t.amount), date: t.transfer_date, category: "Transferências", realized: true }));
 
-  // O filtro decide o que entra nos totais do mês; o caixa de hoje ignora provisões sempre
-  const filteredPaymentOutflows = pagamentosFiltro === "provisionados" ? [] : paymentOutflows;
-  const filteredProvisionedOutflows = pagamentosFiltro === "realizados" ? [] : provisionedOutflows;
-  const outflows: Movement[] = [...filteredPaymentOutflows, ...filteredProvisionedOutflows, ...invOutflows, ...transferOutflows];
-  const realizedOutflowsAll: Movement[] = [...paymentOutflows, ...invOutflows, ...transferOutflows];
+  // Entradas/Saídas são sempre só o realizado; a provisão é informada à parte, como no Cash Flow.
+  // O filtro decide apenas se o saldo de fechamento é o realizado ou o projetado.
+  const projetado = pagamentosFiltro !== "realizados";
+  const outflows: Movement[] = [...paymentOutflows, ...invOutflows, ...transferOutflows];
+  const realizedOutflowsAll = outflows;
   const realizedRevenues: Movement[] = (revenueInflows ?? []).map((r: any) => ({
     amount: Number(r.amount),
     date: r.received_at,
@@ -139,16 +139,8 @@ export default async function DashboardPage({
     category: r.categories?.name ?? "A receber",
     realized: false,
   }));
-  const filteredRealizedRevenues = pagamentosFiltro === "provisionados" ? [] : realizedRevenues;
-  const filteredProvisionedInflows = pagamentosFiltro === "realizados" ? [] : provisionedInflows;
-
-  const inflows: Movement[] = [
-    ...filteredRealizedRevenues,
-    ...filteredProvisionedInflows,
-    ...invInflows,
-    ...transferInflows,
-  ];
-  const realizedInflowsAll: Movement[] = [...realizedRevenues, ...invInflows, ...transferInflows];
+  const inflows: Movement[] = [...realizedRevenues, ...invInflows, ...transferInflows];
+  const realizedInflowsAll = inflows;
 
   const inRange = (m: Movement, from: string, to: string) => m.date >= from && m.date <= to;
   const sumRange = (items: Movement[], from: string, to: string) =>
@@ -166,16 +158,19 @@ export default async function DashboardPage({
 
   const inflowsThisMonth = sumRange(inflows, monthStartStr, monthEndStr);
   const outflowsThisMonth = sumRange(outflows, monthStartStr, monthEndStr);
-  const closingBalance = openingBalance.plus(inflowsThisMonth).minus(outflowsThisMonth);
+  const aReceberMes = sumRange(provisionedInflows, monthStartStr, monthEndStr);
+  const aPagarMes = sumRange(provisionedOutflows, monthStartStr, monthEndStr);
+  const closingBalance = openingBalance
+    .plus(inflowsThisMonth)
+    .minus(outflowsThisMonth)
+    .plus(projetado ? aReceberMes : 0)
+    .minus(projetado ? aPagarMes : 0);
 
   // Caixa de hoje considera só o que já foi realizado até a data corrente
   const availableCash = initialCashBalance
     .plus(sumRange(realizedInflowsAll, "0000-01-01", todayStr))
     .minus(sumRange(realizedOutflowsAll, "0000-01-01", todayStr));
 
-  // provisões do mês independem do filtro: sempre informadas, como no Cash Flow
-  const aReceberMes = sumRange(provisionedInflows, monthStartStr, monthEndStr);
-  const aPagarMes = sumRange(provisionedOutflows, monthStartStr, monthEndStr);
 
   const weekBuckets = getWeekBuckets(refYear, refMonth);
   let cumulativeBalance = openingBalance;
@@ -183,6 +178,11 @@ export default async function DashboardPage({
     const weekInflows = sumRange(inflows, b.start, b.end);
     const weekOutflows = sumRange(outflows, b.start, b.end);
     cumulativeBalance = cumulativeBalance.plus(weekInflows).minus(weekOutflows);
+    if (projetado) {
+      cumulativeBalance = cumulativeBalance
+        .plus(sumRange(provisionedInflows, b.start, b.end))
+        .minus(sumRange(provisionedOutflows, b.start, b.end));
+    }
     return {
       label: b.label.replace("Semana ", "S"),
       entradas: weekInflows.toNumber(),
@@ -225,10 +225,9 @@ export default async function DashboardPage({
             </option>
           ))}
         </select>
-        <select name="pagamentos" defaultValue={pagamentosFiltro} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="realizados">Realizados</option>
-          <option value="provisionados">Provisionados (a pagar/receber)</option>
-          <option value="ambos">Realizados + Provisionados</option>
+        <select name="pagamentos" defaultValue={projetado ? "ambos" : "realizados"} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+          <option value="realizados">Saldo realizado</option>
+          <option value="ambos">Saldo projetado (+ provisões)</option>
         </select>
         <button className="text-sm text-ps-navy underline" type="submit">
           Filtrar
@@ -237,18 +236,10 @@ export default async function DashboardPage({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <FinancialCard label={`Saldo C/C inicial (${formatShort(monthStartStr)})`} value={formatBRL(openingBalance)} />
+        <FinancialCard label="Entradas (mês)" value={formatBRL(inflowsThisMonth)} tone="positive" />
+        <FinancialCard label="Saídas (mês)" value={formatBRL(outflowsThisMonth)} tone="negative" />
         <FinancialCard
-          label={pagamentosFiltro === "provisionados" ? "Entradas a receber (mês)" : pagamentosFiltro === "ambos" ? "Entradas realizadas + a receber (mês)" : "Entradas (mês)"}
-          value={formatBRL(inflowsThisMonth)}
-          tone="positive"
-        />
-        <FinancialCard
-          label={pagamentosFiltro === "provisionados" ? "Saídas provisionadas (mês)" : pagamentosFiltro === "ambos" ? "Saídas realizadas + provisionadas (mês)" : "Saídas (mês)"}
-          value={formatBRL(outflowsThisMonth)}
-          tone="negative"
-        />
-        <FinancialCard
-          label={`Saldo C/C (${formatShort(monthEndStr)})`}
+          label={`${projetado ? "Saldo C/C projetado" : "Saldo C/C"} (${formatShort(monthEndStr)})`}
           value={formatBRL(closingBalance)}
           tone={closingBalance.isNegative() ? "negative" : "positive"}
         />
@@ -261,7 +252,7 @@ export default async function DashboardPage({
           <>
             {" "}No mês ainda há <strong className="text-amber-700">{formatBRL(aReceberMes)} a receber</strong> e{" "}
             <strong className="text-amber-700">{formatBRL(aPagarMes)} a pagar</strong>
-            {pagamentosFiltro === "realizados" ? " (fora dos números acima)." : " (já somados acima)."}
+            {projetado ? " — já somados no saldo projetado." : " — fora do saldo acima, que mostra só o realizado."}
           </>
         )}
       </p>
