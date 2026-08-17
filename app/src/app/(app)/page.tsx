@@ -43,6 +43,12 @@ export default async function DashboardPage({
     .from("revenue_realizations")
     .select("amount, received_at, revenues!inner(company_id)")
     .is("revenues.deleted_at", null);
+  // receita ainda não recebida (ex.: fatura de bets/mensalidade emitida) = valor a receber
+  let provisionedRevenuesQuery = supabase
+    .from("revenues")
+    .select("expected_amount, expected_date, company_id, categories(name)")
+    .is("deleted_at", null)
+    .not("status", "in", '("recebida","cancelada")');
   let investmentsQuery = supabase
     .from("investments")
     .select("tipo, applied_amount, applied_date, company_id, bank_account_id, is_opening_balance");
@@ -55,6 +61,7 @@ export default async function DashboardPage({
     outflowsQuery = outflowsQuery.eq("payments.company_id", companyId);
     provisionedQuery = provisionedQuery.eq("company_id", companyId);
     inflowsQuery = inflowsQuery.eq("revenues.company_id", companyId);
+    provisionedRevenuesQuery = provisionedRevenuesQuery.eq("company_id", companyId);
     investmentsQuery = investmentsQuery.eq("company_id", companyId);
     // transferência entre empresas do grupo precisa aparecer nos dois lados
     transfersQuery = transfersQuery.or(`company_id.eq.${companyId},to_company_id.eq.${companyId}`);
@@ -65,6 +72,7 @@ export default async function DashboardPage({
     { data: realizedOutflows },
     { data: provisionedPayments },
     { data: revenueInflows },
+    { data: provisionedRevenues },
     { data: investmentsRaw },
     { data: transfersRaw },
     { data: companies },
@@ -73,6 +81,7 @@ export default async function DashboardPage({
     outflowsQuery,
     provisionedQuery,
     inflowsQuery,
+    provisionedRevenuesQuery,
     investmentsQuery,
     transfersQuery,
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
@@ -118,12 +127,28 @@ export default async function DashboardPage({
   const filteredProvisionedOutflows = pagamentosFiltro === "realizados" ? [] : provisionedOutflows;
   const outflows: Movement[] = [...filteredPaymentOutflows, ...filteredProvisionedOutflows, ...invOutflows, ...transferOutflows];
   const realizedOutflowsAll: Movement[] = [...paymentOutflows, ...invOutflows, ...transferOutflows];
-  const inflows: Movement[] = [...(revenueInflows ?? []).map((r: any) => ({
+  const realizedRevenues: Movement[] = (revenueInflows ?? []).map((r: any) => ({
     amount: Number(r.amount),
     date: r.received_at,
     category: "Receitas",
     realized: true,
-  })), ...invInflows, ...transferInflows];
+  }));
+  const provisionedInflows: Movement[] = (provisionedRevenues ?? []).map((r: any) => ({
+    amount: Number(r.expected_amount),
+    date: r.expected_date,
+    category: r.categories?.name ?? "A receber",
+    realized: false,
+  }));
+  const filteredRealizedRevenues = pagamentosFiltro === "provisionados" ? [] : realizedRevenues;
+  const filteredProvisionedInflows = pagamentosFiltro === "realizados" ? [] : provisionedInflows;
+
+  const inflows: Movement[] = [
+    ...filteredRealizedRevenues,
+    ...filteredProvisionedInflows,
+    ...invInflows,
+    ...transferInflows,
+  ];
+  const realizedInflowsAll: Movement[] = [...realizedRevenues, ...invInflows, ...transferInflows];
 
   const inRange = (m: Movement, from: string, to: string) => m.date >= from && m.date <= to;
   const sumRange = (items: Movement[], from: string, to: string) =>
@@ -145,7 +170,7 @@ export default async function DashboardPage({
 
   // Caixa de hoje considera só o que já foi realizado até a data corrente
   const availableCash = initialCashBalance
-    .plus(sumRange(inflows.filter((m) => m.realized), "0000-01-01", todayStr))
+    .plus(sumRange(realizedInflowsAll, "0000-01-01", todayStr))
     .minus(sumRange(realizedOutflowsAll, "0000-01-01", todayStr));
 
   const weekBuckets = getWeekBuckets(refYear, refMonth);
@@ -197,8 +222,8 @@ export default async function DashboardPage({
           ))}
         </select>
         <select name="pagamentos" defaultValue={pagamentosFiltro} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="realizados">Pagamentos realizados</option>
-          <option value="provisionados">Pagamentos provisionados</option>
+          <option value="realizados">Realizados</option>
+          <option value="provisionados">Provisionados (a pagar/receber)</option>
           <option value="ambos">Realizados + Provisionados</option>
         </select>
         <button className="text-sm text-ps-navy underline" type="submit">
@@ -208,7 +233,11 @@ export default async function DashboardPage({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <FinancialCard label={`Saldo C/C inicial (${formatShort(monthStartStr)})`} value={formatBRL(openingBalance)} />
-        <FinancialCard label="Entradas (mês)" value={formatBRL(inflowsThisMonth)} tone="positive" />
+        <FinancialCard
+          label={pagamentosFiltro === "provisionados" ? "Entradas a receber (mês)" : pagamentosFiltro === "ambos" ? "Entradas realizadas + a receber (mês)" : "Entradas (mês)"}
+          value={formatBRL(inflowsThisMonth)}
+          tone="positive"
+        />
         <FinancialCard
           label={pagamentosFiltro === "provisionados" ? "Saídas provisionadas (mês)" : pagamentosFiltro === "ambos" ? "Saídas realizadas + provisionadas (mês)" : "Saídas (mês)"}
           value={formatBRL(outflowsThisMonth)}

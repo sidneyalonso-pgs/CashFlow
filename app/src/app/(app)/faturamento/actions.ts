@@ -328,6 +328,53 @@ export async function baixarFatura(invoiceId: string, dataPgto: string) {
   return { error: null };
 }
 
+/**
+ * Reagenda o vencimento de uma fatura ainda pendente: move a provisão de entrada (receita a
+ * receber) e a de saída (repasse a pagar) para a nova data. Serve para quando o cliente não
+ * paga na data combinada e o repasse tem que esperar junto.
+ */
+export async function reagendarFatura(invoiceId: string, novaData: string) {
+  const supabase = createClient();
+  const { data: invoice } = await supabase
+    .from("billing_invoices")
+    .select("status, revenue_id, payment_id")
+    .eq("id", invoiceId).single();
+
+  if (!invoice) return { error: "Fatura não encontrada." };
+  if (invoice.status !== "pendente") return { error: "Só é possível reagendar fatura pendente." };
+
+  const { error: invErr } = await supabase
+    .from("billing_invoices")
+    .update({ data_vencimento: novaData, data_repasse: novaData })
+    .eq("id", invoiceId);
+  if (invErr) return { error: invErr.message };
+
+  if (invoice.revenue_id) {
+    const { error } = await supabase
+      .from("revenues").update({ expected_date: novaData }).eq("id", invoice.revenue_id);
+    if (error) return { error: error.message };
+  }
+
+  if (invoice.payment_id) {
+    const { error } = await supabase.from("payments").update({
+      document_date: novaData,
+      due_date: novaData,
+      expected_payment_date: novaData,
+      competence_date: novaData,
+    }).eq("id", invoice.payment_id);
+    if (error) return { error: error.message };
+  }
+
+  revalidatePath("/faturamento");
+  revalidatePath("/faturamento/faturas");
+  revalidatePath(`/faturamento/${invoiceId}`);
+  revalidatePath("/receitas");
+  revalidatePath("/pagamentos");
+  revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
+  return { error: null };
+}
+
 export async function cancelarFatura(invoiceId: string) {
   const supabase = createClient();
   const { data: invoice } = await supabase

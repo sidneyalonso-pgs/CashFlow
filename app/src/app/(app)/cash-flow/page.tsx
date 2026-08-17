@@ -44,6 +44,12 @@ export default async function CashFlowPage({
     .select("gross_amount, due_date, company_id, paying_bank_account_id")
     .is("deleted_at", null)
     .not("status", "in", '("pago","cancelado")');
+  // receita ainda não recebida (ex.: fatura de bets/mensalidade emitida) = valor a receber
+  let provisionedRevenuesQuery = supabase
+    .from("revenues")
+    .select("expected_amount, expected_date, company_id, receiving_bank_account_id")
+    .is("deleted_at", null)
+    .not("status", "in", '("recebida","cancelada")');
   let revenueRealizationsQuery = supabase
     .from("revenue_realizations")
     .select("amount, received_at, revenues!inner(company_id, receiving_bank_account_id)")
@@ -63,6 +69,7 @@ export default async function CashFlowPage({
     bankAccountsQuery = bankAccountsQuery.eq("company_id", companyId);
     paymentRealizationsQuery = paymentRealizationsQuery.eq("payments.company_id", companyId);
     provisionedQuery = provisionedQuery.eq("company_id", companyId);
+    provisionedRevenuesQuery = provisionedRevenuesQuery.eq("company_id", companyId);
     revenueRealizationsQuery = revenueRealizationsQuery.eq("revenues.company_id", companyId);
     investmentsQuery = investmentsQuery.eq("company_id", companyId);
     // transferência entre empresas do grupo precisa aparecer nos dois lados: quem enviou
@@ -70,12 +77,13 @@ export default async function CashFlowPage({
     transfersQuery = transfersQuery.or(`company_id.eq.${companyId},to_company_id.eq.${companyId}`);
   }
 
-  const [{ data: allBankAccounts }, { data: paymentRealizationsRaw }, { data: provisionedPaymentsRaw }, { data: revenueRealizationsRaw }, { data: investmentsDataRaw }, { data: transfersRaw }, { data: companies }] =
+  const [{ data: allBankAccounts }, { data: paymentRealizationsRaw }, { data: provisionedPaymentsRaw }, { data: revenueRealizationsRaw }, { data: provisionedRevenuesRaw }, { data: investmentsDataRaw }, { data: transfersRaw }, { data: companies }] =
     await Promise.all([
       bankAccountsQuery,
       pagamentosFiltro !== "provisionados" ? paymentRealizationsQuery : Promise.resolve({ data: [] }),
       pagamentosFiltro !== "realizados" ? provisionedQuery : Promise.resolve({ data: [] }),
-      revenueRealizationsQuery,
+      pagamentosFiltro !== "provisionados" ? revenueRealizationsQuery : Promise.resolve({ data: [] }),
+      pagamentosFiltro !== "realizados" ? provisionedRevenuesQuery : Promise.resolve({ data: [] }),
       investmentsQuery,
       transfersQuery,
       supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
@@ -94,6 +102,9 @@ export default async function CashFlowPage({
   const revenueRealizations = bankAccountId
     ? (revenueRealizationsRaw ?? []).filter((r: any) => (r.revenues as any)?.receiving_bank_account_id === bankAccountId)
     : (revenueRealizationsRaw ?? []);
+  const provisionedRevenues = bankAccountId
+    ? (provisionedRevenuesRaw ?? []).filter((r: any) => r.receiving_bank_account_id === bankAccountId)
+    : (provisionedRevenuesRaw ?? []);
   const investmentsData = bankAccountId
     ? (investmentsDataRaw ?? []).filter((i: any) => i.bank_account_id === bankAccountId)
     : (investmentsDataRaw ?? []);
@@ -138,8 +149,14 @@ export default async function CashFlowPage({
     ...invOutflows,
     ...transferOutflows,
   ];
+  const provisionedInflows = (provisionedRevenues ?? []).map((r: any) => ({
+    amount: Number(r.expected_amount),
+    received_at: r.expected_date,
+  }));
+
   const inflows = [
     ...((revenueRealizations ?? []) as Array<{ amount: number; received_at: string }>),
+    ...provisionedInflows,
     ...invInflows,
     ...transferInflows,
   ];
@@ -227,8 +244,8 @@ export default async function CashFlowPage({
           <option value="trimestre">Por trimestre</option>
         </select>
         <select name="pagamentos" defaultValue={pagamentosFiltro} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="realizados">Pagamentos realizados</option>
-          <option value="provisionados">Pagamentos provisionados</option>
+          <option value="realizados">Realizados</option>
+          <option value="provisionados">Provisionados (a pagar/receber)</option>
           <option value="ambos">Realizados + Provisionados</option>
         </select>
         {granularity === "semana" && (
