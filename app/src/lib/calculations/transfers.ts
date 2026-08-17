@@ -16,6 +16,11 @@ type TransferRow = {
  * cadastrada (contraparte externa). Assim uma transferência entre empresas do grupo aparece como
  * saída de um lado e entrada do outro, e uma transferência interna da mesma empresa se anula
  * quando se olha a empresa inteira, mas continua visível conta a conta.
+ *
+ * O desempate pelo tipo só vale quando a outra ponta também está fora do escopo: um recebimento
+ * lançado com um tipo da lista de saídas (uma nota de débito como "reembolso", por exemplo) tem
+ * conta de destino no escopo e origem vazia, e sem essa ressalva era contado como entrada e saída
+ * ao mesmo tempo — as duas se anulavam e o dinheiro sumia do fluxo.
  */
 export function transferDirection(scopeAccountIds: Set<string>, companyId?: string) {
   const inScope = (accountId?: string | null) => !!accountId && scopeAccountIds.has(accountId);
@@ -23,10 +28,16 @@ export function transferDirection(scopeAccountIds: Set<string>, companyId?: stri
   return {
     isOutflow: (t: TransferRow) =>
       inScope(t.from_account_id) ||
-      (!t.from_account_id && TRANSFER_OUTFLOW_TIPOS.includes(t.tipo) && ownedByScope(t)),
+      (!t.from_account_id &&
+        !inScope(t.to_account_id) &&
+        TRANSFER_OUTFLOW_TIPOS.includes(t.tipo) &&
+        ownedByScope(t)),
     isInflow: (t: TransferRow) =>
       inScope(t.to_account_id) ||
-      (!t.to_account_id && TRANSFER_INFLOW_TIPOS.includes(t.tipo) && ownedByScope(t)),
+      (!t.to_account_id &&
+        !inScope(t.from_account_id) &&
+        TRANSFER_INFLOW_TIPOS.includes(t.tipo) &&
+        ownedByScope(t)),
   };
 }
 
