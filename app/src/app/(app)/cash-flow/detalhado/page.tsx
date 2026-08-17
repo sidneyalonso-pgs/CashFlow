@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 import { CollapsiblePanel } from "@/components/CollapsiblePanel";
 import { formatBRL, sumMoney } from "@/lib/calculations/money";
+import { scopeAccounts, transferDirection } from "@/lib/calculations/transfers";
 import { DetalhadoTable, type DayRow } from "./DetalhadoTable";
 
 const TRANSFER_LABELS: Record<string, string> = {
@@ -88,7 +89,7 @@ export default async function CashFlowDetalhadoPage({
     .lte("applied_date", dateTo);
   let transfersQuery = supabase
     .from("transfers")
-    .select("id, tipo, amount, transfer_date, description, counterpart_name, company_id, from_account_id, to_account_id")
+    .select("id, tipo, amount, transfer_date, description, counterpart_name, company_id, to_company_id, from_account_id, to_account_id")
     .gte("transfer_date", dateFrom)
     .lte("transfer_date", dateTo);
 
@@ -99,7 +100,9 @@ export default async function CashFlowDetalhadoPage({
     revenueRealizationsQuery = revenueRealizationsQuery.eq("revenues.company_id", companyId);
     provisionedRevenuesQuery = provisionedRevenuesQuery.eq("company_id", companyId);
     investmentsQuery = investmentsQuery.eq("company_id", companyId);
-    transfersQuery = transfersQuery.eq("company_id", companyId);
+    // transferência entre empresas do grupo precisa aparecer nos dois lados: quem enviou
+    // (company_id) e quem recebeu (to_company_id)
+    transfersQuery = transfersQuery.or(`company_id.eq.${companyId},to_company_id.eq.${companyId}`);
   }
 
   const [
@@ -139,19 +142,11 @@ export default async function CashFlowDetalhadoPage({
     : (investmentsRaw ?? []);
 
   // Transferências: mesma classificação do resumo executivo
-  const INFLOW_TIPOS = ["pix_recebido", "ted_recebido"];
-  const OUTFLOW_TIPOS = ["pix_enviado", "ted_enviado", "debito_bancario", "reembolso"];
+  const scopeAccountIds = scopeAccounts(bankAccountId, (allBankAccounts ?? []) as { id: string }[]);
+  const { isInflow: isTransferIn, isOutflow: isTransferOut } = transferDirection(scopeAccountIds, companyId);
   const allTransfers = (transfersRaw ?? []) as any[];
-  const transferOutflows = allTransfers.filter(
-    (t) =>
-      (OUTFLOW_TIPOS.includes(t.tipo) && (!bankAccountId || t.from_account_id === bankAccountId)) ||
-      (t.tipo === "transferencia_interna" && bankAccountId && t.from_account_id === bankAccountId)
-  );
-  const transferInflows = allTransfers.filter(
-    (t) =>
-      (INFLOW_TIPOS.includes(t.tipo) && (!bankAccountId || t.to_account_id === bankAccountId)) ||
-      (t.tipo === "transferencia_interna" && bankAccountId && t.to_account_id === bankAccountId)
-  );
+  const transferOutflows = allTransfers.filter(isTransferOut);
+  const transferInflows = allTransfers.filter(isTransferIn);
 
   // saldo em conta inicial: saldo cadastrado + tudo que aconteceu (realizado) antes do início do range
   let priorPaymentsQuery = supabase
@@ -170,13 +165,13 @@ export default async function CashFlowDetalhadoPage({
     .lt("applied_date", dateFrom);
   let priorTransfersQuery = supabase
     .from("transfers")
-    .select("tipo, amount, transfer_date, company_id, from_account_id, to_account_id")
+    .select("tipo, amount, transfer_date, company_id, to_company_id, from_account_id, to_account_id")
     .lt("transfer_date", dateFrom);
   if (companyId) {
     priorPaymentsQuery = priorPaymentsQuery.eq("payments.company_id", companyId);
     priorRevenuesQuery = priorRevenuesQuery.eq("revenues.company_id", companyId);
     priorInvestmentsQuery = priorInvestmentsQuery.eq("company_id", companyId);
-    priorTransfersQuery = priorTransfersQuery.eq("company_id", companyId);
+    priorTransfersQuery = priorTransfersQuery.or(`company_id.eq.${companyId},to_company_id.eq.${companyId}`);
   }
   const [{ data: priorPaymentsRaw }, { data: priorRevenuesRaw }, { data: priorInvestmentsRaw }, { data: priorTransfersRaw }] =
     await Promise.all([priorPaymentsQuery, priorRevenuesQuery, priorInvestmentsQuery, priorTransfersQuery]);
@@ -211,14 +206,8 @@ export default async function CashFlowDetalhadoPage({
   const allPriorTransfers = (priorTransfersRaw ?? []) as any[];
   const priorTransferNet = sumMoney(
     allPriorTransfers.map((t: any) => {
-      const isOut =
-        (OUTFLOW_TIPOS.includes(t.tipo) && (!bankAccountId || t.from_account_id === bankAccountId)) ||
-        (t.tipo === "transferencia_interna" && bankAccountId && t.from_account_id === bankAccountId);
-      const isIn =
-        (INFLOW_TIPOS.includes(t.tipo) && (!bankAccountId || t.to_account_id === bankAccountId)) ||
-        (t.tipo === "transferencia_interna" && bankAccountId && t.to_account_id === bankAccountId);
-      if (isOut) return -Number(t.amount);
-      if (isIn) return Number(t.amount);
+      if (isTransferOut(t)) return -Number(t.amount);
+      if (isTransferIn(t)) return Number(t.amount);
       return 0;
     })
   );

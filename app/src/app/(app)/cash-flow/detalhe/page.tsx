@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { DataTable } from "@/components/DataTable";
 import { formatBRL } from "@/lib/calculations/money";
+import { scopeAccounts, transferDirection } from "@/lib/calculations/transfers";
 import { PaymentsDetailTable } from "./PaymentsDetailTable";
 
 const TIPO_LABELS: Record<string, string> = {
@@ -60,7 +61,7 @@ export default async function CashFlowDetailPage({
 
   let transfersQuery = supabase
     .from("transfers")
-    .select("id, tipo, amount, transfer_date, counterpart_name, description, from_account_id, to_account_id, company_id, companies!transfers_company_id_fkey(legal_name, trade_name), from_account:bank_accounts!transfers_from_account_id_fkey(nickname), to_account:bank_accounts!transfers_to_account_id_fkey(nickname)")
+    .select("id, tipo, amount, transfer_date, counterpart_name, description, from_account_id, to_account_id, company_id, to_company_id, companies!transfers_company_id_fkey(legal_name, trade_name), from_account:bank_accounts!transfers_from_account_id_fkey(nickname), to_account:bank_accounts!transfers_to_account_id_fkey(nickname)")
     .gte("transfer_date", start)
     .lte("transfer_date", end)
     .order("transfer_date");
@@ -69,7 +70,9 @@ export default async function CashFlowDetailPage({
     paymentsQuery = paymentsQuery.eq("payments.company_id", companyId);
     revenuesQuery = revenuesQuery.eq("revenues.company_id", companyId);
     investmentsQuery = investmentsQuery.eq("company_id", companyId);
-    transfersQuery = transfersQuery.eq("company_id", companyId);
+    // transferência entre empresas do grupo precisa aparecer nos dois lados: quem enviou
+    // (company_id) e quem recebeu (to_company_id)
+    transfersQuery = transfersQuery.or(`company_id.eq.${companyId},to_company_id.eq.${companyId}`);
   }
   if (bankAccountId) {
     paymentsQuery = paymentsQuery.eq("payments.paying_bank_account_id", bankAccountId);
@@ -77,22 +80,17 @@ export default async function CashFlowDetailPage({
     investmentsQuery = investmentsQuery.eq("bank_account_id", bankAccountId);
   }
 
-  const [{ data: paymentRealizations }, { data: revenueRealizations }, { data: investments }, { data: transfersRaw }] = await Promise.all([
-    paymentsQuery,
-    revenuesQuery,
-    investmentsQuery,
-    transfersQuery,
-  ]);
+  let scopeAccountsQuery = supabase.from("bank_accounts").select("id");
+  if (companyId) scopeAccountsQuery = scopeAccountsQuery.eq("company_id", companyId);
 
-  const INFLOW_TIPOS = ["pix_recebido", "ted_recebido"];
-  const OUTFLOW_TIPOS = ["pix_enviado", "ted_enviado", "debito_bancario", "reembolso"];
+  const [{ data: paymentRealizations }, { data: revenueRealizations }, { data: investments }, { data: transfersRaw }, { data: companyAccounts }] =
+    await Promise.all([paymentsQuery, revenuesQuery, investmentsQuery, transfersQuery, scopeAccountsQuery]);
+
+  const scopeAccountIds = scopeAccounts(bankAccountId, (companyAccounts ?? []) as { id: string }[]);
+  const { isInflow: isTransferIn, isOutflow: isTransferOut } = transferDirection(scopeAccountIds, companyId);
   const allTransfers = (transfersRaw ?? []) as any[];
-  const transfersInflows = bankAccountId
-    ? allTransfers.filter((t) => INFLOW_TIPOS.includes(t.tipo) && t.to_account_id === bankAccountId)
-    : allTransfers.filter((t) => INFLOW_TIPOS.includes(t.tipo));
-  const transfersOutflows = bankAccountId
-    ? allTransfers.filter((t) => OUTFLOW_TIPOS.includes(t.tipo) && t.from_account_id === bankAccountId)
-    : allTransfers.filter((t) => OUTFLOW_TIPOS.includes(t.tipo));
+  const transfersInflows = allTransfers.filter(isTransferIn);
+  const transfersOutflows = allTransfers.filter(isTransferOut);
 
   const resgates = (investments ?? []).filter((i: any) => i.tipo === "resgate");
   const aplicacoes = (investments ?? []).filter((i: any) => i.tipo === "aplicacao" && !i.is_opening_balance);

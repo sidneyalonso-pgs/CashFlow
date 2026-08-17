@@ -5,6 +5,7 @@ import { FinancialCard } from "@/components/FinancialCard";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 import { formatBRL, sumMoney } from "@/lib/calculations/money";
 import { getWeekBuckets, getMonthBuckets, getQuarterBuckets, type Bucket } from "@/lib/calculations/cashflowPeriods";
+import { scopeAccounts, transferDirection } from "@/lib/calculations/transfers";
 
 type Granularity = "semana" | "mes" | "trimestre";
 
@@ -54,7 +55,7 @@ export default async function CashFlowPage({
   // Transferências: pix/TED recebido = entrada; pix/TED enviado + débitos = saída
   let transfersQuery = supabase
     .from("transfers")
-    .select("tipo, amount, transfer_date, company_id, from_account_id, to_account_id, description, counterpart_name")
+    .select("tipo, amount, transfer_date, company_id, to_company_id, from_account_id, to_account_id, description, counterpart_name")
     .gte("transfer_date", "2020-01-01")
     .lte("transfer_date", rangeEnd);
 
@@ -64,7 +65,9 @@ export default async function CashFlowPage({
     provisionedQuery = provisionedQuery.eq("company_id", companyId);
     revenueRealizationsQuery = revenueRealizationsQuery.eq("revenues.company_id", companyId);
     investmentsQuery = investmentsQuery.eq("company_id", companyId);
-    transfersQuery = transfersQuery.eq("company_id", companyId);
+    // transferência entre empresas do grupo precisa aparecer nos dois lados: quem enviou
+    // (company_id) e quem recebeu (to_company_id)
+    transfersQuery = transfersQuery.or(`company_id.eq.${companyId},to_company_id.eq.${companyId}`);
   }
 
   const [{ data: allBankAccounts }, { data: paymentRealizationsRaw }, { data: provisionedPaymentsRaw }, { data: revenueRealizationsRaw }, { data: investmentsDataRaw }, { data: transfersRaw }, { data: companies }] =
@@ -95,34 +98,17 @@ export default async function CashFlowPage({
     ? (investmentsDataRaw ?? []).filter((i: any) => i.bank_account_id === bankAccountId)
     : (investmentsDataRaw ?? []);
 
-  // Transferências filtradas por conta bancária
-  const INFLOW_TIPOS = ["pix_recebido", "ted_recebido"];
-  const OUTFLOW_TIPOS = ["pix_enviado", "ted_enviado", "debito_bancario", "reembolso"];
-  const allTransfers = (transfersRaw ?? []) as Array<{ tipo: string; amount: number; transfer_date: string; from_account_id: string | null; to_account_id: string | null; counterpart_name: string | null; description: string | null }>;
-  const transfersFiltered = bankAccountId
-    ? allTransfers.filter((t) =>
-        (INFLOW_TIPOS.includes(t.tipo) && t.to_account_id === bankAccountId) ||
-        (OUTFLOW_TIPOS.includes(t.tipo) && t.from_account_id === bankAccountId)
-      )
-    : allTransfers;
+  // Transferências: a conta de origem/destino define a direção dentro do escopo selecionado
+  const scopeAccountIds = scopeAccounts(bankAccountId, (allBankAccounts ?? []) as { id: string }[]);
+  const { isInflow: isTransferIn, isOutflow: isTransferOut } = transferDirection(scopeAccountIds, companyId);
+  const allTransfers = (transfersRaw ?? []) as Array<{ tipo: string; amount: number; transfer_date: string; company_id: string | null; to_company_id: string | null; from_account_id: string | null; to_account_id: string | null; counterpart_name: string | null; description: string | null }>;
 
-  // transferencia_interna (entre contas da propria empresa) so tem lado de entrada/saida
-  // quando se olha uma conta especifica - somada a nenhuma das duas, o efeito e nulo
-  const internalTransferInflows = bankAccountId
-    ? allTransfers.filter((t) => t.tipo === "transferencia_interna" && t.to_account_id === bankAccountId)
-    : [];
-  const internalTransferOutflows = bankAccountId
-    ? allTransfers.filter((t) => t.tipo === "transferencia_interna" && t.from_account_id === bankAccountId)
-    : [];
-
-  const transferInflows = [
-    ...transfersFiltered.filter((t) => INFLOW_TIPOS.includes(t.tipo)),
-    ...internalTransferInflows,
-  ].map((t) => ({ amount: Number(t.amount), received_at: t.transfer_date }));
-  const transferOutflows = [
-    ...transfersFiltered.filter((t) => OUTFLOW_TIPOS.includes(t.tipo)),
-    ...internalTransferOutflows,
-  ].map((t) => ({ amount: Number(t.amount), paid_at: t.transfer_date }));
+  const transferInflows = allTransfers
+    .filter(isTransferIn)
+    .map((t) => ({ amount: Number(t.amount), received_at: t.transfer_date }));
+  const transferOutflows = allTransfers
+    .filter(isTransferOut)
+    .map((t) => ({ amount: Number(t.amount), paid_at: t.transfer_date }));
 
   const initialCashBalance = sumMoney(
     (bankAccounts ?? []).filter((a: any) => a.counts_as_available_cash).map((a: any) => a.initial_balance)
