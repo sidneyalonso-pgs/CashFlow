@@ -16,6 +16,91 @@ async function getInterAccountId(supabase: ReturnType<typeof createClient>, comp
   return data?.id ?? null;
 }
 
+type FaturaLancavel = {
+  company_id: string;
+  competencia: string;
+  modelo: string;
+  total: number;
+  total_repasse: number;
+  data_vencimento?: string | null;
+  data_repasse?: string | null;
+};
+
+/**
+ * Cria os lançamentos financeiros de uma fatura: a receita (só nos modelos em que o dinheiro
+ * de fato entra pra nós) e o repasse a pagar. Devolve os ids pra vincular na fatura.
+ *
+ * A baixa também usa isso: fatura importada de fora do sistema chega sem lançamento nenhum,
+ * e sem isso ela virava "paga" sem nada aparecer no Cash Flow.
+ */
+async function criarLancamentosFatura(
+  supabase: ReturnType<typeof createClient>,
+  fatura: FaturaLancavel,
+  clientName: string,
+  interAccountId: string | null
+): Promise<{ revenueId: string | null; paymentId: string | null; error?: string }> {
+  const hoje = new Date().toISOString().split("T")[0];
+  const competenciaLabel = fatura.competencia
+    ? new Date(fatura.competencia + "-01").toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
+    : fatura.competencia;
+
+  // Receita só para bets e mensalidade (dinheiro que de fato entra para nós).
+  // No modelo transação o fee já é reconhecido pelos lançamentos diários (CCME/FEE)
+  // e o valor faturado é repasse do cliente, então gerar receita aqui contaria em dobro.
+  let revenueId: string | null = null;
+  if ((fatura.modelo === "bets" || fatura.modelo === "mensalidade") && Number(fatura.total) > 0) {
+    const { data: rev, error: revErr } = await supabase.from("revenues").insert({
+      company_id: fatura.company_id,
+      description: `Faturamento — ${clientName} (${competenciaLabel})`,
+      expected_amount: fatura.total,
+      expected_date: fatura.data_vencimento ?? hoje,
+      receiving_bank_account_id: interAccountId,
+      status: "estimada",
+    }).select("id").single();
+    if (revErr) return { revenueId: null, paymentId: null, error: `a receita falhou: ${revErr.message}` };
+    revenueId = rev?.id ?? null;
+  }
+
+  let paymentId: string | null = null;
+  if (Number(fatura.total_repasse) > 0) {
+    // payments.supplier_id é NOT NULL: reaproveita o fornecedor do cliente ou cria
+    const { data: existingSupplier } = await supabase
+      .from("suppliers").select("id").eq("legal_name", clientName).limit(1).maybeSingle();
+
+    let supplierId = existingSupplier?.id ?? null;
+    if (!supplierId) {
+      const { data: newSupplier, error: supErr } = await supabase.from("suppliers").insert({
+        legal_name: clientName,
+        person_type: "juridica",
+        status: "ativo",
+        cost_type: "despesas",
+      }).select("id").single();
+      if (supErr) return { revenueId, paymentId: null, error: `o fornecedor do repasse falhou: ${supErr.message}` };
+      supplierId = newSupplier?.id ?? null;
+    }
+
+    // provisiona na data de vencimento (a data de repasse é só a expectativa de quando o
+    // dinheiro sai de fato — a baixa real acontece depois, com a data efetiva do pagamento)
+    const repasseDate = fatura.data_vencimento ?? fatura.data_repasse ?? hoje;
+    const { data: pay, error: payErr } = await supabase.from("payments").insert({
+      company_id: fatura.company_id,
+      supplier_id: supplierId,
+      description: `Repasse — ${clientName} (${competenciaLabel})`,
+      gross_amount: fatura.total_repasse,
+      document_date: repasseDate,
+      due_date: repasseDate,
+      expected_payment_date: repasseDate,
+      competence_date: repasseDate,
+      paying_bank_account_id: interAccountId,
+      status: "agendado",
+    }).select("id").single();
+    if (payErr) return { revenueId, paymentId: null, error: `o repasse falhou: ${payErr.message}` };
+    paymentId = pay?.id ?? null;
+  }
+
+  return { revenueId, paymentId };
+}
+
 export async function createBillingClient(data: {
   razao: string; cnpj?: string; email_cobranca?: string; chave_pix?: string;
   agencia?: string; conta?: string; num_conta?: string; contrato: boolean;
@@ -119,64 +204,13 @@ export async function emitirFatura(data: {
 
   if (invError) return { error: invError.message };
 
-  const competenciaLabel = data.competencia
-    ? new Date(data.competencia + "-01").toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
-    : data.competencia;
-
-  // Receita só para bets e mensalidade (dinheiro que de fato entra para nós).
-  // No modelo transação o fee já é reconhecido pelos lançamentos diários (CCME/FEE)
-  // e o valor faturado é repasse do cliente, então gerar receita aqui contaria em dobro.
-  let revenueId: string | null = null;
-  if ((data.modelo === "bets" || data.modelo === "mensalidade") && data.total > 0) {
-    const { data: rev, error: revErr } = await supabase.from("revenues").insert({
-      company_id: data.company_id,
-      description: `Faturamento — ${clientName} (${competenciaLabel})`,
-      expected_amount: data.total,
-      expected_date: data.data_vencimento ?? new Date().toISOString().split("T")[0],
-      receiving_bank_account_id: interAccountId,
-      status: "estimada",
-    }).select("id").single();
-    if (revErr) return { error: `Fatura criada, mas a receita falhou: ${revErr.message}` };
-    revenueId = rev?.id ?? null;
-  }
-
-  // Create payment (repasse to make)
-  let paymentId: string | null = null;
-  if (data.total_repasse > 0) {
-    // payments.supplier_id é NOT NULL: reaproveita o fornecedor do cliente ou cria
-    const { data: existingSupplier } = await supabase
-      .from("suppliers").select("id").eq("legal_name", clientName).limit(1).maybeSingle();
-
-    let supplierId = existingSupplier?.id ?? null;
-    if (!supplierId) {
-      const { data: newSupplier, error: supErr } = await supabase.from("suppliers").insert({
-        legal_name: clientName,
-        person_type: "juridica",
-        status: "ativo",
-        cost_type: "despesas",
-      }).select("id").single();
-      if (supErr) return { error: `Fatura criada, mas o fornecedor do repasse falhou: ${supErr.message}` };
-      supplierId = newSupplier?.id ?? null;
-    }
-
-    // provisiona na data de vencimento (a data de repasse é só a expectativa de quando o
-    // dinheiro sai de fato — a baixa real acontece depois, com a data efetiva do pagamento)
-    const repasseDate = data.data_vencimento ?? data.data_repasse ?? new Date().toISOString().split("T")[0];
-    const { data: pay, error: payErr } = await supabase.from("payments").insert({
-      company_id: data.company_id,
-      supplier_id: supplierId,
-      description: `Repasse — ${clientName} (${competenciaLabel})`,
-      gross_amount: data.total_repasse,
-      document_date: repasseDate,
-      due_date: repasseDate,
-      expected_payment_date: repasseDate,
-      competence_date: repasseDate,
-      paying_bank_account_id: interAccountId,
-      status: "agendado",
-    }).select("id").single();
-    if (payErr) return { error: `Fatura criada, mas o repasse falhou: ${payErr.message}` };
-    paymentId = pay?.id ?? null;
-  }
+  const { revenueId, paymentId, error: lancErr } = await criarLancamentosFatura(
+    supabase,
+    data,
+    clientName,
+    interAccountId
+  );
+  if (lancErr) return { error: `Fatura criada, mas ${lancErr}` };
 
   if (revenueId || paymentId) {
     await supabase.from("billing_invoices").update({
@@ -196,14 +230,42 @@ export async function emitirFatura(data: {
 
 export async function baixarFatura(invoiceId: string, dataPgto: string) {
   const supabase = createClient();
-  const { data: invoice } = await supabase
+  const { data: invoiceRow } = await supabase
     .from("billing_invoices")
-    .select("company_id, revenue_id, payment_id, total, total_repasse")
+    .select("client_id, company_id, competencia, modelo, revenue_id, payment_id, total, total_repasse, data_vencimento, data_repasse")
     .eq("id", invoiceId).single();
 
-  if (!invoice) return { error: "Fatura não encontrada." };
+  if (!invoiceRow) return { error: "Fatura não encontrada." };
+  const invoice = invoiceRow as any;
 
   const interAccountId = await getInterAccountId(supabase, invoice.company_id);
+
+  // Fatura importada de fora do sistema não tem receita nem repasse criados. Sem gerar
+  // agora, a baixa marcaria a fatura como paga sem nada aparecer no Cash Flow.
+  if (!invoice.revenue_id && !invoice.payment_id) {
+    const { data: client } = await supabase
+      .from("billing_clients").select("razao").eq("id", invoice.client_id).single();
+    const { revenueId, paymentId, error: lancErr } = await criarLancamentosFatura(
+      supabase,
+      // sem vencimento (caso das importadas), a data da baixa é a referência do lançamento
+      { ...invoice, data_vencimento: invoice.data_vencimento ?? dataPgto },
+      client?.razao ?? "Cliente",
+      interAccountId
+    );
+    if (lancErr) return { error: `Não foi possível gerar os lançamentos da fatura: ${lancErr}` };
+    if (!revenueId && !paymentId) {
+      // recusa a baixa em vez de marcar como paga sem nada no Cash Flow, que foi o bug original
+      return {
+        error:
+          `Esta fatura não gerou receita nem repasse a lançar (modelo "${invoice.modelo}", ` +
+          `total ${invoice.total}, repasse ${invoice.total_repasse}). A baixa não foi feita porque ` +
+          `não produziria movimento no Cash Flow — confira o modelo e os valores da fatura.`,
+      };
+    }
+    await supabase.from("billing_invoices").update({ revenue_id: revenueId, payment_id: paymentId }).eq("id", invoiceId);
+    invoice.revenue_id = revenueId;
+    invoice.payment_id = paymentId;
+  }
 
   const { error: invErr } = await supabase.from("billing_invoices").update({
     status: "pago", data_pgto: dataPgto,
