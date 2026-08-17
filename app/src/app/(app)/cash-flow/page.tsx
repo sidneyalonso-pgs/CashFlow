@@ -80,10 +80,12 @@ export default async function CashFlowPage({
   const [{ data: allBankAccounts }, { data: paymentRealizationsRaw }, { data: provisionedPaymentsRaw }, { data: revenueRealizationsRaw }, { data: provisionedRevenuesRaw }, { data: investmentsDataRaw }, { data: transfersRaw }, { data: companies }] =
     await Promise.all([
       bankAccountsQuery,
-      pagamentosFiltro !== "provisionados" ? paymentRealizationsQuery : Promise.resolve({ data: [] }),
-      pagamentosFiltro !== "realizados" ? provisionedQuery : Promise.resolve({ data: [] }),
-      pagamentosFiltro !== "provisionados" ? revenueRealizationsQuery : Promise.resolve({ data: [] }),
-      pagamentosFiltro !== "realizados" ? provisionedRevenuesQuery : Promise.resolve({ data: [] }),
+      // busca sempre os dois: a provisão tem coluna própria na tabela, então precisa estar
+      // disponível mesmo quando o filtro deixa o saldo só com o realizado
+      paymentRealizationsQuery,
+      provisionedQuery,
+      revenueRealizationsQuery,
+      provisionedRevenuesQuery,
       investmentsQuery,
       transfersQuery,
       supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
@@ -144,8 +146,8 @@ export default async function CashFlowPage({
   }));
 
   const outflows = [
-    ...((paymentRealizations ?? []) as Array<{ amount: number; paid_at: string }>),
-    ...provisionedOutflows,
+    ...(pagamentosFiltro === "provisionados" ? [] : ((paymentRealizations ?? []) as Array<{ amount: number; paid_at: string }>)),
+    ...(pagamentosFiltro === "realizados" ? [] : provisionedOutflows),
     ...invOutflows,
     ...transferOutflows,
   ];
@@ -154,9 +156,14 @@ export default async function CashFlowPage({
     received_at: r.expected_date,
   }));
 
+  // O saldo segue o filtro: só realizado (bate com o banco) ou projetado (com as provisões).
+  // As colunas de provisão, abaixo, aparecem sempre — é como o Detalhado faz.
+  const projetado = pagamentosFiltro !== "realizados";
+  const somenteProvisionado = pagamentosFiltro === "provisionados";
+
   const inflows = [
-    ...((revenueRealizations ?? []) as Array<{ amount: number; received_at: string }>),
-    ...provisionedInflows,
+    ...(somenteProvisionado ? [] : ((revenueRealizations ?? []) as Array<{ amount: number; received_at: string }>)),
+    ...(projetado ? provisionedInflows : []),
     ...invInflows,
     ...transferInflows,
   ];
@@ -182,6 +189,10 @@ export default async function CashFlowPage({
   let runningInvBalance = totalInvBefore;
   const openingInvBalance = runningInvBalance;
 
+  // provisões sempre visíveis em coluna própria, independente do filtro
+  const provInflowDates = provisionedInflows.map((i) => i.received_at);
+  const provOutflowDates = provisionedOutflows.map((o: any) => o.paid_at);
+
   const bucketRows = buckets.map((b) => {
     const bucketInflows = sumInRange(inflows, inflowDates, b.start, b.end);
     const bucketOutflows = sumInRange(outflows, outflowDates, b.start, b.end);
@@ -192,9 +203,19 @@ export default async function CashFlowPage({
       .reduce((acc, i) => acc + (i.tipo === "aplicacao" ? Number(i.applied_amount) : -Number(i.applied_amount)), 0);
     runningInvBalance += bucketInvDelta;
 
-    return { ...b, inflows: bucketInflows, outflows: bucketOutflows, balance: runningBalance, invBalance: runningInvBalance };
+    return {
+      ...b,
+      inflows: bucketInflows,
+      outflows: bucketOutflows,
+      provInflows: sumInRange(provisionedInflows, provInflowDates, b.start, b.end),
+      provOutflows: sumInRange(provisionedOutflows, provOutflowDates, b.start, b.end),
+      balance: runningBalance,
+      invBalance: runningInvBalance,
+    };
   });
 
+  const totalProvInflows = sumMoney(bucketRows.map((r) => r.provInflows));
+  const totalProvOutflows = sumMoney(bucketRows.map((r) => r.provOutflows));
   const totalInflows = sumMoney(bucketRows.map((r) => r.inflows));
   const totalOutflows = sumMoney(bucketRows.map((r) => r.outflows));
   const closingBalance = runningBalance;
@@ -266,16 +287,27 @@ export default async function CashFlowPage({
         </select>
       </AutoSubmitForm>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
         <FinancialCard label={`Saldo C/C Inicial (${formatShort(rangeStart)})`} value={formatBRL(openingBalance)} />
         <FinancialCard label="Total de Entradas" value={formatBRL(totalInflows)} tone="positive" />
         <FinancialCard label="Total de Saídas" value={formatBRL(totalOutflows)} tone="negative" />
         <FinancialCard
-          label={`Saldo C/C (${formatShort(rangeEnd)})`}
+          label={`${projetado ? "Saldo C/C projetado" : "Saldo C/C"} (${formatShort(rangeEnd)})`}
           value={formatBRL(closingBalance)}
           tone={closingBalance.isNegative() ? "negative" : "neutral"}
         />
       </div>
+
+      {(!totalProvInflows.isZero() || !totalProvOutflows.isZero()) && (
+        <p className="text-xs text-ps-muted mb-6">
+          No período ainda há{" "}
+          <strong className="text-amber-700">{formatBRL(totalProvInflows)} a receber</strong> e{" "}
+          <strong className="text-amber-700">{formatBRL(totalProvOutflows)} a pagar</strong> —{" "}
+          {projetado
+            ? "já somados no saldo projetado."
+            : "fora do saldo acima, que mostra só o realizado. Troque o filtro para “Provisionados” ou “Ambos” para ver o saldo projetado."}
+        </p>
+      )}
 
       <div className="flex items-center gap-3 mb-2">
         <h3 className="font-semibold text-ps-ink">
@@ -294,14 +326,18 @@ export default async function CashFlowPage({
             <tr>
               <th className="text-left px-4 py-3">Período</th>
               <th className="text-left px-4 py-3">Entradas</th>
+              <th className="text-left px-4 py-3 text-amber-700">A receber</th>
               <th className="text-left px-4 py-3">Saídas</th>
-              <th className="text-left px-4 py-3">Saldo C/C</th>
+              <th className="text-left px-4 py-3 text-amber-700">A pagar</th>
+              <th className="text-left px-4 py-3">{projetado ? "Saldo C/C projetado" : "Saldo C/C"}</th>
               <th className="text-left px-4 py-3 text-ps-navy/70">Saldo C/C + Invest</th>
             </tr>
           </thead>
           <tbody>
             <tr className="border-t border-ps-navy/5 bg-ps-bg-2/40">
               <td className="px-4 py-3 font-medium text-ps-ink">Saldo Inicial ({formatShort(rangeStart)})</td>
+              <td className="px-4 py-3 text-ps-muted">—</td>
+              <td className="px-4 py-3 text-ps-muted">—</td>
               <td className="px-4 py-3 text-ps-muted">—</td>
               <td className="px-4 py-3 text-ps-muted">—</td>
               <td className="px-4 py-3 tabular-nums font-semibold">{formatBRL(openingBalance)}</td>
@@ -320,7 +356,13 @@ export default async function CashFlowPage({
                     </Link>
                   </td>
                   <td className="px-4 py-3 tabular-nums text-ps-green-700">{formatBRL(row.inflows)}</td>
+                  <td className="px-4 py-3 tabular-nums text-amber-700">
+                    {row.provInflows.isZero() ? <span className="text-ps-muted">—</span> : formatBRL(row.provInflows)}
+                  </td>
                   <td className="px-4 py-3 tabular-nums text-red-600">{formatBRL(row.outflows)}</td>
+                  <td className="px-4 py-3 tabular-nums text-amber-700">
+                    {row.provOutflows.isZero() ? <span className="text-ps-muted">—</span> : formatBRL(row.provOutflows)}
+                  </td>
                   <td className={`px-4 py-3 tabular-nums font-semibold ${row.balance.isNegative() ? "text-red-600" : ""}`}>
                     {formatBRL(row.balance)}
                   </td>
@@ -336,8 +378,9 @@ export default async function CashFlowPage({
 
       <p className="text-xs text-ps-muted mt-4">
         Saldo inicial do período = saldo cadastrado nas contas bancárias + todas as entradas e saídas realizadas
-        até o dia anterior ao início do período selecionado. Cada linha soma as entradas/saídas realizadas
-        (pagamentos e receitas já baixados) dentro daquele intervalo de datas.
+        até o dia anterior ao início do período selecionado. Entradas e Saídas são o que já foi baixado;
+        “A receber” e “A pagar” são as provisões com vencimento naquele intervalo e aparecem sempre, mas só
+        entram no saldo quando o filtro está em “Provisionados” ou “Ambos”.
       </p>
 
     </div>

@@ -173,6 +173,10 @@ export default async function DashboardPage({
     .plus(sumRange(realizedInflowsAll, "0000-01-01", todayStr))
     .minus(sumRange(realizedOutflowsAll, "0000-01-01", todayStr));
 
+  // provisões do mês independem do filtro: sempre informadas, como no Cash Flow
+  const aReceberMes = sumRange(provisionedInflows, monthStartStr, monthEndStr);
+  const aPagarMes = sumRange(provisionedOutflows, monthStartStr, monthEndStr);
+
   const weekBuckets = getWeekBuckets(refYear, refMonth);
   let cumulativeBalance = openingBalance;
   const weeklyChartData = weekBuckets.map((b) => {
@@ -253,6 +257,13 @@ export default async function DashboardPage({
       <p className="text-xs text-ps-muted mb-6">
         Caixa disponível hoje ({formatShort(todayStr)}): <strong className="text-ps-ink">{formatBRL(availableCash)}</strong> — considera
         apenas lançamentos já realizados até a data de hoje, em todas as contas da seleção.
+        {(!aReceberMes.isZero() || !aPagarMes.isZero()) && (
+          <>
+            {" "}No mês ainda há <strong className="text-amber-700">{formatBRL(aReceberMes)} a receber</strong> e{" "}
+            <strong className="text-amber-700">{formatBRL(aPagarMes)} a pagar</strong>
+            {pagamentosFiltro === "realizados" ? " (fora dos números acima)." : " (já somados acima)."}
+          </>
+        )}
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
