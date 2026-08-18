@@ -11,6 +11,7 @@ const ROLES = [
   { value: "conciliacao", label: "Conciliação" },
   { value: "fpa", label: "FP&A" },
   { value: "visualizador", label: "Visualizador" },
+  { value: "diretoria", label: "Diretoria (só a Posição Executiva)" },
 ];
 
 export function UserRow({

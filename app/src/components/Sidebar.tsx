@@ -69,9 +69,17 @@ function isActive(pathname: string | null, href: string) {
   return !moreSpecific;
 }
 
-export function Sidebar() {
+/**
+ * O papel "diretoria" só enxerga a Posição Executiva, então o menu mostra apenas ela — não
+ * adianta oferecer caminho que o servidor vai barrar. O bloqueio de verdade está no middleware.
+ */
+export function Sidebar({ role }: { role?: string | null }) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+  const secoes =
+    role === "diretoria"
+      ? NAV_SECTIONS.map((s) => ({ ...s, items: s.items.filter((i) => i.href === "/") })).filter((s) => s.items.length)
+      : NAV_SECTIONS;
 
   useEffect(() => {
     setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
@@ -111,7 +119,7 @@ export function Sidebar() {
       </div>
 
       <nav className="relative flex-1 px-3 py-4 space-y-4">
-        {NAV_SECTIONS.map((section, idx) => (
+        {secoes.map((section, idx) => (
           <div key={section.label ?? `section-${idx}`} className="space-y-1">
             {section.label && !collapsed && (
               <p className="px-3 pb-1 text-xs font-mono uppercase tracking-wide text-ps-green-300/70">{section.label}</p>

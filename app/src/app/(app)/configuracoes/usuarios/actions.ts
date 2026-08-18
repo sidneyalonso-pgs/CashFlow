@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/serviceRole";
 
-const VALID_ROLES = ["administrador", "tesouraria", "aprovador", "conciliacao", "fpa", "visualizador"];
+const VALID_ROLES = ["administrador", "tesouraria", "aprovador", "conciliacao", "fpa", "visualizador", "diretoria"];
 
 function generateTempPassword() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
