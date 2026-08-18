@@ -9,7 +9,16 @@ import { updateCompany } from "./actions";
 export function EditCompanyButton({
   company,
 }: {
-  company: { id: string; legal_name: string; trade_name: string | null; cnpj: string; default_currency: string; status: string };
+  company: {
+    id: string;
+    legal_name: string;
+    trade_name: string | null;
+    cnpj: string;
+    default_currency: string;
+    status: string;
+    /** ausente enquanto a migration 0018 não tiver sido aplicada */
+    operational_reserve?: number | null;
+  };
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -40,6 +49,17 @@ export function EditCompanyButton({
           <TextField label="Nome fantasia" name="trade_name" defaultValue={company.trade_name ?? ""} />
           <TextField label="CNPJ" name="cnpj" defaultValue={company.cnpj} required />
           <TextField label="Moeda padrão" name="default_currency" defaultValue={company.default_currency} />
+          <div>
+            <TextField
+              label="Reserva operacional (R$)"
+              name="operational_reserve"
+              defaultValue={company.operational_reserve == null ? "" : String(company.operational_reserve)}
+            />
+            <p className="mt-1 text-xs text-ps-muted">
+              Valor mínimo que fica preservado em caixa e não entra na capacidade para decisão.
+              Em branco = não definida; a Posição Executiva mostra a pendência em vez de assumir zero.
+            </p>
+          </div>
           <SelectField
             label="Status"
             name="status"

@@ -10,6 +10,12 @@ export default async function CompaniesPage() {
     .from("companies")
     .select("id, legal_name, trade_name, cnpj, default_currency, status")
     .order("legal_name");
+  // A reserva vem em consulta separada porque a coluna só existe depois da migration 0018;
+  // o erro é tolerado para a tela de empresas continuar funcionando antes dela.
+  const { data: reservas } = await supabase.from("companies").select("id, operational_reserve");
+  const reservaPorEmpresa = new Map<string, number | null>(
+    ((reservas ?? []) as any[]).map((r) => [r.id, r.operational_reserve == null ? null : Number(r.operational_reserve)])
+  );
 
   return (
     <div>
@@ -42,7 +48,7 @@ export default async function CompaniesPage() {
                   <StatusBadge status={c.status} />
                 </td>
                 <td className="px-4 py-3">
-                  <EditCompanyButton company={c} />
+                  <EditCompanyButton company={{ ...c, operational_reserve: reservaPorEmpresa.get(c.id) ?? null }} />
                 </td>
               </tr>
             ))}

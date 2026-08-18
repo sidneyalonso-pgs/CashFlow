@@ -45,6 +45,27 @@ export async function updateCompany(companyId: string, formData: FormData) {
 
   if (error) return { error: error.message };
 
+  await salvarReservaOperacional(supabase, companyId, formData.get("operational_reserve"));
+
   revalidatePath("/cadastros/empresas");
+  revalidatePath("/");
   return { error: null };
+}
+
+/**
+ * Reserva operacional em update separado, e com o erro tolerado de propósito: a coluna só
+ * existe depois da migration 0018, e sem isso um cadastro de empresa inteiro deixaria de
+ * salvar enquanto a migration não fosse aplicada. Campo vazio grava NULL, que significa
+ * "não definida" — diferente de zero, que é a decisão de não ter reserva.
+ */
+async function salvarReservaOperacional(
+  supabase: ReturnType<typeof createClient>,
+  companyId: string,
+  bruto: FormDataEntryValue | null
+) {
+  if (bruto === null) return;
+  const texto = String(bruto).trim();
+  const valor = texto === "" ? null : Number(texto.replace(/\./g, "").replace(",", "."));
+  if (valor !== null && !Number.isFinite(valor)) return;
+  await supabase.from("companies").update({ operational_reserve: valor }).eq("id", companyId);
 }
