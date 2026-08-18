@@ -3,38 +3,37 @@ import { sumMoney } from "./money";
 import { scopeAccounts, transferDirection } from "./transfers";
 
 /**
- * Agregação de caixa por empresa e consolidada, para a Posição Executiva de Caixa.
+ * Capacidade financeira por empresa e consolidada, para a Posição Executiva de Recursos.
  *
- * Reaproveita as mesmas regras já validadas contra extrato no Cash Flow: a direção das
- * transferências vem da conta (transferDirection), aplicação de investimento debita a conta
- * corrente e resgate credita, e o saldo de abertura é o saldo cadastrado mais tudo o que foi
- * realizado antes do período.
+ * Caixa é saldo em conta bancária e nunca inclui investimento — o valor aplicado aparece à
+ * parte, e só a Disponibilidade Total soma os dois. As regras de caixa são as mesmas já
+ * conferidas contra extrato no Cash Flow: direção de transferência pela conta, aplicação de
+ * investimento debita a conta corrente e resgate credita, e o ponto de partida é o saldo
+ * cadastrado mais tudo o que foi realizado até a data.
  *
- * Consolidado não é a soma ingênua das empresas: o escopo passa a ser o conjunto de todas as
- * contas selecionadas, então uma transferência entre duas contas do grupo cai como entrada e
- * saída no mesmo escopo e se anula sozinha, sem regra especial de intercompany.
+ * Consolidado não é a soma ingênua das empresas: o escopo passa a ser todas as contas juntas,
+ * então transferência entre contas do grupo cai como entrada e saída no mesmo escopo e se
+ * anula, sem precisar de regra de intercompany.
  */
 
 export type Account = {
   id: string;
   company_id: string;
-  initial_balance: number | string;
+  initial_balance: number | string | null;
   counts_as_available_cash: boolean;
-  blocked_balance?: number | string | null;
 };
 
-export type Realization = { amount: number | string; date: string; companyId: string };
-export type Provision = { amount: number | string; date: string; companyId: string };
+export type Dated = { amount: number | string | null; date: string; companyId: string };
 export type Investment = {
   companyId: string;
   tipo: string;
-  applied_amount: number | string;
+  applied_amount: number | string | null;
   applied_date: string;
   is_opening_balance: boolean;
 };
 export type Transfer = {
   tipo: string;
-  amount: number | string;
+  amount: number | string | null;
   transfer_date: string;
   company_id: string | null;
   to_company_id?: string | null;
@@ -42,182 +41,207 @@ export type Transfer = {
   to_account_id: string | null;
 };
 
-export type CashInput = {
+export type CapacityInput = {
   accounts: Account[];
-  inflows: Realization[];
-  outflows: Realization[];
-  aReceber: Provision[];
-  aPagar: Provision[];
+  /** realizados: definem o caixa de hoje */
+  inflows: Dated[];
+  outflows: Dated[];
   investments: Investment[];
   transfers: Transfer[];
-  from: string;
-  to: string;
+  /** provisionados: pagamentos a vencer e recebimentos a receber */
+  compromissos: Dated[];
+  recebiveis: Dated[];
   today: string;
+  /** fim do horizonte de compromissos, inclusive */
+  horizonEnd: string;
+  /** reserva por empresa; ausente = não definida (não é zero) */
+  reserves: Record<string, number | null | undefined>;
 };
 
-export type CashSlice = {
-  caixaInicial: Decimal;
-  entradas: Decimal;
-  saidas: Decimal;
-  fluxoLiquido: Decimal;
-  caixaFinal: Decimal;
-  caixaHoje: Decimal;
-  aReceber: Decimal;
-  aPagar: Decimal;
-  investido: Decimal;
-  bloqueado: Decimal;
-  variacao: Decimal;
-  /** null quando o caixa inicial é zero ou negativo: o percentual não teria significado */
-  variacaoPerc: number | null;
-  /** data do último lançamento realizado, para sinalizar posição desatualizada */
-  ultimoLancamento: string | null;
-};
-
-const zero = () => new Decimal(0);
-
-/**
- * Valor sempre numérico. Decimal lança exceção com null/undefined, e o banco aceita valor nulo
- * em lançamento (pagamento cadastrado sem valor, por exemplo) — sem isso a tela inteira quebra
- * por causa de uma linha incompleta.
- */
+/** Decimal lança exceção com null; o banco aceita lançamento sem valor. */
 function num(v: number | string | null | undefined) {
   if (v === null || v === undefined || v === "") return 0;
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 }
 
-function inRange(date: string, from: string, to: string) {
-  return date >= from && date <= to;
-}
+export type Capacity = {
+  caixa: Decimal;
+  investido: Decimal;
+  disponibilidade: Decimal;
+  compromissos: Decimal;
+  recebiveis: Decimal;
+  /** null = não definida no cadastro */
+  reserva: number | null;
+  capacidade: Decimal;
+  /** caixa livre hoje, já descontados compromissos e reserva — usado para "cabe em caixa" */
+  caixaLivre: Decimal;
+  /** saldo de caixa nos últimos 7 dias, para a tendência compacta */
+  serie7d: number[];
+};
 
-/** Uma fatia = um escopo (uma empresa, ou o grupo todo). companyIds define quem entra. */
-function slice(input: CashInput, companyIds: Set<string>): CashSlice {
+type Mov = { amount: number; date: string };
+
+function movimentos(input: CapacityInput, companyIds: Set<string>) {
   const cashAccounts = input.accounts.filter(
     (a) => companyIds.has(a.company_id) && a.counts_as_available_cash
   );
   const scopeIds = scopeAccounts(undefined, cashAccounts);
   const { isInflow, isOutflow } = transferDirection(scopeIds, companyIds);
-
   const mine = <T extends { companyId: string }>(rows: T[]) => rows.filter((r) => companyIds.has(r.companyId));
 
-  const revIn = mine(input.inflows);
-  const payOut = mine(input.outflows);
-  const invs = mine(input.investments);
   const transfers = input.transfers.filter(
     (t) =>
       (t.from_account_id && scopeIds.has(t.from_account_id)) ||
       (t.to_account_id && scopeIds.has(t.to_account_id)) ||
       (t.company_id && companyIds.has(t.company_id))
   );
+  const invs = mine(input.investments);
 
-  // movimentos de caixa realizados, com a data em que afetaram a conta
-  const cashIn: Array<{ amount: number; date: string }> = [
-    ...revIn.map((r) => ({ amount: num(r.amount), date: r.date })),
-    ...invs
-      .filter((i) => i.tipo === "resgate")
-      .map((i) => ({ amount: num(i.applied_amount), date: i.applied_date })),
+  const entradas: Mov[] = [
+    ...mine(input.inflows).map((r) => ({ amount: num(r.amount), date: r.date })),
+    ...invs.filter((i) => i.tipo === "resgate").map((i) => ({ amount: num(i.applied_amount), date: i.applied_date })),
     ...transfers.filter(isInflow).map((t) => ({ amount: num(t.amount), date: t.transfer_date })),
   ];
-  const cashOut: Array<{ amount: number; date: string }> = [
-    ...payOut.map((p) => ({ amount: num(p.amount), date: p.date })),
+  const saidas: Mov[] = [
+    ...mine(input.outflows).map((p) => ({ amount: num(p.amount), date: p.date })),
     ...invs
       .filter((i) => i.tipo === "aplicacao" && !i.is_opening_balance)
       .map((i) => ({ amount: num(i.applied_amount), date: i.applied_date })),
     ...transfers.filter(isOutflow).map((t) => ({ amount: num(t.amount), date: t.transfer_date })),
   ];
 
-  const somaAte = (rows: Array<{ amount: number; date: string }>, limite: string) =>
-    sumMoney(rows.filter((r) => r.date <= limite).map((r) => r.amount));
-  const somaNo = (rows: Array<{ amount: number; date: string }>, from: string, to: string) =>
-    sumMoney(rows.filter((r) => inRange(r.date, from, to)).map((r) => r.amount));
-
   const cadastrado = sumMoney(cashAccounts.map((a) => num(a.initial_balance)));
-  const antes = (limite: string) => cadastrado.plus(somaAte(cashIn, limite)).minus(somaAte(cashOut, limite));
-
-  const caixaInicial = antes(previousDay(input.from));
-  const entradas = somaNo(cashIn, input.from, input.to);
-  const saidas = somaNo(cashOut, input.from, input.to);
-  const caixaFinal = caixaInicial.plus(entradas).minus(saidas);
-  const caixaHoje = antes(input.today);
+  const caixaEm = (limite: string) =>
+    cadastrado
+      .plus(sumMoney(entradas.filter((m) => m.date <= limite).map((m) => m.amount)))
+      .minus(sumMoney(saidas.filter((m) => m.date <= limite).map((m) => m.amount)));
 
   const investido = invs
-    .filter((i) => i.applied_date <= input.to)
-    .reduce(
-      (acc, i) => (i.tipo === "aplicacao" ? acc.plus(num(i.applied_amount)) : acc.minus(num(i.applied_amount))),
-      zero()
-    );
+    .filter((i) => i.applied_date <= input.today)
+    .reduce((acc, i) => (i.tipo === "aplicacao" ? acc.plus(num(i.applied_amount)) : acc.minus(num(i.applied_amount))), new Decimal(0));
 
-  const variacao = caixaFinal.minus(caixaInicial);
-  const variacaoPerc = caixaInicial.greaterThan(0)
-    ? caixaFinal.dividedBy(caixaInicial).minus(1).times(100).toNumber()
-    : null;
-
-  const datas = [...cashIn, ...cashOut].map((r) => r.date).sort();
-
-  return {
-    caixaInicial,
-    entradas,
-    saidas,
-    fluxoLiquido: entradas.minus(saidas),
-    caixaFinal,
-    caixaHoje,
-    aReceber: sumMoney(mine(input.aReceber).filter((p) => inRange(p.date, input.from, input.to)).map((p) => num(p.amount))),
-    aPagar: sumMoney(mine(input.aPagar).filter((p) => inRange(p.date, input.from, input.to)).map((p) => num(p.amount))),
-    investido,
-    bloqueado: sumMoney(cashAccounts.map((a) => num(a.blocked_balance))),
-    variacao,
-    variacaoPerc,
-    ultimoLancamento: datas.length ? datas[datas.length - 1] : null,
-  };
+  return { caixaEm, investido, mine };
 }
 
-function previousDay(iso: string) {
+function slice(input: CapacityInput, companyIds: Set<string>, reserva: number | null): Capacity {
+  const { caixaEm, investido, mine } = movimentos(input, companyIds);
+
+  const caixa = caixaEm(input.today);
+  const disponibilidade = caixa.plus(investido);
+
+  const naJanela = (rows: Dated[]) =>
+    sumMoney(
+      mine(rows)
+        .filter((r) => r.date >= input.today && r.date <= input.horizonEnd)
+        .map((r) => num(r.amount))
+    );
+  const compromissos = naJanela(input.compromissos);
+  const recebiveis = naJanela(input.recebiveis);
+
+  const capacidade = disponibilidade.minus(compromissos).minus(reserva ?? 0);
+  const caixaLivre = caixa.minus(compromissos).minus(reserva ?? 0);
+
+  const serie7d: number[] = [];
+  for (let i = 6; i >= 0; i--) serie7d.push(caixaEm(shift(input.today, -i)).toNumber());
+
+  return { caixa, investido, disponibilidade, compromissos, recebiveis, reserva, capacidade, caixaLivre, serie7d };
+}
+
+function shift(iso: string, days: number) {
   const d = new Date(iso + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() - 1);
+  d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
 
-export type CompanyCash = CashSlice & { companyId: string; label: string };
+export type CompanyCapacity = Capacity & { companyId: string; label: string };
 
-export function buildExecutiveCash(
-  input: CashInput,
+export function buildCapacity(
+  input: CapacityInput,
   companies: Array<{ id: string; label: string }>
 ) {
-  const porEmpresa: CompanyCash[] = companies.map((c) => ({
+  const porEmpresa: CompanyCapacity[] = companies.map((c) => ({
     companyId: c.id,
     label: c.label,
-    ...slice(input, new Set([c.id])),
+    ...slice(input, new Set([c.id]), input.reserves[c.id] ?? null),
   }));
 
   const todos = new Set(companies.map((c) => c.id));
-  const consolidado = slice(input, todos);
+  // Reserva do grupo é a soma das definidas; se nenhuma foi definida, continua indefinida.
+  const definidas = companies.map((c) => input.reserves[c.id]).filter((r): r is number => typeof r === "number");
+  const reservaGrupo = definidas.length ? definidas.reduce((a, b) => a + b, 0) : null;
+  const consolidado = slice(input, todos, reservaGrupo);
 
-  // Volume que se anulou na consolidação: transferência entre duas contas do próprio grupo.
-  // Só é identificável quando as duas pontas têm conta cadastrada — quando a perna de entrada
-  // foi lançada como receita na outra empresa, não há campo que ligue as duas e o par não é
-  // reconhecível. Nesses casos o saldo consolidado continua certo (as pernas se compensam),
-  // mas entradas e saídas ficam infladas pelo mesmo valor.
+  // Transferência entre duas contas do próprio grupo: se anula no consolidado. Só é
+  // identificável quando as duas pontas têm conta cadastrada — quando a perna de entrada foi
+  // lançada como receita na outra empresa não há campo que ligue as duas, e o par não é
+  // reconhecível. O saldo consolidado continua certo; o que não dá é afirmar o volume total.
   const cashIds = scopeAccounts(
     undefined,
     input.accounts.filter((a) => todos.has(a.company_id) && a.counts_as_available_cash)
   );
-  const intercompanyEliminado = sumMoney(
-    input.transfers
-      .filter(
-        (t) =>
-          t.from_account_id &&
-          t.to_account_id &&
-          cashIds.has(t.from_account_id) &&
-          cashIds.has(t.to_account_id) &&
-          inRange(t.transfer_date, input.from, input.to)
-      )
-      .map((t) => num(t.amount))
-  );
+  const intercompanyIdentificavel = input.transfers.filter(
+    (t) => t.from_account_id && t.to_account_id && cashIds.has(t.from_account_id) && cashIds.has(t.to_account_id)
+  ).length;
 
-  // A soma das empresas tem de reconciliar com o consolidado. Se divergir, é porque existe
-  // movimento fora de qualquer escopo de empresa — melhor mostrar a diferença do que esconder.
-  const somaEmpresas = porEmpresa.reduce((acc, e) => acc.plus(e.caixaFinal), zero());
-  const diferencaReconciliacao = somaEmpresas.minus(consolidado.caixaFinal);
+  const somaEmpresas = porEmpresa.reduce((acc, e) => acc.plus(e.caixa), new Decimal(0));
+  const diferencaReconciliacao = somaEmpresas.minus(consolidado.caixa);
 
-  return { porEmpresa, consolidado, intercompanyEliminado, diferencaReconciliacao };
+  return { porEmpresa, consolidado, intercompanyIdentificavel, diferencaReconciliacao };
+}
+
+// ── simulação de decisão ──────────────────────────────────────────────────────
+// Regra objetiva, sem estimativa: os compromissos considerados são os que vencem entre hoje e
+// a data da decisão, e a folga é disponibilidade menos compromissos, reserva e desembolso.
+
+export type Veredito = "cabe_em_caixa" | "cabe_com_resgate" | "requer_intercompany" | "nao_comporta";
+
+export type SimulacaoEntrada = {
+  caixa: number;
+  investido: number;
+  reserva: number | null;
+  /** compromissos que vencem entre hoje e a data da decisão */
+  compromissos: number;
+  recebiveis: number;
+  desembolso: number;
+  /** mesmos números no nível do grupo, para o caso de exigir movimentação entre empresas */
+  grupo: { caixa: number; investido: number; reserva: number | null; compromissos: number };
+};
+
+export type Simulacao = {
+  veredito: Veredito;
+  disponibilidade: number;
+  compromissos: number;
+  reserva: number;
+  desembolso: number;
+  folga: number;
+  /** quanto teria de sair de investimento por falta de caixa */
+  resgateNecessario: number;
+};
+
+export function simularDecisao(e: SimulacaoEntrada): Simulacao {
+  const reserva = e.reserva ?? 0;
+  const disponibilidade = e.caixa + e.investido;
+  const folga = disponibilidade - e.compromissos - reserva - e.desembolso;
+  const caixaLivre = e.caixa - e.compromissos - reserva;
+  const resgateNecessario = Math.max(0, e.desembolso - Math.max(caixaLivre, 0));
+
+  let veredito: Veredito;
+  if (folga >= 0) {
+    veredito = caixaLivre >= e.desembolso ? "cabe_em_caixa" : "cabe_com_resgate";
+  } else {
+    const reservaGrupo = e.grupo.reserva ?? 0;
+    const folgaGrupo = e.grupo.caixa + e.grupo.investido - e.grupo.compromissos - reservaGrupo - e.desembolso;
+    veredito = folgaGrupo >= 0 ? "requer_intercompany" : "nao_comporta";
+  }
+
+  return {
+    veredito,
+    disponibilidade,
+    compromissos: e.compromissos,
+    reserva,
+    desembolso: e.desembolso,
+    folga,
+    resgateNecessario,
+  };
 }

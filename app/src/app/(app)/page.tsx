@@ -1,80 +1,68 @@
 import { createClient } from "@/lib/supabase/server";
-import { FinancialCard } from "@/components/FinancialCard";
-import { formatBRL, sumMoney } from "@/lib/calculations/money";
-import { getWeekBuckets } from "@/lib/calculations/cashflowPeriods";
-import { buildExecutiveCash, type CompanyCash } from "@/lib/calculations/executiveCash";
-import { scopeAccounts, transferDirection } from "@/lib/calculations/transfers";
-import { WeeklyFlowChart, CashByCompanyChart } from "./DashboardCharts";
+import { formatBRL } from "@/lib/calculations/money";
+import { buildCapacity, type CompanyCapacity } from "@/lib/calculations/executiveCash";
+import { DecisionSimulator } from "./DecisionSimulator";
 
-const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-
-function dia(iso: string) {
-  const [, m, d] = iso.split("-");
-  return `${d}/${m}`;
-}
-function dataHora(d: Date) {
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-/** Compacto para a camada executiva; a tabela abaixo mostra o valor cheio. */
+/** Compacto na camada executiva; a tabela mostra o valor cheio. */
 function compacto(v: number) {
   const abs = Math.abs(v);
-  const sinal = v < 0 ? "-" : "";
-  if (abs >= 1_000_000) return `${sinal}R$ ${(abs / 1_000_000).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} mi`;
-  if (abs >= 10_000) return `${sinal}R$ ${(abs / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil`;
+  const s = v < 0 ? "−" : "";
+  if (abs >= 1_000_000) return `${s}R$ ${(abs / 1_000_000).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} mi`;
+  if (abs >= 1_000) return `${s}R$ ${(abs / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} mil`;
   return formatBRL(v);
 }
-/** Nunca deixa NaN/null chegar no Decimal, que lança exceção. */
-function n(v: unknown) {
-  const x = Number(v);
-  return Number.isFinite(x) ? x : 0;
+function dataBR(iso: string) {
+  const [a, m, d] = iso.split("-");
+  return `${d}/${m}/${a}`;
 }
-function comSinal(v: number) {
-  return `${v > 0 ? "+" : ""}${formatBRL(v)}`;
+function shift(iso: string, days: number) {
+  const d = new Date(iso + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
 }
 
-export default async function DashboardPage({
+const HORIZONTES = [
+  { dias: 30, label: "próximos 30 dias" },
+  { dias: 60, label: "próximos 60 dias" },
+  { dias: 90, label: "próximos 90 dias" },
+];
+
+export default async function PosicaoExecutivaPage({
   searchParams,
 }: {
-  searchParams: { company_id?: string; mes?: string };
+  searchParams: { company_id?: string; dias?: string };
 }) {
   const supabase = createClient();
   const companyId = searchParams.company_id;
+  const dias = HORIZONTES.some((h) => String(h.dias) === searchParams.dias) ? Number(searchParams.dias) : 30;
+  const horizonte = HORIZONTES.find((h) => h.dias === dias)!;
 
   const agora = new Date();
   const hoje = agora.toISOString().slice(0, 10);
-  const [ano, mes] = (searchParams.mes ?? `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}`)
-    .split("-")
-    .map(Number);
+  const horizonEnd = shift(hoje, dias);
 
-  const from = `${ano}-${String(mes).padStart(2, "0")}-01`;
-  const to = new Date(Date.UTC(ano, mes, 0)).toISOString().slice(0, 10);
-  const periodoEncerrado = to < hoje;
-
-  // Uma consulta por tabela, sem recorte de data: o saldo de abertura e o caixa de hoje dependem
-  // de tudo que já foi lançado. O agrupamento por empresa é feito em memória, para não multiplicar
-  // consultas por empresa.
-  let contasQ = supabase.from("bank_accounts").select("id, company_id, nickname, initial_balance, counts_as_available_cash, blocked_balance");
+  let contasQ = supabase.from("bank_accounts").select("id, company_id, initial_balance, counts_as_available_cash");
   let saidasQ = supabase
     .from("payment_realizations")
     .select("amount, paid_at, payments!inner(company_id, deleted_at)")
     .is("payments.deleted_at", null);
-  let aPagarQ = supabase
-    .from("payments")
-    .select("gross_amount, due_date, company_id")
-    .is("deleted_at", null)
-    .not("status", "in", '("pago","cancelado")');
   let entradasQ = supabase
     .from("revenue_realizations")
     .select("amount, received_at, revenues!inner(company_id, deleted_at)")
     .is("revenues.deleted_at", null);
-  let aReceberQ = supabase
+  let compromissosQ = supabase
+    .from("payments")
+    .select("gross_amount, due_date, company_id")
+    .is("deleted_at", null)
+    .not("status", "in", '("pago","cancelado")')
+    .gte("due_date", hoje);
+  let recebiveisQ = supabase
     .from("revenues")
     .select("expected_amount, expected_date, company_id")
     .is("deleted_at", null)
-    .not("status", "in", '("recebida","cancelada")');
-  let investQ = supabase
-    .from("investments")
-    .select("company_id, tipo, applied_amount, applied_date, is_opening_balance");
+    .not("status", "in", '("recebida","cancelada")')
+    .gte("expected_date", hoje);
+  let investQ = supabase.from("investments").select("company_id, tipo, applied_amount, applied_date, is_opening_balance");
   let transfQ = supabase
     .from("transfers")
     .select("tipo, amount, transfer_date, company_id, to_company_id, from_account_id, to_account_id");
@@ -82,9 +70,9 @@ export default async function DashboardPage({
   if (companyId) {
     contasQ = contasQ.eq("company_id", companyId);
     saidasQ = saidasQ.eq("payments.company_id", companyId);
-    aPagarQ = aPagarQ.eq("company_id", companyId);
     entradasQ = entradasQ.eq("revenues.company_id", companyId);
-    aReceberQ = aReceberQ.eq("company_id", companyId);
+    compromissosQ = compromissosQ.eq("company_id", companyId);
+    recebiveisQ = recebiveisQ.eq("company_id", companyId);
     investQ = investQ.eq("company_id", companyId);
     transfQ = transfQ.or(`company_id.eq.${companyId},to_company_id.eq.${companyId}`);
   }
@@ -92,101 +80,62 @@ export default async function DashboardPage({
   const [
     { data: contas },
     { data: saidasRaw },
-    { data: aPagarRaw },
     { data: entradasRaw },
-    { data: aReceberRaw },
+    { data: compromissosRaw },
+    { data: recebiveisRaw },
     { data: investRaw },
     { data: transfRaw },
     { data: empresasRaw },
-  ] = await Promise.all([contasQ, saidasQ, aPagarQ, entradasQ, aReceberQ, investQ, transfQ, supabase.from("companies").select("id, legal_name, trade_name").order("legal_name")]);
+    // A coluna de reserva pode ainda não existir (migration 0018 pendente). O erro é tolerado
+    // de propósito: sem ela a reserva fica "não definida" e a tela avisa, em vez de quebrar.
+    { data: reservasRaw },
+  ] = await Promise.all([
+    contasQ,
+    saidasQ,
+    entradasQ,
+    compromissosQ,
+    recebiveisQ,
+    investQ,
+    transfQ,
+    supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
+    supabase.from("companies").select("id, operational_reserve"),
+  ]);
 
   const empresas = (empresasRaw ?? []).filter((c: any) => !companyId || c.id === companyId);
+  const reserves: Record<string, number | null> = {};
+  for (const r of (reservasRaw ?? []) as any[]) {
+    reserves[r.id] = r.operational_reserve == null ? null : Number(r.operational_reserve);
+  }
+  const reservaDefinida = Object.values(reserves).some((r) => r != null);
 
-  const dados = buildExecutiveCash(
+  const compromissosLista = (compromissosRaw ?? []).map((p: any) => ({
+    amount: Number(p.gross_amount) || 0,
+    date: p.due_date as string,
+    companyId: p.company_id as string,
+  }));
+  const recebiveisLista = (recebiveisRaw ?? []).map((r: any) => ({
+    amount: Number(r.expected_amount) || 0,
+    date: r.expected_date as string,
+    companyId: r.company_id as string,
+  }));
+
+  const { porEmpresa, consolidado: g, intercompanyIdentificavel, diferencaReconciliacao } = buildCapacity(
     {
       accounts: (contas ?? []) as any[],
       inflows: (entradasRaw ?? []).map((r: any) => ({ amount: r.amount, date: r.received_at, companyId: r.revenues?.company_id })),
       outflows: (saidasRaw ?? []).map((p: any) => ({ amount: p.amount, date: p.paid_at, companyId: p.payments?.company_id })),
-      aReceber: (aReceberRaw ?? []).map((r: any) => ({ amount: r.expected_amount, date: r.expected_date, companyId: r.company_id })),
-      aPagar: (aPagarRaw ?? []).map((p: any) => ({ amount: p.gross_amount, date: p.due_date, companyId: p.company_id })),
       investments: (investRaw ?? []).map((i: any) => ({ ...i, companyId: i.company_id })),
       transfers: (transfRaw ?? []) as any[],
-      from,
-      to,
+      compromissos: compromissosLista,
+      recebiveis: recebiveisLista,
       today: hoje,
+      horizonEnd,
+      reserves,
     },
     empresas.map((c: any) => ({ id: c.id, label: c.trade_name || c.legal_name }))
   );
 
-  const { consolidado: g, porEmpresa, intercompanyEliminado, diferencaReconciliacao } = dados;
-
-  // ── evolução semanal do consolidado ──────────────────────────────────────
-  const semanas = getWeekBuckets(ano, mes);
-  const contasCaixa = (contas ?? []).filter((a: any) => a.counts_as_available_cash);
-  const escopo = scopeAccounts(undefined, contasCaixa);
-  const { isInflow, isOutflow } = transferDirection(escopo, new Set(empresas.map((c: any) => c.id)));
-  const movIn = [
-    ...(entradasRaw ?? []).map((r: any) => ({ amount: n(r.amount), date: r.received_at })),
-    ...(investRaw ?? []).filter((i: any) => i.tipo === "resgate").map((i: any) => ({ amount: n(i.applied_amount), date: i.applied_date })),
-    ...((transfRaw ?? []) as any[]).filter(isInflow).map((t: any) => ({ amount: n(t.amount), date: t.transfer_date })),
-  ];
-  const movOut = [
-    ...(saidasRaw ?? []).map((p: any) => ({ amount: n(p.amount), date: p.paid_at })),
-    ...(investRaw ?? []).filter((i: any) => i.tipo === "aplicacao" && !i.is_opening_balance).map((i: any) => ({ amount: n(i.applied_amount), date: i.applied_date })),
-    ...((transfRaw ?? []) as any[]).filter(isOutflow).map((t: any) => ({ amount: n(t.amount), date: t.transfer_date })),
-  ];
-  const noIntervalo = (rows: Array<{ amount: number; date: string }>, a: string, b: string) =>
-    sumMoney(rows.filter((r) => r.date >= a && r.date <= b).map((r) => r.amount));
-
-  let acumulado = g.caixaInicial;
-  const serieSemanal = semanas.map((s) => {
-    const fluxo = noIntervalo(movIn, s.start, s.end).minus(noIntervalo(movOut, s.start, s.end));
-    acumulado = acumulado.plus(fluxo);
-    return { label: s.label.replace("Semana ", "S"), fluxo: fluxo.toNumber(), saldo: acumulado.toNumber() };
-  });
-
-  // ── caixa por empresa (só faz sentido com mais de uma) ───────────────────
-  const totalPositivo = porEmpresa.reduce((acc, e) => acc + Math.max(e.caixaFinal.toNumber(), 0), 0);
-  const serieEmpresas = [...porEmpresa]
-    .sort((a, b) => b.caixaFinal.toNumber() - a.caixaFinal.toNumber())
-    .map((e) => ({
-      name: e.label,
-      caixa: e.caixaFinal.toNumber(),
-      participacao: totalPositivo > 0 && e.caixaFinal.greaterThan(0) ? (e.caixaFinal.toNumber() / totalPositivo) * 100 : null,
-    }));
-
-  // ── destaques ───────────────────────────────────────────────────────────
-  const porFluxo = [...porEmpresa].sort((a, b) => b.fluxoLiquido.toNumber() - a.fluxoLiquido.toNumber());
-  const maiorGeracao = porFluxo[0];
-  const maiorConsumo = porFluxo[porFluxo.length - 1];
-  const temConsumo = porFluxo.length > 1 && maiorConsumo && maiorConsumo.fluxoLiquido.isNegative();
-  const projetado = g.caixaFinal.plus(g.aReceber).minus(g.aPagar);
-
-  // ── alertas: só fato ────────────────────────────────────────────────────
-  const alertas: string[] = [];
-  for (const e of porEmpresa) {
-    if (e.caixaFinal.isNegative()) alertas.push(`${e.label} fecha o período com caixa negativo de ${formatBRL(e.caixaFinal)}.`);
-  }
-  const concentrada = serieEmpresas.find((e) => e.participacao != null && e.participacao >= 50);
-  if (concentrada && porEmpresa.length > 1) {
-    alertas.push(`${concentrada.participacao!.toFixed(0)}% do caixa do grupo está em ${concentrada.name} — concentração relevante.`);
-  }
-  if (g.aPagar.greaterThan(g.aReceber.plus(g.caixaFinal))) {
-    alertas.push(`As obrigações do período (${formatBRL(g.aPagar)}) superam o caixa somado ao que há a receber.`);
-  }
-  if (projetado.isNegative()) alertas.push(`O caixa projetado para ${dia(to)} fica negativo em ${formatBRL(projetado)}.`);
-  if (g.bloqueado.greaterThan(0)) alertas.push(`Há ${formatBRL(g.bloqueado)} de saldo bloqueado, indisponível para uso.`);
-  const desatualizadas = porEmpresa.filter((e) => e.ultimoLancamento && e.ultimoLancamento < from);
-  if (desatualizadas.length) {
-    alertas.push(
-      `${desatualizadas.map((e) => e.label).join(", ")} ${desatualizadas.length > 1 ? "estão" : "está"} sem lançamento no período — o saldo mostrado é o fechamento anterior, não a posição atual.`
-    );
-  }
-  if (!diferencaReconciliacao.isZero()) {
-    alertas.push(`A soma das empresas difere do consolidado em ${formatBRL(diferencaReconciliacao)} — há movimento fora do escopo das contas cadastradas.`);
-  }
-
-  const opcoesMes = MESES.map((label, i) => ({ value: `${ano}-${String(i + 1).padStart(2, "0")}`, label }));
+  const ordenadas = [...porEmpresa].sort((a, b) => b.disponibilidade.toNumber() - a.disponibilidade.toNumber());
 
   return (
     <div className="space-y-6 print:space-y-4">
@@ -194,16 +143,15 @@ export default async function DashboardPage({
       <div className="flex items-end justify-between gap-6 flex-wrap border-b-2 border-ps-navy pb-3">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-ps-navy">Pagsmile · Tesouraria</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-ps-ink">Posição Executiva de Caixa</h1>
-          <p className="mt-0.5 text-sm text-ps-muted">Posição consolidada, movimentação e projeção de liquidez do grupo</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-ps-ink">Posição Executiva de Recursos</h1>
+          <p className="mt-0.5 text-sm text-ps-muted">Capacidade financeira atual e suporte à tomada de decisão</p>
         </div>
-        <div className="text-right font-mono text-[10px] uppercase tracking-wider text-ps-muted-2 leading-relaxed">
-          <p className="text-ps-muted font-sans text-sm font-semibold tracking-normal normal-case">
-            {MESES[mes - 1]} de {ano}
+        <div className="text-right text-[11px] font-mono uppercase tracking-wider text-ps-muted-2 leading-relaxed">
+          <p className="font-sans text-sm font-semibold normal-case tracking-normal text-ps-muted">
+            {companyId ? empresas[0]?.trade_name || empresas[0]?.legal_name : "Consolidado — todas as empresas"}
           </p>
-          <p>Período {dia(from)} a {dia(to)}</p>
-          <p>Atualizado em {dataHora(agora)}</p>
-          <p>{empresas.length} empresa{empresas.length > 1 ? "s" : ""} · {contasCaixa.length} conta{contasCaixa.length > 1 ? "s" : ""}</p>
+          <p>Posição em {dataBR(hoje)}</p>
+          <p>Compromissos {horizonte.label} (até {dataBR(horizonEnd)})</p>
         </div>
       </div>
 
@@ -214,44 +162,36 @@ export default async function DashboardPage({
             <option key={c.id} value={c.id}>{c.trade_name || c.legal_name}</option>
           ))}
         </select>
-        <select name="mes" defaultValue={`${ano}-${String(mes).padStart(2, "0")}`} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          {opcoesMes.map((m) => (
-            <option key={m.value} value={m.value}>{m.label}/{ano}</option>
+        <select name="dias" defaultValue={String(dias)} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+          {HORIZONTES.map((h) => (
+            <option key={h.dias} value={h.dias}>Compromissos: {h.label}</option>
           ))}
         </select>
         <button className="text-sm text-ps-navy underline" type="submit">Filtrar</button>
       </form>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <FinancialCard label={`Caixa inicial (${dia(from)})`} value={compacto(g.caixaInicial.toNumber())} />
-        <FinancialCard label={`Entradas (${dia(from)} a ${dia(to)})`} value={compacto(g.entradas.toNumber())} tone="positive" />
-        <FinancialCard label={`Saídas (${dia(from)} a ${dia(to)})`} value={compacto(g.saidas.toNumber())} tone="negative" />
-        <FinancialCard
-          label="Fluxo líquido do período"
-          value={`${g.fluxoLiquido.greaterThan(0) ? "+" : ""}${compacto(g.fluxoLiquido.toNumber())}`}
-          tone={g.fluxoLiquido.isNegative() ? "negative" : "positive"}
-          hint={g.fluxoLiquido.isNegative() ? "consumo de caixa" : "geração de caixa"}
-        />
-        <FinancialCard
-          label={periodoEncerrado ? `Caixa final (${dia(to)})` : `Caixa atual (hoje, ${dia(hoje)})`}
-          value={compacto(periodoEncerrado ? g.caixaFinal.toNumber() : g.caixaHoje.toNumber())}
-          tone={(periodoEncerrado ? g.caixaFinal : g.caixaHoje).isNegative() ? "negative" : "neutral"}
-          hint={periodoEncerrado ? "saldo bancário no fim do período" : "saldo bancário realizado"}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <Kpi rotulo="Caixa" valor={compacto(g.caixa.toNumber())} nota="saldo em conta bancária" tone={g.caixa.isNegative() ? "neg" : "ink"} />
+        <Kpi rotulo="Investimentos" valor={compacto(g.investido.toNumber())} nota="aplicado, resgatável" tone="ink" />
+        <Kpi rotulo="Disponibilidade total" valor={compacto(g.disponibilidade.toNumber())} nota="caixa + investimentos" tone="ink" />
+        <Kpi rotulo="Compromissos" valor={compacto(g.compromissos.toNumber())} nota={`${horizonte.label} — até ${dataBR(horizonEnd)}`} tone="amber" />
+        <Kpi
+          destaque
+          rotulo="Capacidade para decisão"
+          valor={compacto(g.capacidade.toNumber())}
+          nota={g.reserva == null ? "sem reserva definida no cadastro" : "disponível após compromissos e reserva"}
+          tone={g.capacidade.isNegative() ? "neg" : "pos"}
         />
       </div>
 
-      {/* faixa de contexto */}
-      <div className="bg-ps-navy text-white rounded-ps px-5 py-3.5 text-sm leading-relaxed">
-        Até {dia(hoje)}, o grupo tem <strong className="font-semibold">{formatBRL(g.caixaHoje)}</strong> de caixa realizado.
-        Para o restante do período há <strong className="font-semibold text-ps-green-300">{formatBRL(g.aReceber)}</strong> a receber
-        e <strong className="font-semibold text-ps-green-300">{formatBRL(g.aPagar)}</strong> a pagar — saldo projetado
-        para {dia(to)}: <strong className="font-semibold">{formatBRL(projetado)}</strong>.
-        {g.investido.greaterThan(0) && (
-          <> Fora do caixa, há <strong className="font-semibold">{formatBRL(g.investido)}</strong> aplicados, o que dá uma
-          liquidez total de <strong className="font-semibold">{formatBRL(g.caixaHoje.plus(g.investido))}</strong>.</>
-        )}
-      </div>
+      {g.reserva == null && (
+        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-ps-sm px-4 py-2.5">
+          <strong>Reserva operacional não cadastrada.</strong> A capacidade acima é a disponibilidade menos os
+          compromissos, sem descontar reserva nenhuma — ou seja, está superestimada. O cálculo já prevê o campo;
+          basta definir o valor mínimo de cada empresa para ele passar a ser descontado.
+        </p>
+      )}
 
       {/* posição por empresa */}
       <div>
@@ -261,36 +201,34 @@ export default async function DashboardPage({
             <thead className="bg-ps-bg-2 text-ps-muted text-[10px] uppercase tracking-wider font-mono">
               <tr>
                 <th className="text-left px-4 py-2.5">Empresa</th>
-                <th className="text-right px-4 py-2.5">Caixa inicial</th>
-                <th className="text-right px-4 py-2.5">Entradas</th>
-                <th className="text-right px-4 py-2.5">Saídas</th>
-                <th className="text-right px-4 py-2.5">Fluxo líquido</th>
-                <th className="text-right px-4 py-2.5">Caixa em {dia(to)}</th>
-                <th className="text-right px-4 py-2.5">Variação</th>
-                <th className="text-right px-4 py-2.5">Investido</th>
-                <th className="text-left px-4 py-2.5">Último lanç.</th>
+                <th className="text-right px-4 py-2.5">Caixa</th>
+                <th className="text-right px-4 py-2.5">Investimentos</th>
+                <th className="text-right px-4 py-2.5">Disponibilidade</th>
+                <th className="text-right px-4 py-2.5">Compromissos</th>
+                <th className="text-right px-4 py-2.5">Reserva</th>
+                <th className="text-right px-4 py-2.5">Capacidade</th>
+                <th className="text-center px-4 py-2.5">7d</th>
               </tr>
             </thead>
             <tbody>
-              {[...porEmpresa].sort((a, b) => b.caixaFinal.toNumber() - a.caixaFinal.toNumber()).map((e) => (
-                <EmpresaRow key={e.companyId} e={e} from={from} />
+              {ordenadas.map((e) => (
+                <LinhaEmpresa key={e.companyId} e={e} />
               ))}
             </tbody>
             {porEmpresa.length > 1 && (
               <tfoot>
                 <tr className="border-t-2 border-ps-navy bg-ps-bg-2/60 font-bold text-ps-ink">
                   <td className="px-4 py-3">CONSOLIDADO</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{formatBRL(g.caixaInicial)}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{formatBRL(g.entradas)}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{formatBRL(g.saidas)}</td>
-                  <td className={`px-4 py-3 text-right tabular-nums ${g.fluxoLiquido.isNegative() ? "text-red-600" : "text-ps-green-700"}`}>
-                    {comSinal(g.fluxoLiquido.toNumber())}
+                  <td className="px-4 py-3 text-right tabular-nums">{formatBRL(g.caixa)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{formatBRL(g.investido)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{formatBRL(g.disponibilidade)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-amber-700">{formatBRL(g.compromissos)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {g.reserva == null ? <span className="text-ps-muted-2 font-normal">—</span> : formatBRL(g.reserva)}
                   </td>
-                  <td className={`px-4 py-3 text-right tabular-nums ${g.caixaFinal.isNegative() ? "text-red-600" : ""}`}>{formatBRL(g.caixaFinal)}</td>
-                  <td className={`px-4 py-3 text-right tabular-nums ${g.variacao.isNegative() ? "text-red-600" : "text-ps-green-700"}`}>
-                    {g.variacaoPerc != null ? `${g.variacaoPerc > 0 ? "+" : ""}${g.variacaoPerc.toFixed(1)}%` : "—"}
+                  <td className={`px-4 py-3 text-right tabular-nums ${g.capacidade.isNegative() ? "text-red-600" : "text-ps-green-700"}`}>
+                    {formatBRL(g.capacidade)}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-ps-navy/70">{formatBRL(g.investido)}</td>
                   <td className="px-4 py-3"></td>
                 </tr>
               </tfoot>
@@ -298,88 +236,118 @@ export default async function DashboardPage({
           </table>
         </div>
         <p className="text-[11px] text-ps-muted mt-2">
-          Caixa é saldo bancário; a coluna Investido é o principal aplicado e não está somado ao caixa.
-          {intercompanyEliminado.greaterThan(0) && (
-            <> No consolidado foram eliminados {formatBRL(intercompanyEliminado)} de transferências entre contas do próprio grupo, para não contar o mesmo dinheiro duas vezes.</>
-          )}
+          Caixa é saldo em conta e nunca inclui investimento. Capacidade = disponibilidade − compromissos − reserva.
+          Recurso em uma empresa não está automaticamente disponível para outra.
+          {intercompanyIdentificavel > 0
+            ? ` No consolidado, transferência entre contas do próprio grupo se anula (${intercompanyIdentificavel} lançamento identificável).`
+            : ""}
+          {!diferencaReconciliacao.isZero() && ` Atenção: a soma das empresas difere do consolidado em ${formatBRL(diferencaReconciliacao)}.`}
         </p>
       </div>
 
-      {/* gráficos */}
-      <div className={`grid grid-cols-1 gap-4 ${porEmpresa.length > 1 ? "lg:grid-cols-2" : ""}`}>
-        <WeeklyFlowChart data={serieSemanal} />
-        {porEmpresa.length > 1 && <CashByCompanyChart data={serieEmpresas} />}
-      </div>
-
-      {/* destaques */}
-      <div>
-        <h2 className="font-semibold text-ps-ink mb-2">Destaques do período</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {maiorGeracao && maiorGeracao.fluxoLiquido.greaterThan(0) && (
-            <Destaque titulo="Maior geração de caixa" nome={maiorGeracao.label} valor={comSinal(maiorGeracao.fluxoLiquido.toNumber())} tone="positive" />
-          )}
-          {temConsumo && (
-            <Destaque titulo="Maior consumo de caixa" nome={maiorConsumo.label} valor={formatBRL(maiorConsumo.fluxoLiquido)} tone="negative" />
-          )}
-          <Destaque titulo={`A receber até ${dia(to)}`} nome="Provisionado" valor={formatBRL(g.aReceber)} tone="amber" />
-          <Destaque titulo={`A pagar até ${dia(to)}`} nome="Provisionado" valor={formatBRL(g.aPagar)} tone="amber" />
-          <Destaque titulo={`Saldo projetado ${dia(to)}`} nome="Caixa + a receber − a pagar" valor={formatBRL(projetado)} tone={projetado.isNegative() ? "negative" : "neutral"} />
-        </div>
-      </div>
-
-      {/* alertas */}
-      {alertas.length > 0 && (
-        <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 border-l-4 border-l-amber-500 p-5">
-          <h2 className="font-semibold text-ps-ink mb-2">Pontos de atenção</h2>
-          <ul className="list-disc pl-5 space-y-1.5 text-sm text-ps-ink-2">
-            {alertas.map((a, i) => (
-              <li key={i}>{a}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* simulador */}
+      <DecisionSimulator
+        empresas={porEmpresa.map((e) => ({
+          id: e.companyId,
+          label: e.label,
+          caixa: e.caixa.toNumber(),
+          investido: e.investido.toNumber(),
+          reserva: e.reserva,
+        }))}
+        compromissos={compromissosLista}
+        recebiveis={recebiveisLista}
+        hoje={hoje}
+        reservaDefinida={reservaDefinida}
+      />
     </div>
   );
 }
 
-function EmpresaRow({ e, from }: { e: CompanyCash; from: string }) {
-  const desatualizada = !!e.ultimoLancamento && e.ultimoLancamento < from;
-  const fundo = e.caixaFinal.isNegative() ? "bg-red-50/70" : desatualizada ? "bg-amber-50/60" : "";
+function Kpi({
+  rotulo,
+  valor,
+  nota,
+  tone,
+  destaque,
+}: {
+  rotulo: string;
+  valor: string;
+  nota: string;
+  tone: "ink" | "pos" | "neg" | "amber";
+  destaque?: boolean;
+}) {
+  const cor = tone === "pos" ? "text-ps-green-700" : tone === "neg" ? "text-red-600" : tone === "amber" ? "text-amber-700" : "text-ps-ink";
+  const trilho = tone === "pos" ? "bg-ps-green" : tone === "neg" ? "bg-red-500" : tone === "amber" ? "bg-amber-500" : "bg-ps-navy/20";
+  return (
+    <div
+      className={`relative bg-white rounded-ps shadow-ps-sm border overflow-hidden p-4 pl-5 ${
+        destaque ? "border-ps-navy/20 ring-1 ring-ps-navy/10" : "border-ps-navy/5"
+      }`}
+    >
+      <span className={`absolute left-0 top-0 bottom-0 ${destaque ? "w-1.5" : "w-1"} ${trilho}`} />
+      <p className="text-[10px] uppercase tracking-wider text-ps-muted font-mono">{rotulo}</p>
+      <p className={`mt-1.5 font-bold tabular-nums ${destaque ? "text-2xl" : "text-xl"} ${cor}`}>{valor}</p>
+      <p className="mt-1 text-[11px] text-ps-muted leading-snug">{nota}</p>
+    </div>
+  );
+}
+
+function LinhaEmpresa({ e }: { e: CompanyCapacity }) {
+  const fundo = e.capacidade.isNegative() ? "bg-red-50/70" : "";
   return (
     <tr className={`border-t border-ps-navy/5 ${fundo}`}>
       <td className="px-4 py-3 font-semibold text-ps-ink">{e.label}</td>
-      <td className="px-4 py-3 text-right tabular-nums">{formatBRL(e.caixaInicial)}</td>
-      <td className="px-4 py-3 text-right tabular-nums text-ps-green-700">{formatBRL(e.entradas)}</td>
-      <td className="px-4 py-3 text-right tabular-nums text-red-600">{formatBRL(e.saidas)}</td>
-      <td className={`px-4 py-3 text-right tabular-nums font-medium ${e.fluxoLiquido.isNegative() ? "text-red-600" : "text-ps-green-700"}`}>
-        {comSinal(e.fluxoLiquido.toNumber())}
-      </td>
-      <td className={`px-4 py-3 text-right tabular-nums font-semibold ${e.caixaFinal.isNegative() ? "text-red-600" : ""}`}>{formatBRL(e.caixaFinal)}</td>
-      <td className={`px-4 py-3 text-right tabular-nums ${e.variacao.isNegative() ? "text-red-600" : e.variacao.isZero() ? "text-ps-muted-2" : "text-ps-green-700"}`}>
-        {e.variacaoPerc != null ? `${e.variacaoPerc > 0 ? "+" : ""}${e.variacaoPerc.toFixed(1)}%` : "—"}
-      </td>
+      <td className={`px-4 py-3 text-right tabular-nums ${e.caixa.isNegative() ? "text-red-600" : ""}`}>{formatBRL(e.caixa)}</td>
       <td className="px-4 py-3 text-right tabular-nums text-ps-navy/70">
         {e.investido.greaterThan(0) ? formatBRL(e.investido) : <span className="text-ps-muted-2">—</span>}
       </td>
-      <td className="px-4 py-3 font-mono text-[11px]">
-        {e.ultimoLancamento ? (
-          <span className={desatualizada ? "text-amber-700" : "text-ps-muted"}>{dia(e.ultimoLancamento)}</span>
-        ) : (
-          <span className="text-ps-muted-2">—</span>
-        )}
+      <td className="px-4 py-3 text-right tabular-nums font-medium">{formatBRL(e.disponibilidade)}</td>
+      <td className="px-4 py-3 text-right tabular-nums text-amber-700">
+        {e.compromissos.greaterThan(0) ? formatBRL(e.compromissos) : <span className="text-ps-muted-2">—</span>}
+      </td>
+      <td className="px-4 py-3 text-right tabular-nums">
+        {e.reserva == null ? <span className="text-ps-muted-2">—</span> : formatBRL(e.reserva)}
+      </td>
+      <td className={`px-4 py-3 text-right tabular-nums font-bold ${e.capacidade.isNegative() ? "text-red-600" : "text-ps-green-700"}`}>
+        {formatBRL(e.capacidade)}
+      </td>
+      <td className="px-4 py-3">
+        <Sparkline serie={e.serie7d} />
       </td>
     </tr>
   );
 }
 
-function Destaque({ titulo, nome, valor, tone }: { titulo: string; nome: string; valor: string; tone: "positive" | "negative" | "amber" | "neutral" }) {
-  const cor =
-    tone === "positive" ? "text-ps-green-700" : tone === "negative" ? "text-red-600" : tone === "amber" ? "text-amber-700" : "text-ps-ink";
+/** Tendência do caixa nos últimos 7 dias. Secundária: informa direção, não valor. */
+function Sparkline({ serie }: { serie: number[] }) {
+  const min = Math.min(...serie);
+  const max = Math.max(...serie);
+  const faixa = max - min;
+  const larg = 56;
+  const alt = 18;
+  const passo = serie.length > 1 ? larg / (serie.length - 1) : larg;
+  const pontos = serie
+    .map((v, i) => `${(i * passo).toFixed(1)},${(faixa === 0 ? alt / 2 : alt - 2 - ((v - min) / faixa) * (alt - 4)).toFixed(1)}`)
+    .join(" ");
+
+  const delta = serie[serie.length - 1] - serie[0];
+  const cor = faixa === 0 ? "#8294A6" : delta < 0 ? "#C2413A" : "#1AA380";
+  const seta = faixa === 0 ? "→" : delta < 0 ? "↘" : "↗";
+
   return (
-    <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-4">
-      <p className="text-[10px] uppercase tracking-wider text-ps-muted font-mono">{titulo}</p>
-      <p className="mt-1.5 text-sm font-semibold text-ps-ink truncate">{nome}</p>
-      <p className={`mt-0.5 text-lg font-bold tabular-nums ${cor}`}>{valor}</p>
-    </div>
+    <span className="flex items-center justify-center gap-1.5">
+      <svg width={larg} height={alt} viewBox={`0 0 ${larg} ${alt}`} aria-hidden="true">
+        <polyline
+          points={pontos}
+          fill="none"
+          stroke={cor}
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          strokeDasharray={faixa === 0 ? "3 3" : undefined}
+        />
+      </svg>
+      <span className="text-sm font-semibold" style={{ color: cor }}>{seta}</span>
+    </span>
   );
 }
