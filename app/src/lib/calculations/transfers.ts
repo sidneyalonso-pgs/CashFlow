@@ -22,9 +22,13 @@ type TransferRow = {
  * conta de destino no escopo e origem vazia, e sem essa ressalva era contado como entrada e saída
  * ao mesmo tempo — as duas se anulavam e o dinheiro sumia do fluxo.
  */
-export function transferDirection(scopeAccountIds: Set<string>, companyId?: string) {
+export function transferDirection(scopeAccountIds: Set<string>, owner?: string | Set<string>) {
   const inScope = (accountId?: string | null) => !!accountId && scopeAccountIds.has(accountId);
-  const ownedByScope = (t: TransferRow) => !companyId || t.company_id === companyId;
+  const ownedByScope = (t: TransferRow) => {
+    if (!owner) return true;
+    if (typeof owner === "string") return t.company_id === owner;
+    return !!t.company_id && owner.has(t.company_id);
+  };
   return {
     isOutflow: (t: TransferRow) =>
       inScope(t.from_account_id) ||
