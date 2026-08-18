@@ -1,3 +1,5 @@
+import { BackLink } from "./BackLink";
+
 export function PageHeader({
   title,
   subtitle,
@@ -12,6 +14,8 @@ export function PageHeader({
       <div className="flex items-start gap-3">
         <span className="mt-1.5 w-1 h-6 rounded-full bg-ps-green shrink-0" />
         <div>
+          {/* deriva o destino do endereço: tela interna nova já nasce com saída */}
+          <BackLink />
           <h1 className="text-2xl font-bold text-ps-ink tracking-tight">{title}</h1>
           {subtitle && <p className="text-sm text-ps-muted mt-1">{subtitle}</p>}
         </div>
