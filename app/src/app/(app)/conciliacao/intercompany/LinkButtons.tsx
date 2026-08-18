@@ -32,7 +32,7 @@ export function VincularButton({ a, b }: { a: Perna; b: Perna }) {
   );
 }
 
-export function DesvincularButton({ ref: refValor }: { ref: string }) {
+export function DesvincularButton({ vinculoRef }: { vinculoRef: string }) {
   const router = useRouter();
   const [pendente, iniciar] = useTransition();
 
@@ -41,7 +41,7 @@ export function DesvincularButton({ ref: refValor }: { ref: string }) {
       disabled={pendente}
       onClick={() =>
         iniciar(async () => {
-          await desvincularIntercompany(refValor);
+          await desvincularIntercompany(vinculoRef);
           router.refresh();
         })
       }

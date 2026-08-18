@@ -26,6 +26,8 @@ type Perna = {
   data: string;
   descricao: string;
   origem: string;
+  /** já vinculada a outra perna, quando preenchido */
+  ref: string | null;
 };
 
 export default async function IntercompanyPage() {
@@ -74,19 +76,18 @@ export default async function IntercompanyPage() {
     .filter((t) => SAIDA.includes(t.tipo) && t.from_account_id)
     .map((t) => ({
       tabela: "transfers" as const,
-      id: t.id,
-      companyId: empresaDaConta.get(t.from_account_id) ?? t.company_id,
+      id: t.id as string,
+      companyId: (empresaDaConta.get(t.from_account_id) ?? t.company_id) as string,
       empresa: nome.get(empresaDaConta.get(t.from_account_id) ?? t.company_id) ?? "—",
       valor: Number(t.amount) || 0,
-      data: t.transfer_date,
-      descricao: t.description ?? "",
+      data: t.transfer_date as string,
+      descricao: (t.description as string) ?? "",
       origem: `Transferência${t.counterpart_name ? ` para ${t.counterpart_name}` : ""}`,
-      ref: t.intercompany_ref as string | null,
-    }))
-    .map((p) => p as Perna & { ref: string | null });
+      ref: (t.intercompany_ref as string | null) ?? null,
+    }));
 
   // Pernas de entrada: receita recebida, ou transferência que trouxe dinheiro para uma conta nossa.
-  const entradas: Array<Perna & { ref: string | null }> = [
+  const entradas: Perna[] = [
     ...receitas.map((r) => ({
       tabela: "revenues" as const,
       id: r.revenues.id as string,
@@ -103,7 +104,7 @@ export default async function IntercompanyPage() {
       .map((t) => ({
         tabela: "transfers" as const,
         id: t.id as string,
-        companyId: empresaDaConta.get(t.to_account_id) ?? t.company_id,
+        companyId: (empresaDaConta.get(t.to_account_id) ?? t.company_id) as string,
         empresa: nome.get(empresaDaConta.get(t.to_account_id) ?? t.company_id) ?? "—",
         valor: Number(t.amount) || 0,
         data: t.transfer_date as string,
@@ -114,7 +115,7 @@ export default async function IntercompanyPage() {
   ];
 
   // ── já vinculados ────────────────────────────────────────────────────────
-  const vinculados = new Map<string, Array<Perna & { ref: string | null }>>();
+  const vinculados = new Map<string, Perna[]>();
   for (const p of [...saidas, ...entradas]) {
     if (!p.ref) continue;
     const atual = vinculados.get(p.ref) ?? [];
@@ -216,7 +217,7 @@ export default async function IntercompanyPage() {
                     </p>
                   )}
                 </div>
-                <DesvincularButton ref={ref} />
+                <DesvincularButton vinculoRef={ref} />
               </li>
             ))}
           </ul>
