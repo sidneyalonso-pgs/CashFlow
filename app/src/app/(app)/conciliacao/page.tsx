@@ -254,6 +254,12 @@ export default async function ReconciliationPage({
           <div className="flex gap-2">
             <ExportReconciliationButton bankAccountId={openImport?.bank_account_id} />
             <Link
+              href="/conciliacao/intercompany"
+              className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
+            >
+              Vínculos entre empresas
+            </Link>
+            <Link
               href="/conciliacao/importar"
               className="bg-ps-navy text-white text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-navy-700 transition-colors"
             >

@@ -6,6 +6,7 @@ import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 import { formatBRL, sumMoney } from "@/lib/calculations/money";
 import { getWeekBuckets, getMonthBuckets, getQuarterBuckets, shiftDay, type Bucket } from "@/lib/calculations/cashflowPeriods";
 import { scopeAccounts, transferDirection } from "@/lib/calculations/transfers";
+import { eliminarIntercompany } from "@/lib/calculations/intercompany";
 
 type Granularity = "semana" | "mes" | "trimestre";
 
@@ -37,7 +38,7 @@ export default async function CashFlowPage({
   let bankAccountsQuery = supabase.from("bank_accounts").select("id, nickname, bank_name, initial_balance, counts_as_available_cash, company_id");
   let paymentRealizationsQuery = supabase
     .from("payment_realizations")
-    .select("amount, paid_at, payments!inner(company_id, paying_bank_account_id)")
+    .select("amount, paid_at, payments!inner(id, company_id, paying_bank_account_id)")
     .is("payments.deleted_at", null);
   let provisionedQuery = supabase
     .from("payments")
@@ -52,7 +53,7 @@ export default async function CashFlowPage({
     .not("status", "in", '("recebida","cancelada")');
   let revenueRealizationsQuery = supabase
     .from("revenue_realizations")
-    .select("amount, received_at, revenues!inner(company_id, receiving_bank_account_id)")
+    .select("amount, received_at, revenues!inner(id, company_id, receiving_bank_account_id)")
     .is("revenues.deleted_at", null);
   let investmentsQuery = supabase
     .from("investments")
@@ -61,7 +62,7 @@ export default async function CashFlowPage({
   // Transferências: pix/TED recebido = entrada; pix/TED enviado + débitos = saída
   let transfersQuery = supabase
     .from("transfers")
-    .select("tipo, amount, transfer_date, company_id, to_company_id, from_account_id, to_account_id, description, counterpart_name")
+    .select("id, tipo, amount, transfer_date, company_id, to_company_id, from_account_id, to_account_id, description, counterpart_name")
     .gte("transfer_date", "2020-01-01")
     .lte("transfer_date", rangeEnd);
 
@@ -77,7 +78,7 @@ export default async function CashFlowPage({
     transfersQuery = transfersQuery.or(`company_id.eq.${companyId},to_company_id.eq.${companyId}`);
   }
 
-  const [{ data: allBankAccounts }, { data: paymentRealizationsRaw }, { data: provisionedPaymentsRaw }, { data: revenueRealizationsRaw }, { data: provisionedRevenuesRaw }, { data: investmentsDataRaw }, { data: transfersRaw }, { data: companies }] =
+  const [{ data: allBankAccounts }, { data: paymentRealizationsRaw }, { data: provisionedPaymentsRaw }, { data: revenueRealizationsRaw }, { data: provisionedRevenuesRaw }, { data: investmentsDataRaw }, { data: transfersRaw }, { data: companies }, { data: icTransf }, { data: icRev }, { data: icPay }] =
     await Promise.all([
       bankAccountsQuery,
       // busca sempre os dois: a provisão tem coluna própria na tabela, então precisa estar
@@ -89,19 +90,24 @@ export default async function CashFlowPage({
       investmentsQuery,
       transfersQuery,
       supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
+      // Pernas de movimento entre empresas do grupo, em consultas próprias e com o erro
+      // tolerado: a coluna só existe depois da migration 0019. Só as vinculadas interessam.
+      supabase.from("transfers").select("id, company_id, intercompany_ref, from_account_id, to_account_id").not("intercompany_ref", "is", null),
+      supabase.from("revenues").select("id, company_id, intercompany_ref").not("intercompany_ref", "is", null),
+      supabase.from("payments").select("id, company_id, intercompany_ref").not("intercompany_ref", "is", null),
     ]);
 
   // Filtrar por conta bancária se selecionada
   const bankAccounts = bankAccountId
     ? (allBankAccounts ?? []).filter((a: any) => a.id === bankAccountId)
     : (allBankAccounts ?? []);
-  const paymentRealizations = bankAccountId
+  const paymentRealizationsEscopo = bankAccountId
     ? (paymentRealizationsRaw ?? []).filter((r: any) => (r.payments as any)?.paying_bank_account_id === bankAccountId)
     : (paymentRealizationsRaw ?? []);
   const provisionedPayments = bankAccountId
     ? (provisionedPaymentsRaw ?? []).filter((p: any) => p.paying_bank_account_id === bankAccountId)
     : (provisionedPaymentsRaw ?? []);
-  const revenueRealizations = bankAccountId
+  const revenueRealizationsEscopo = bankAccountId
     ? (revenueRealizationsRaw ?? []).filter((r: any) => (r.revenues as any)?.receiving_bank_account_id === bankAccountId)
     : (revenueRealizationsRaw ?? []);
   const provisionedRevenues = bankAccountId
@@ -111,10 +117,38 @@ export default async function CashFlowPage({
     ? (investmentsDataRaw ?? []).filter((i: any) => i.bank_account_id === bankAccountId)
     : (investmentsDataRaw ?? []);
 
+  // Movimento entre empresas do grupo: as duas pernas saem juntas do bruto quando as duas
+  // estão no escopo. O saldo não muda — sai uma entrada e uma saída de igual valor.
+  const empresasNoEscopo = new Set<string>(
+    companyId ? [companyId] : ((companies ?? []) as any[]).map((c) => c.id)
+  );
+  const empresaDaConta = new Map<string, string>(((allBankAccounts ?? []) as any[]).map((a) => [a.id, a.company_id]));
+  const { ignorar: icIgnorar, movimentos: icMovimentos } = eliminarIntercompany(
+    [
+      ...((icTransf ?? []) as any[]).map((t) => ({
+        tabela: "transfers" as const,
+        id: t.id,
+        ref: t.intercompany_ref,
+        // a empresa da perna é a dona da conta que se mexeu, não necessariamente company_id
+        companyId: empresaDaConta.get(t.from_account_id) ?? empresaDaConta.get(t.to_account_id) ?? t.company_id,
+      })),
+      ...((icRev ?? []) as any[]).map((r) => ({ tabela: "revenues" as const, id: r.id, ref: r.intercompany_ref, companyId: r.company_id })),
+      ...((icPay ?? []) as any[]).map((p) => ({ tabela: "payments" as const, id: p.id, ref: p.intercompany_ref, companyId: p.company_id })),
+    ],
+    empresasNoEscopo
+  );
+
+  const paymentRealizations = (paymentRealizationsEscopo ?? []).filter(
+    (r: any) => !icIgnorar.payments.has(r.payments?.id)
+  );
+  const revenueRealizations = (revenueRealizationsEscopo ?? []).filter(
+    (r: any) => !icIgnorar.revenues.has(r.revenues?.id)
+  );
+
   // Transferências: a conta de origem/destino define a direção dentro do escopo selecionado
   const scopeAccountIds = scopeAccounts(bankAccountId, (allBankAccounts ?? []) as { id: string }[]);
   const { isInflow: isTransferIn, isOutflow: isTransferOut } = transferDirection(scopeAccountIds, companyId);
-  const allTransfers = (transfersRaw ?? []) as Array<{ tipo: string; amount: number; transfer_date: string; company_id: string | null; to_company_id: string | null; from_account_id: string | null; to_account_id: string | null; counterpart_name: string | null; description: string | null }>;
+  const allTransfers = ((transfersRaw ?? []) as any[]).filter((t) => !icIgnorar.transfers.has(t.id)) as Array<{ id: string; tipo: string; amount: number; transfer_date: string; company_id: string | null; to_company_id: string | null; from_account_id: string | null; to_account_id: string | null; counterpart_name: string | null; description: string | null }>;
 
   const transferInflows = allTransfers
     .filter(isTransferIn)
@@ -377,6 +411,13 @@ export default async function CashFlowPage({
       </div>
 
       <p className="text-xs text-ps-muted mt-4">
+        {icMovimentos > 0 && (
+          <>
+            {icMovimentos} movimento{icMovimentos > 1 ? "s" : ""} entre empresas do grupo {icMovimentos > 1 ? "foram" : "foi"} eliminado
+            {icMovimentos > 1 ? "s" : ""} das entradas e saídas — as duas pernas saíram juntas, então o saldo não muda.{" "}
+            <Link href="/conciliacao/intercompany" className="text-ps-navy underline">Ver vínculos</Link>.{" "}
+          </>
+        )}
         Saldo inicial do período = saldo cadastrado nas contas bancárias + todas as entradas e saídas realizadas
         até o dia anterior ao início do período selecionado. Entradas e Saídas são o que já foi baixado;
         “A receber” e “A pagar” são as provisões com vencimento naquele intervalo e aparecem sempre, mas só
