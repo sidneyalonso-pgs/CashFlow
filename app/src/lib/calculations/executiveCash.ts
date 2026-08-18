@@ -75,6 +75,17 @@ export type CashSlice = {
 
 const zero = () => new Decimal(0);
 
+/**
+ * Valor sempre numérico. Decimal lança exceção com null/undefined, e o banco aceita valor nulo
+ * em lançamento (pagamento cadastrado sem valor, por exemplo) — sem isso a tela inteira quebra
+ * por causa de uma linha incompleta.
+ */
+function num(v: number | string | null | undefined) {
+  if (v === null || v === undefined || v === "") return 0;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function inRange(date: string, from: string, to: string) {
   return date >= from && date <= to;
 }
@@ -101,18 +112,18 @@ function slice(input: CashInput, companyIds: Set<string>): CashSlice {
 
   // movimentos de caixa realizados, com a data em que afetaram a conta
   const cashIn: Array<{ amount: number; date: string }> = [
-    ...revIn.map((r) => ({ amount: Number(r.amount), date: r.date })),
+    ...revIn.map((r) => ({ amount: num(r.amount), date: r.date })),
     ...invs
       .filter((i) => i.tipo === "resgate")
-      .map((i) => ({ amount: Number(i.applied_amount), date: i.applied_date })),
-    ...transfers.filter(isInflow).map((t) => ({ amount: Number(t.amount), date: t.transfer_date })),
+      .map((i) => ({ amount: num(i.applied_amount), date: i.applied_date })),
+    ...transfers.filter(isInflow).map((t) => ({ amount: num(t.amount), date: t.transfer_date })),
   ];
   const cashOut: Array<{ amount: number; date: string }> = [
-    ...payOut.map((p) => ({ amount: Number(p.amount), date: p.date })),
+    ...payOut.map((p) => ({ amount: num(p.amount), date: p.date })),
     ...invs
       .filter((i) => i.tipo === "aplicacao" && !i.is_opening_balance)
-      .map((i) => ({ amount: Number(i.applied_amount), date: i.applied_date })),
-    ...transfers.filter(isOutflow).map((t) => ({ amount: Number(t.amount), date: t.transfer_date })),
+      .map((i) => ({ amount: num(i.applied_amount), date: i.applied_date })),
+    ...transfers.filter(isOutflow).map((t) => ({ amount: num(t.amount), date: t.transfer_date })),
   ];
 
   const somaAte = (rows: Array<{ amount: number; date: string }>, limite: string) =>
@@ -120,7 +131,7 @@ function slice(input: CashInput, companyIds: Set<string>): CashSlice {
   const somaNo = (rows: Array<{ amount: number; date: string }>, from: string, to: string) =>
     sumMoney(rows.filter((r) => inRange(r.date, from, to)).map((r) => r.amount));
 
-  const cadastrado = sumMoney(cashAccounts.map((a) => a.initial_balance));
+  const cadastrado = sumMoney(cashAccounts.map((a) => num(a.initial_balance)));
   const antes = (limite: string) => cadastrado.plus(somaAte(cashIn, limite)).minus(somaAte(cashOut, limite));
 
   const caixaInicial = antes(previousDay(input.from));
@@ -132,7 +143,7 @@ function slice(input: CashInput, companyIds: Set<string>): CashSlice {
   const investido = invs
     .filter((i) => i.applied_date <= input.to)
     .reduce(
-      (acc, i) => (i.tipo === "aplicacao" ? acc.plus(i.applied_amount) : acc.minus(i.applied_amount)),
+      (acc, i) => (i.tipo === "aplicacao" ? acc.plus(num(i.applied_amount)) : acc.minus(num(i.applied_amount))),
       zero()
     );
 
@@ -150,10 +161,10 @@ function slice(input: CashInput, companyIds: Set<string>): CashSlice {
     fluxoLiquido: entradas.minus(saidas),
     caixaFinal,
     caixaHoje,
-    aReceber: sumMoney(mine(input.aReceber).filter((p) => inRange(p.date, input.from, input.to)).map((p) => p.amount)),
-    aPagar: sumMoney(mine(input.aPagar).filter((p) => inRange(p.date, input.from, input.to)).map((p) => p.amount)),
+    aReceber: sumMoney(mine(input.aReceber).filter((p) => inRange(p.date, input.from, input.to)).map((p) => num(p.amount))),
+    aPagar: sumMoney(mine(input.aPagar).filter((p) => inRange(p.date, input.from, input.to)).map((p) => num(p.amount))),
     investido,
-    bloqueado: sumMoney(cashAccounts.map((a) => a.blocked_balance ?? 0)),
+    bloqueado: sumMoney(cashAccounts.map((a) => num(a.blocked_balance))),
     variacao,
     variacaoPerc,
     ultimoLancamento: datas.length ? datas[datas.length - 1] : null,
@@ -200,7 +211,7 @@ export function buildExecutiveCash(
           cashIds.has(t.to_account_id) &&
           inRange(t.transfer_date, input.from, input.to)
       )
-      .map((t) => t.amount)
+      .map((t) => num(t.amount))
   );
 
   // A soma das empresas tem de reconciliar com o consolidado. Se divergir, é porque existe

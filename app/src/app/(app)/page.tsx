@@ -23,6 +23,11 @@ function compacto(v: number) {
   if (abs >= 10_000) return `${sinal}R$ ${(abs / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil`;
   return formatBRL(v);
 }
+/** Nunca deixa NaN/null chegar no Decimal, que lança exceção. */
+function n(v: unknown) {
+  const x = Number(v);
+  return Number.isFinite(x) ? x : 0;
+}
 function comSinal(v: number) {
   return `${v > 0 ? "+" : ""}${formatBRL(v)}`;
 }
@@ -100,8 +105,8 @@ export default async function DashboardPage({
   const dados = buildExecutiveCash(
     {
       accounts: (contas ?? []) as any[],
-      inflows: (entradasRaw ?? []).map((r: any) => ({ amount: r.amount, date: r.received_at, companyId: r.revenues.company_id })),
-      outflows: (saidasRaw ?? []).map((p: any) => ({ amount: p.amount, date: p.paid_at, companyId: p.payments.company_id })),
+      inflows: (entradasRaw ?? []).map((r: any) => ({ amount: r.amount, date: r.received_at, companyId: r.revenues?.company_id })),
+      outflows: (saidasRaw ?? []).map((p: any) => ({ amount: p.amount, date: p.paid_at, companyId: p.payments?.company_id })),
       aReceber: (aReceberRaw ?? []).map((r: any) => ({ amount: r.expected_amount, date: r.expected_date, companyId: r.company_id })),
       aPagar: (aPagarRaw ?? []).map((p: any) => ({ amount: p.gross_amount, date: p.due_date, companyId: p.company_id })),
       investments: (investRaw ?? []).map((i: any) => ({ ...i, companyId: i.company_id })),
@@ -121,14 +126,14 @@ export default async function DashboardPage({
   const escopo = scopeAccounts(undefined, contasCaixa);
   const { isInflow, isOutflow } = transferDirection(escopo, new Set(empresas.map((c: any) => c.id)));
   const movIn = [
-    ...(entradasRaw ?? []).map((r: any) => ({ amount: Number(r.amount), date: r.received_at })),
-    ...(investRaw ?? []).filter((i: any) => i.tipo === "resgate").map((i: any) => ({ amount: Number(i.applied_amount), date: i.applied_date })),
-    ...((transfRaw ?? []) as any[]).filter(isInflow).map((t: any) => ({ amount: Number(t.amount), date: t.transfer_date })),
+    ...(entradasRaw ?? []).map((r: any) => ({ amount: n(r.amount), date: r.received_at })),
+    ...(investRaw ?? []).filter((i: any) => i.tipo === "resgate").map((i: any) => ({ amount: n(i.applied_amount), date: i.applied_date })),
+    ...((transfRaw ?? []) as any[]).filter(isInflow).map((t: any) => ({ amount: n(t.amount), date: t.transfer_date })),
   ];
   const movOut = [
-    ...(saidasRaw ?? []).map((p: any) => ({ amount: Number(p.amount), date: p.paid_at })),
-    ...(investRaw ?? []).filter((i: any) => i.tipo === "aplicacao" && !i.is_opening_balance).map((i: any) => ({ amount: Number(i.applied_amount), date: i.applied_date })),
-    ...((transfRaw ?? []) as any[]).filter(isOutflow).map((t: any) => ({ amount: Number(t.amount), date: t.transfer_date })),
+    ...(saidasRaw ?? []).map((p: any) => ({ amount: n(p.amount), date: p.paid_at })),
+    ...(investRaw ?? []).filter((i: any) => i.tipo === "aplicacao" && !i.is_opening_balance).map((i: any) => ({ amount: n(i.applied_amount), date: i.applied_date })),
+    ...((transfRaw ?? []) as any[]).filter(isOutflow).map((t: any) => ({ amount: n(t.amount), date: t.transfer_date })),
   ];
   const noIntervalo = (rows: Array<{ amount: number; date: string }>, a: string, b: string) =>
     sumMoney(rows.filter((r) => r.date >= a && r.date <= b).map((r) => r.amount));
