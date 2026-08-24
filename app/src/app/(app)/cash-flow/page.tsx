@@ -15,26 +15,35 @@ type Granularity = "semana" | "mes" | "trimestre";
 export default async function CashFlowPage({
   searchParams,
 }: {
-  searchParams: { company_id?: string; visao?: string; ano?: string; mes?: string; pagamentos?: string; bank_account_id?: string };
+  searchParams: { company_id?: string; visao?: string; ano?: string; mes?: string; pagamentos?: string; bank_account_id?: string; prev_company_id?: string };
 }) {
   const supabase = createClient();
   const companyId = searchParams.company_id;
   const rawBankAccountId = searchParams.bank_account_id;
+  // o formulário reenvia todos os campos juntos: sem isto, "todas as contas" (valor inicial do
+  // select, antes de qualquer escolha) parece uma escolha deliberada assim que a empresa muda
+  // só conta como "mudou" quando o próprio formulário confirma qual era a empresa antes —
+  // um link externo que já chegue com company_id + bank_account_id definidos (sem o campo
+  // oculto) não deve ter a conta escolhida sobrescrita pelo padrão
+  const empresaMudou = searchParams.prev_company_id !== undefined && companyId !== searchParams.prev_company_id;
 
-  // Ao escolher (ou trocar de) empresa, pré-seleciona a conta que ela mais usa — só assim que
-  // o usuário chega, ou quando a conta na URL não pertence mais à empresa escolhida. Escolher
-  // "todas as contas" é explícito e nunca é sobrescrito.
+  // Ao escolher (ou trocar de) empresa, pré-seleciona a conta padrão dela — só assim que o
+  // usuário chega, ou quando a conta na URL não pertence mais à empresa escolhida. Escolher
+  // "todas as contas" depois de já estar na empresa é explícito e nunca é sobrescrito.
   if (companyId) {
     const { data: contasDaEmpresa } = await supabase.from("bank_accounts").select("id").eq("company_id", companyId);
     const idsValidos = new Set((contasDaEmpresa ?? []).map((a) => a.id));
-    if (precisaContaPadrao(rawBankAccountId, idsValidos)) {
+    if (precisaContaPadrao(rawBankAccountId, idsValidos, empresaMudou)) {
       const padrao = await contaPadraoDaEmpresa(supabase, companyId);
       const params = new URLSearchParams();
       for (const [chave, valor] of Object.entries(searchParams)) {
-        if (valor !== undefined) params.set(chave, valor as string);
+        if (valor !== undefined && chave !== "prev_company_id") params.set(chave, valor as string);
       }
       if (padrao) params.set("bank_account_id", padrao);
       else params.delete("bank_account_id");
+      // registra a empresa como "já resolvida" no destino, senão a página redirecionada
+      // acha de novo que a empresa mudou e redireciona pra si mesma sem parar
+      params.set("prev_company_id", companyId);
       redirect(`/cash-flow?${params.toString()}`);
     }
   }
@@ -301,6 +310,9 @@ export default async function CashFlowPage({
       />
 
       <AutoSubmitForm className="flex flex-wrap gap-3 mb-6">
+        {/* marca a empresa atual como "anterior" para o próximo envio — é o que permite
+            diferenciar troca de empresa de "todas as contas" escolhido de propósito */}
+        <input type="hidden" name="prev_company_id" defaultValue={companyId ?? ""} />
         <select name="company_id" defaultValue={companyId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
           <option value="">Todas as empresas</option>
           {(companies ?? []).map((c) => (
