@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { FinancialCard } from "@/components/FinancialCard";
@@ -7,6 +8,7 @@ import { formatBRL, sumMoney } from "@/lib/calculations/money";
 import { getWeekBuckets, getMonthBuckets, getQuarterBuckets, shiftDay, type Bucket } from "@/lib/calculations/cashflowPeriods";
 import { scopeAccounts, transferDirection } from "@/lib/calculations/transfers";
 import { eliminarIntercompany } from "@/lib/calculations/intercompany";
+import { contaPadraoDaEmpresa, precisaContaPadrao } from "@/lib/calculations/defaultAccount";
 
 type Granularity = "semana" | "mes" | "trimestre";
 
@@ -17,7 +19,27 @@ export default async function CashFlowPage({
 }) {
   const supabase = createClient();
   const companyId = searchParams.company_id;
-  const bankAccountId = searchParams.bank_account_id;
+  const rawBankAccountId = searchParams.bank_account_id;
+
+  // Ao escolher (ou trocar de) empresa, pré-seleciona a conta que ela mais usa — só assim que
+  // o usuário chega, ou quando a conta na URL não pertence mais à empresa escolhida. Escolher
+  // "todas as contas" é explícito e nunca é sobrescrito.
+  if (companyId) {
+    const { data: contasDaEmpresa } = await supabase.from("bank_accounts").select("id").eq("company_id", companyId);
+    const idsValidos = new Set((contasDaEmpresa ?? []).map((a) => a.id));
+    if (precisaContaPadrao(rawBankAccountId, idsValidos)) {
+      const padrao = await contaPadraoDaEmpresa(supabase, companyId);
+      const params = new URLSearchParams();
+      for (const [chave, valor] of Object.entries(searchParams)) {
+        if (valor !== undefined) params.set(chave, valor as string);
+      }
+      if (padrao) params.set("bank_account_id", padrao);
+      else params.delete("bank_account_id");
+      redirect(`/cash-flow?${params.toString()}`);
+    }
+  }
+
+  const bankAccountId = rawBankAccountId && rawBankAccountId !== "todas" ? rawBankAccountId : undefined;
   const granularity: Granularity =
     searchParams.visao === "mes" || searchParams.visao === "trimestre" ? (searchParams.visao as Granularity) : "semana";
   // realizados = só baixados; provisionados = só futuros/pendentes; ambos = os dois
@@ -287,8 +309,8 @@ export default async function CashFlowPage({
             </option>
           ))}
         </select>
-        <select name="bank_account_id" defaultValue={bankAccountId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="">Todas as contas</option>
+        <select name="bank_account_id" defaultValue={rawBankAccountId ?? "todas"} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+          <option value="todas">Todas as contas</option>
           {(allBankAccounts ?? []).map((a: any) => (
             <option key={a.id} value={a.id}>
               {a.nickname ?? a.bank_name}

@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 import { CollapsiblePanel } from "@/components/CollapsiblePanel";
 import { formatBRL, sumMoney } from "@/lib/calculations/money";
 import { scopeAccounts, transferDirection } from "@/lib/calculations/transfers";
+import { contaPadraoDaEmpresa, precisaContaPadrao } from "@/lib/calculations/defaultAccount";
 import { DetalhadoTable, type DayRow } from "./DetalhadoTable";
 
 const TRANSFER_LABELS: Record<string, string> = {
@@ -45,7 +47,27 @@ export default async function CashFlowDetalhadoPage({
 }) {
   const supabase = createClient();
   const companyId = searchParams.company_id;
-  const bankAccountId = searchParams.bank_account_id;
+  const rawBankAccountId = searchParams.bank_account_id;
+
+  // Ao escolher (ou trocar de) empresa, pré-seleciona a conta que ela mais usa — mesma regra
+  // do Cash Flow, para as duas telas abrirem já no filtro certo. "Todas as contas" é explícito
+  // e nunca é sobrescrito.
+  if (companyId) {
+    const { data: contasDaEmpresa } = await supabase.from("bank_accounts").select("id").eq("company_id", companyId);
+    const idsValidos = new Set((contasDaEmpresa ?? []).map((a) => a.id));
+    if (precisaContaPadrao(rawBankAccountId, idsValidos)) {
+      const padrao = await contaPadraoDaEmpresa(supabase, companyId);
+      const params = new URLSearchParams();
+      for (const [chave, valor] of Object.entries(searchParams)) {
+        if (valor !== undefined) params.set(chave, valor as string);
+      }
+      if (padrao) params.set("bank_account_id", padrao);
+      else params.delete("bank_account_id");
+      redirect(`/cash-flow/detalhado?${params.toString()}`);
+    }
+  }
+
+  const bankAccountId = rawBankAccountId && rawBankAccountId !== "todas" ? rawBankAccountId : undefined;
 
   const today = new Date();
   const defaultFrom = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
@@ -387,8 +409,8 @@ export default async function CashFlowDetalhadoPage({
             </option>
           ))}
         </select>
-        <select name="bank_account_id" defaultValue={bankAccountId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="">Todas as contas</option>
+        <select name="bank_account_id" defaultValue={rawBankAccountId ?? "todas"} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+          <option value="todas">Todas as contas</option>
           {(allBankAccounts ?? []).map((a: any) => (
             <option key={a.id} value={a.id}>
               {a.nickname ?? a.bank_name}
