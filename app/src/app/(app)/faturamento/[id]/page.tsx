@@ -550,6 +550,18 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   const client = inv.billing_clients as any;
   const company = null;
 
+  // contas da empresa, pra baixa poder trocar o banco de recebimento/pagamento; a conta
+  // marcada de início é o Inter, que é onde a fatura provisionou na emissão
+  const { data: bankAccounts } = await supabase
+    .from("bank_accounts")
+    .select("id, nickname, bank_name")
+    .eq("company_id", inv.company_id)
+    .order("nickname");
+  const defaultBankAccountId =
+    (bankAccounts ?? []).find(
+      (a) => a.nickname?.toLowerCase().includes("inter") || a.bank_name?.toLowerCase().includes("inter")
+    )?.id ?? (bankAccounts ?? [])[0]?.id ?? null;
+
   // Parse subcontas_detalhe
   const rawDet = inv.subcontas_detalhe;
   const isBets = ["bet", "bets"].includes(inv.modelo);
@@ -624,7 +636,13 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
                 </div>
               )}
             </div>
-            <InvoiceActions invoiceId={inv.id} status={inv.status} dataVencimento={inv.data_vencimento} />
+            <InvoiceActions
+              invoiceId={inv.id}
+              status={inv.status}
+              dataVencimento={inv.data_vencimento}
+              bankAccounts={bankAccounts ?? []}
+              defaultBankAccountId={defaultBankAccountId}
+            />
           </div>
 
           {(inv.revenue_id || inv.payment_id) && (

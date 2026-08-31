@@ -3,11 +3,27 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { baixarFatura, cancelarFatura, reagendarFatura } from "../actions";
 
-export function InvoiceActions({ invoiceId, status, dataVencimento }: { invoiceId: string; status: string; dataVencimento?: string | null }) {
+type BankAccount = { id: string; nickname: string | null; bank_name: string | null };
+
+export function InvoiceActions({
+  invoiceId,
+  status,
+  dataVencimento,
+  bankAccounts,
+  defaultBankAccountId,
+}: {
+  invoiceId: string;
+  status: string;
+  dataVencimento?: string | null;
+  bankAccounts: BankAccount[];
+  /** conta Inter da empresa — é onde a fatura provisionou na emissão, então é o palpite certo */
+  defaultBankAccountId: string | null;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const hoje = new Date().toISOString().split("T")[0];
   const [dataPgto, setDataPgto] = useState(dataVencimento ?? hoje);
+  const [bankAccountId, setBankAccountId] = useState(defaultBankAccountId ?? "");
   const [novoVenc, setNovoVenc] = useState(dataVencimento ?? hoje);
   const [reagendando, setReagendando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +33,7 @@ export function InvoiceActions({ invoiceId, status, dataVencimento }: { invoiceI
   function handleBaixar() {
     startTransition(async () => {
       setError(null);
-      const res = await baixarFatura(invoiceId, dataPgto);
+      const res = await baixarFatura(invoiceId, dataPgto, bankAccountId || undefined);
       if (res.error) { setError(res.error); return; }
       router.refresh();
     });
@@ -48,6 +64,19 @@ export function InvoiceActions({ invoiceId, status, dataVencimento }: { invoiceI
         <label className="block text-xs text-ps-muted mb-1">Data de pagamento</label>
         <input type="date" value={dataPgto} onChange={e => setDataPgto(e.target.value)}
           className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-1.5 text-sm bg-white" />
+      </div>
+      <div>
+        <label className="block text-xs text-ps-muted mb-1">Recebemos / pagamos por</label>
+        <select value={bankAccountId} onChange={e => setBankAccountId(e.target.value)}
+          className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-1.5 text-sm bg-white">
+          {bankAccounts.length === 0 && <option value="">Nenhuma conta cadastrada</option>}
+          {bankAccounts.map(a => (
+            <option key={a.id} value={a.id}>{a.nickname || a.bank_name || "Conta"}</option>
+          ))}
+        </select>
+        <p className="mt-1 text-[11px] text-ps-muted">
+          A fatura provisionou no Inter — troque aqui só se o pagamento/recebimento foi por outro banco.
+        </p>
       </div>
       <button onClick={handleBaixar} disabled={isPending}
         className="w-full bg-ps-green text-ps-navy text-sm font-bold rounded-ps-sm py-2 hover:bg-ps-green/90 disabled:opacity-60 transition-colors">

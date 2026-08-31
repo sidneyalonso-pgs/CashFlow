@@ -228,7 +228,12 @@ export async function emitirFatura(data: {
   return { error: null, id: invoice.id };
 }
 
-export async function baixarFatura(invoiceId: string, dataPgto: string) {
+/**
+ * @param bankAccountId conta onde o dinheiro efetivamente entrou/saiu. A fatura provisiona
+ * sempre no Inter na emissão (sem perguntar nada); na baixa, se o pagamento/recebimento
+ * aconteceu por outro banco, esta é a chance de corrigir — sem parâmetro, cai no Inter.
+ */
+export async function baixarFatura(invoiceId: string, dataPgto: string, bankAccountId?: string) {
   const supabase = createClient();
   const { data: invoiceRow } = await supabase
     .from("billing_invoices")
@@ -238,7 +243,7 @@ export async function baixarFatura(invoiceId: string, dataPgto: string) {
   if (!invoiceRow) return { error: "Fatura não encontrada." };
   const invoice = invoiceRow as any;
 
-  const interAccountId = await getInterAccountId(supabase, invoice.company_id);
+  const interAccountId = bankAccountId || (await getInterAccountId(supabase, invoice.company_id));
 
   // Fatura importada de fora do sistema não tem receita nem repasse criados. Sem gerar
   // agora, a baixa marcaria a fatura como paga sem nada aparecer no Cash Flow.
