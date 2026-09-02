@@ -32,10 +32,11 @@ function dataBR(iso: string) {
 export default async function RelatorioFaturamentoPage({
   searchParams,
 }: {
-  searchParams: { mes?: string; company_id?: string };
+  searchParams: { mes?: string; company_id?: string; modo?: string };
 }) {
   const supabase = createClient();
   const mes = searchParams.mes ?? new Date().toISOString().slice(0, 7);
+  const modo = searchParams.modo === "competencia" ? "competencia" : "periodo";
   const [ano, mesNum] = mes.split("-").map(Number);
   const from = `${mes}-01`;
   const to = new Date(Date.UTC(ano, mesNum, 0)).toISOString().slice(0, 10);
@@ -56,7 +57,7 @@ export default async function RelatorioFaturamentoPage({
 
   const rows = (invoicesRaw ?? [])
     .map((r: any) => ({ ...r, ...psValues(r), data: dataOperativa(r) }))
-    .filter((r: any) => r.data >= from && r.data <= to)
+    .filter((r: any) => (modo === "competencia" ? r.competencia === mes : r.data >= from && r.data <= to))
     .sort((a: any, b: any) => a.data.localeCompare(b.data));
 
   const repasses = rows.filter((r: any) => r.repasse > 0);
@@ -87,8 +88,12 @@ export default async function RelatorioFaturamentoPage({
             <option key={c.id} value={c.id}>{c.trade_name || c.legal_name}</option>
           ))}
         </select>
+        <select name="modo" defaultValue={modo} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+          <option value="periodo">Filtrar por período de repasse</option>
+          <option value="competencia">Filtrar por competência</option>
+        </select>
         <button className="text-sm text-ps-navy underline" type="submit">Filtrar</button>
-        <ExportMonthlyReportButton mes={mes} companyId={searchParams.company_id} />
+        <ExportMonthlyReportButton mes={mes} companyId={searchParams.company_id} modo={modo} />
       </AutoSubmitForm>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -102,8 +107,11 @@ export default async function RelatorioFaturamentoPage({
       <Secao titulo="Bets — receita recebida" rows={outrasReceitas} campo="receita" valorLabel="Valor" rotuloPago="Recebido" vazio="Nenhuma fatura de bets provisionada ou recebida nesse mês." />
 
       <p className="text-xs text-ps-muted mt-2">
-        Cada linha usa a data da baixa quando já foi paga, ou a data de vencimento quando ainda
-        está pendente — é por isso que a mesma fatura só aparece uma vez, no mês em que ela pertence.
+        {modo === "competencia" ? (
+          <>Filtro por <strong>competência</strong>: mostra toda fatura cuja competência é {mes}, mesmo que a baixa ou o vencimento caia em outro mês.</>
+        ) : (
+          <>Filtro por <strong>período de repasse</strong>: cada linha usa a data da baixa quando já foi paga, ou a data de vencimento quando ainda está pendente — por isso uma fatura de competência diferente pode aparecer aqui se o repasse cai nesse mês. Troque para "competência" acima se quiser ver pelo mês a que a fatura se refere.</>
+        )}{" "}
         Faturas de transação não entram em "receita": o fee delas já é reconhecido diariamente pelo
         CCME/FEE, e listar aqui de novo contaria a mesma receita duas vezes. O repasse da transação
         continua entrando normalmente na primeira seção.

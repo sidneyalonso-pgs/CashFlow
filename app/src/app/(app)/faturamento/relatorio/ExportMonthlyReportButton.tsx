@@ -29,7 +29,7 @@ function formatNumberBR(v: number) {
 }
 
 /** Mesma lógica e mesmos números da tela — o CSV é só a versão para anexar/enviar por e-mail. */
-export function ExportMonthlyReportButton({ mes, companyId }: { mes: string; companyId?: string }) {
+export function ExportMonthlyReportButton({ mes, companyId, modo }: { mes: string; companyId?: string; modo?: string }) {
   const [loading, setLoading] = useState(false);
 
   async function handleExport() {
@@ -48,7 +48,7 @@ export function ExportMonthlyReportButton({ mes, companyId }: { mes: string; com
     const { data } = await query;
     const rows = (data ?? [])
       .map((r: any) => ({ ...r, ...psValues(r), data: dataOperativa(r) }))
-      .filter((r: any) => r.data >= from && r.data <= to)
+      .filter((r: any) => (modo === "competencia" ? r.competencia === mes : r.data >= from && r.data <= to))
       .sort((a: any, b: any) => a.data.localeCompare(b.data));
 
     const header = ["Data", "Tipo", "Cliente", "Competência", "Modelo", "Valor", "Status"];
