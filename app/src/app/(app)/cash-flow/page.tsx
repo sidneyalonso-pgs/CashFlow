@@ -300,12 +300,20 @@ export default async function CashFlowPage({
         title="Cash Flow"
         subtitle="Resumo executivo e evolução do saldo de caixa"
         actions={
-          <Link
-            href="/cash-flow/detalhado"
-            className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
-          >
-            Ver Cash Flow Detalhado
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href="/cash-flow/demo"
+              className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
+            >
+              Ver como demonstração
+            </Link>
+            <Link
+              href="/cash-flow/detalhado"
+              className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
+            >
+              Ver Cash Flow Detalhado
+            </Link>
+          </div>
         }
       />
 
