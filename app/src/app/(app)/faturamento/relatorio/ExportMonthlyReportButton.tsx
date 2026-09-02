@@ -5,12 +5,19 @@ import { createClient } from "@/lib/supabase/client";
 
 const NO_REPASSE_MODELS = ["mensalidade", "mensalidade_intro", "bet", "bets"];
 const isMensalidade = (modelo: string) => modelo?.startsWith("mensalidade");
+const isBets = (modelo: string) => modelo === "bet" || modelo === "bets";
 
 function psValues(inv: { modelo: string; total: number; total_faturado: number; total_repasse: number }) {
   const noRepasse = NO_REPASSE_MODELS.includes(inv.modelo);
   const receita = noRepasse ? Number(inv.total) : Number(inv.total_faturado) - Number(inv.total_repasse);
   const repasse = noRepasse ? 0 : Number(inv.total_repasse);
   return { receita, repasse };
+}
+
+/** Data que representa o lançamento no mês: a baixa se já saiu, senão a expectativa. */
+function dataOperativa(inv: { status: string; data_pgto: string | null; data_vencimento: string | null; data_repasse: string | null; competencia: string }) {
+  if (inv.status === "pago" && inv.data_pgto) return inv.data_pgto;
+  return inv.data_vencimento ?? inv.data_repasse ?? `${inv.competencia}-01`;
 }
 
 function formatDateBR(iso: string) {
@@ -34,26 +41,28 @@ export function ExportMonthlyReportButton({ mes, companyId }: { mes: string; com
 
     let query = supabase
       .from("billing_invoices")
-      .select("modelo, total, total_faturado, total_repasse, data_pgto, competencia, billing_clients(razao)")
-      .eq("status", "pago")
-      .gte("data_pgto", from)
-      .lte("data_pgto", to)
-      .order("data_pgto");
+      .select("modelo, status, total, total_faturado, total_repasse, data_pgto, data_vencimento, data_repasse, competencia, billing_clients(razao)")
+      .in("status", ["pago", "pendente"]);
     if (companyId) query = query.eq("company_id", companyId);
 
     const { data } = await query;
-    const rows = (data ?? []).map((r: any) => ({ ...r, ...psValues(r) }));
+    const rows = (data ?? [])
+      .map((r: any) => ({ ...r, ...psValues(r), data: dataOperativa(r) }))
+      .filter((r: any) => r.data >= from && r.data <= to)
+      .sort((a: any, b: any) => a.data.localeCompare(b.data));
 
-    const header = ["Data da baixa", "Tipo", "Cliente", "Competência", "Modelo", "Valor"];
+    const header = ["Data", "Tipo", "Cliente", "Competência", "Modelo", "Valor", "Status"];
+    const linhas: string[][] = [];
+    for (const r of rows) {
+      const statusLabel = r.status === "pago" ? "Baixado" : "Pendente";
+      if (r.repasse > 0) linhas.push([formatDateBR(r.data), "Repasse", r.billing_clients?.razao ?? "", r.competencia, r.modelo, formatNumberBR(r.repasse), statusLabel]);
+      if (isMensalidade(r.modelo) && r.receita > 0) linhas.push([formatDateBR(r.data), "Mensalidade", r.billing_clients?.razao ?? "", r.competencia, r.modelo, formatNumberBR(r.receita), statusLabel]);
+      if (isBets(r.modelo) && r.receita > 0) linhas.push([formatDateBR(r.data), "Bets", r.billing_clients?.razao ?? "", r.competencia, r.modelo, formatNumberBR(r.receita), statusLabel]);
+    }
+
     const csvLines = [
       header.join(";"),
-      ...rows.map((r: any) => {
-        const tipo = r.repasse > 0 ? "Repasse pago" : isMensalidade(r.modelo) ? "Mensalidade recebida" : "Receita recebida";
-        const valor = r.repasse > 0 ? r.repasse : r.receita;
-        return [formatDateBR(r.data_pgto), tipo, r.billing_clients?.razao ?? "", r.competencia, r.modelo, formatNumberBR(valor)]
-          .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
-          .join(";");
-      }),
+      ...linhas.map((cols) => cols.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";")),
     ];
 
     const blob = new Blob(["﻿" + csvLines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
