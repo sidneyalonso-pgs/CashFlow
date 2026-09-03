@@ -342,15 +342,21 @@ export async function reagendarFatura(invoiceId: string, novaData: string) {
   const supabase = createClient();
   const { data: invoice } = await supabase
     .from("billing_invoices")
-    .select("status, revenue_id, payment_id")
+    .select("status, revenue_id, payment_id, subcontas_detalhe")
     .eq("id", invoiceId).single();
 
   if (!invoice) return { error: "Fatura não encontrada." };
   if (invoice.status !== "pendente") return { error: "Só é possível reagendar fatura pendente." };
 
+  // subcontas_detalhe.vencimento é o que o documento da fatura mostra — sem isto ele fica
+  // com a data antiga mesmo depois de reagendada
+  const detalheAtualizado = invoice.subcontas_detalhe
+    ? { ...invoice.subcontas_detalhe, vencimento: novaData }
+    : invoice.subcontas_detalhe;
+
   const { error: invErr } = await supabase
     .from("billing_invoices")
-    .update({ data_vencimento: novaData, data_repasse: novaData })
+    .update({ data_vencimento: novaData, data_repasse: novaData, subcontas_detalhe: detalheAtualizado })
     .eq("id", invoiceId);
   if (invErr) return { error: invErr.message };
 
