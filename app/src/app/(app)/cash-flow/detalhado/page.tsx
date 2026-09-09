@@ -235,12 +235,11 @@ export default async function CashFlowDetalhadoPage({
   );
 
   const allPriorTransfers = (priorTransfersRaw ?? []) as any[];
-  const priorTransferNet = sumMoney(
-    allPriorTransfers.map((t: any) => {
-      if (isTransferOut(t)) return -Number(t.amount);
-      if (isTransferIn(t)) return Number(t.amount);
-      return 0;
-    })
+  // uma transferência interna entre duas contas da própria empresa (ex.: "todas as contas") é
+  // saída E entrada ao mesmo tempo — precisa somar os dois efeitos, não só um (se/senão),
+  // senão ela vira uma saída pura e o saldo inicial de "todas as contas" cai artificialmente
+  const priorTransferNet = sumMoney(allPriorTransfers.map((t: any) => (isTransferOut(t) ? -Number(t.amount) : 0))).plus(
+    sumMoney(allPriorTransfers.map((t: any) => (isTransferIn(t) ? Number(t.amount) : 0)))
   );
 
   const openingBalance = initialCashBalance
