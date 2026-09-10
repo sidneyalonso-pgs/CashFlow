@@ -185,17 +185,19 @@ export async function settlePayment(paymentId: string, amount: number, paidAt: s
     data: { user },
   } = await supabase.auth.getUser();
 
-  // remove baixas anteriores antes de inserir a nova, senao o pagamento passa a
-  // contar 2x no Cash Flow (uma linha por baixa)
-  await supabase.from("payment_realizations").delete().eq("payment_id", paymentId);
-
-  const { error: realizationError } = await supabase.from("payment_realizations").insert({
-    payment_id: paymentId,
-    amount,
-    paid_at: paidAt,
-    bank_account_id: bankAccountId,
-    created_by: user?.id,
-  });
+  // upsert por payment_id (chave única no banco): substitui a baixa anterior atomicamente,
+  // sem a janela de corrida do apagar-depois-inserir que já duplicou baixa mais de uma vez
+  // (duplo clique / reenvio de formulário conseguiam inserir os dois antes que um apagasse o outro)
+  const { error: realizationError } = await supabase.from("payment_realizations").upsert(
+    {
+      payment_id: paymentId,
+      amount,
+      paid_at: paidAt,
+      bank_account_id: bankAccountId,
+      created_by: user?.id,
+    },
+    { onConflict: "payment_id" }
+  );
   if (realizationError) return { error: realizationError.message };
 
   const { error } = await supabase
@@ -426,14 +428,15 @@ export async function quickMarkPaid(paymentId: string, paidAt: string, amount: n
     data: { user },
   } = await supabase.auth.getUser();
 
-  await supabase.from("payment_realizations").delete().eq("payment_id", paymentId);
-
-  const { error: re } = await supabase.from("payment_realizations").insert({
-    payment_id: paymentId,
-    amount,
-    paid_at: paidAt,
-    created_by: user?.id,
-  });
+  const { error: re } = await supabase.from("payment_realizations").upsert(
+    {
+      payment_id: paymentId,
+      amount,
+      paid_at: paidAt,
+      created_by: user?.id,
+    },
+    { onConflict: "payment_id" }
+  );
   if (re) return { error: re.message };
 
   const { error } = await supabase

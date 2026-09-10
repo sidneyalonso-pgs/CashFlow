@@ -288,14 +288,17 @@ export async function baixarFatura(invoiceId: string, dataPgto: string, bankAcco
       }).eq("id", invoice.revenue_id);
       if (error) return { error: error.message };
 
-      // substitui a baixa anterior para a receita nao contar duas vezes
-      await supabase.from("revenue_realizations").delete().eq("revenue_id", invoice.revenue_id);
-      const { error: realErr } = await supabase.from("revenue_realizations").insert({
-        revenue_id: invoice.revenue_id,
-        amount,
-        received_at: dataPgto,
-        bank_account_id: interAccountId,
-      });
+      // upsert por revenue_id (chave única no banco): substitui a baixa anterior atomicamente,
+      // sem a janela de corrida do apagar-depois-inserir
+      const { error: realErr } = await supabase.from("revenue_realizations").upsert(
+        {
+          revenue_id: invoice.revenue_id,
+          amount,
+          received_at: dataPgto,
+          bank_account_id: interAccountId,
+        },
+        { onConflict: "revenue_id" }
+      );
       if (realErr) return { error: realErr.message };
     }
   }
@@ -312,20 +315,28 @@ export async function baixarFatura(invoiceId: string, dataPgto: string, bankAcco
       }).eq("id", invoice.payment_id);
       if (error) return { error: error.message };
 
-      // sem esta baixa o repasse some do Cash Flow: sai de provisionado e nao entra em realizado
-      await supabase.from("payment_realizations").delete().eq("payment_id", invoice.payment_id);
-      const { error: realErr } = await supabase.from("payment_realizations").insert({
-        payment_id: invoice.payment_id,
-        amount,
-        paid_at: dataPgto,
-        bank_account_id: interAccountId,
-      });
+      // sem esta baixa o repasse some do Cash Flow: sai de provisionado e nao entra em realizado.
+      // upsert por payment_id (chave única no banco) em vez de apagar-e-inserir: essa dupla
+      // requisição já duplicou baixa mais de uma vez (SKY, VIDI TECH) quando o botão era clicado
+      // duas vezes — as duas conseguiam inserir antes que uma apagasse a da outra
+      const { error: realErr } = await supabase.from("payment_realizations").upsert(
+        {
+          payment_id: invoice.payment_id,
+          amount,
+          paid_at: dataPgto,
+          bank_account_id: interAccountId,
+        },
+        { onConflict: "payment_id" }
+      );
       if (realErr) return { error: realErr.message };
     }
   }
 
   revalidatePath("/faturamento");
   revalidatePath("/faturamento/faturas");
+  // sem isto a página da própria fatura ficava com o status "pendente" em cache mesmo já paga,
+  // levando a clicar em "Dar baixa" de novo e duplicar a baixa (aconteceu com a SKY)
+  revalidatePath(`/faturamento/${invoiceId}`);
   revalidatePath("/receitas");
   revalidatePath("/pagamentos");
   revalidatePath("/cash-flow");

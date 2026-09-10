@@ -123,17 +123,18 @@ export async function settleRevenue(revenueId: string, amount: number, receivedA
     data: { user },
   } = await supabase.auth.getUser();
 
-  // remove baixas anteriores antes de inserir a nova, senao a receita passa a
-  // contar 2x no Cash Flow (uma linha por baixa)
-  await supabase.from("revenue_realizations").delete().eq("revenue_id", revenueId);
-
-  const { error: realizationError } = await supabase.from("revenue_realizations").insert({
-    revenue_id: revenueId,
-    amount,
-    received_at: receivedAt,
-    bank_account_id: bankAccountId,
-    created_by: user?.id,
-  });
+  // upsert por revenue_id (chave única no banco): substitui a baixa anterior atomicamente,
+  // sem a janela de corrida do apagar-depois-inserir que já duplicou baixa mais de uma vez
+  const { error: realizationError } = await supabase.from("revenue_realizations").upsert(
+    {
+      revenue_id: revenueId,
+      amount,
+      received_at: receivedAt,
+      bank_account_id: bankAccountId,
+      created_by: user?.id,
+    },
+    { onConflict: "revenue_id" }
+  );
   if (realizationError) return { error: realizationError.message };
 
   const { error } = await supabase
