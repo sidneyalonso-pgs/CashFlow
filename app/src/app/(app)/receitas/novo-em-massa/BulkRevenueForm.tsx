@@ -1,0 +1,238 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { createBulkRevenues } from "../actions";
+
+type BankAccount = { id: string; nickname: string | null; bank_name: string | null; company_id: string | null };
+
+type Row = {
+  id: number;
+  company_id: string;
+  description: string;
+  expected_amount: string;
+  date: string;
+  mode: "recebida" | "estimada";
+  category_id: string;
+  bank_account_id: string;
+  probability_pct: string;
+};
+
+function makeRow(id: number, today: string): Row {
+  return { id, company_id: "", description: "", expected_amount: "", date: today, mode: "recebida", category_id: "", bank_account_id: "", probability_pct: "100" };
+}
+
+export function BulkRevenueForm({
+  companies,
+  categories,
+  bankAccounts,
+}: {
+  companies: Array<{ id: string; legal_name: string; trade_name: string | null }>;
+  categories: Array<{ id: string; name: string }>;
+  bankAccounts: BankAccount[];
+}) {
+  const today = new Date().toISOString().split("T")[0];
+  const [rows, setRows] = useState<Row[]>([makeRow(1, today), makeRow(2, today), makeRow(3, today)]);
+  const [nextId, setNextId] = useState(4);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function addRow() {
+    setRows((prev) => [...prev, makeRow(nextId, today)]);
+    setNextId((n) => n + 1);
+  }
+
+  function removeRow(id: number) {
+    setRows((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  function updateRow(id: number, field: keyof Row, value: string) {
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+  }
+
+  function handleSubmit() {
+    const valid = rows.filter((r) => r.company_id && r.category_id && r.description && r.expected_amount && r.date);
+    if (valid.length === 0) {
+      setErrors(["Preencha pelo menos uma linha completa."]);
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await createBulkRevenues(
+        valid.map((r) => ({
+          company_id: r.company_id,
+          description: r.description,
+          expected_amount: Number(r.expected_amount),
+          date: r.date,
+          mode: r.mode,
+          category_id: r.category_id,
+          bank_account_id: r.bank_account_id || null,
+          probability_pct: r.probability_pct ? Number(r.probability_pct) : 100,
+        }))
+      );
+      if (result.errors.length > 0) {
+        setErrors(result.errors);
+      } else {
+        router.push("/receitas");
+      }
+    });
+  }
+
+  const inputCls = "w-full rounded-ps-sm border border-ps-navy/15 px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ps-green focus:border-ps-green";
+  const thCls = "text-left px-3 py-2 text-xs uppercase tracking-wide text-ps-muted whitespace-nowrap";
+
+  return (
+    <div className="space-y-4">
+      <div className="overflow-x-auto bg-white rounded-ps shadow-ps-sm border border-ps-navy/5">
+        <table className="w-full text-sm">
+          <thead className="bg-ps-bg-2">
+            <tr>
+              <th className={thCls}>Empresa *</th>
+              <th className={thCls}>Descrição *</th>
+              <th className={thCls}>Valor *</th>
+              <th className={thCls}>Data *</th>
+              <th className={thCls}>Modo</th>
+              <th className={thCls}>Categoria *</th>
+              <th className={thCls}>Conta recebedora</th>
+              <th className={thCls}>Probab. %</th>
+              <th className={thCls}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={row.id} className={`border-t border-ps-navy/5 ${i % 2 === 1 ? "bg-ps-bg-2/30" : ""}`}>
+                <td className="px-3 py-2 min-w-[160px]">
+                  <select value={row.company_id} onChange={(e) => updateRow(row.id, "company_id", e.target.value)} className={inputCls}>
+                    <option value="">Selecione...</option>
+                    {companies.map((c) => (
+                      <option key={c.id} value={c.id}>{c.trade_name || c.legal_name}</option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-3 py-2 min-w-[200px]">
+                  <input
+                    type="text"
+                    value={row.description}
+                    onChange={(e) => updateRow(row.id, "description", e.target.value)}
+                    placeholder="Descrição"
+                    className={inputCls}
+                  />
+                </td>
+                <td className="px-3 py-2 min-w-[110px]">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={row.expected_amount}
+                    onChange={(e) => updateRow(row.id, "expected_amount", e.target.value)}
+                    placeholder="0,00"
+                    className={inputCls}
+                  />
+                </td>
+                <td className="px-3 py-2 min-w-[140px]">
+                  <input
+                    type="date"
+                    value={row.date}
+                    onChange={(e) => updateRow(row.id, "date", e.target.value)}
+                    className={inputCls}
+                  />
+                </td>
+                <td className="px-3 py-2 min-w-[130px]">
+                  <select value={row.mode} onChange={(e) => updateRow(row.id, "mode", e.target.value as "recebida" | "estimada")} className={inputCls}>
+                    <option value="recebida">Já recebida</option>
+                    <option value="estimada">Estimada</option>
+                  </select>
+                </td>
+                <td className="px-3 py-2 min-w-[170px]">
+                  <select value={row.category_id} onChange={(e) => updateRow(row.id, "category_id", e.target.value)} className={inputCls}>
+                    <option value="">Selecione...</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-3 py-2 min-w-[170px]">
+                  <select
+                    value={row.bank_account_id}
+                    onChange={(e) => updateRow(row.id, "bank_account_id", e.target.value)}
+                    className={inputCls}
+                    disabled={row.mode === "estimada"}
+                  >
+                    <option value="">(sem conta)</option>
+                    {bankAccounts
+                      .filter((a) => !row.company_id || a.company_id === row.company_id)
+                      .map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.nickname ?? a.bank_name}
+                        </option>
+                      ))}
+                  </select>
+                </td>
+                <td className="px-3 py-2 min-w-[90px]">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={row.probability_pct}
+                    onChange={(e) => updateRow(row.id, "probability_pct", e.target.value)}
+                    className={inputCls}
+                    disabled={row.mode === "recebida"}
+                  />
+                </td>
+                <td className="px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => removeRow(row.id)}
+                    disabled={rows.length <= 1}
+                    className="p-1.5 text-ps-muted hover:text-red-500 disabled:opacity-30 transition-colors"
+                    title="Remover linha"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                      <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={addRow}
+          className="flex items-center gap-2 text-sm text-ps-navy font-medium hover:text-ps-green transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v2.5h-2.5a.75.75 0 000 1.5h2.5v2.5a.75.75 0 001.5 0v-2.5h2.5a.75.75 0 000-1.5h-2.5v-2.5z" clipRule="evenodd" />
+          </svg>
+          Adicionar linha
+        </button>
+        <span className="text-xs text-ps-muted">{rows.filter(r => r.company_id && r.category_id && r.description && r.expected_amount && r.date).length} de {rows.length} linhas preenchidas</span>
+      </div>
+
+      {errors.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-ps-sm p-4 space-y-1">
+          {errors.map((e, i) => (
+            <p key={i} className="text-sm text-red-600">{e}</p>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={isPending}
+          className="bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-6 py-2.5 text-sm disabled:opacity-60 hover:brightness-105 transition-all"
+        >
+          {isPending ? "Salvando..." : "Salvar todas as receitas"}
+        </button>
+        <a href="/receitas" className="px-4 py-2.5 text-sm rounded-ps-sm border border-ps-navy/15 text-ps-ink hover:bg-ps-bg-2 transition-colors">
+          Cancelar
+        </a>
+      </div>
+    </div>
+  );
+}

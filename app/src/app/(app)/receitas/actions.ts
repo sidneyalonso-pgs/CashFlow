@@ -258,3 +258,74 @@ export async function cancelRevenue(revenueId: string) {
   revalidatePath("/receitas");
   return { error: null };
 }
+
+export async function createBulkRevenues(rows: Array<{
+  company_id: string;
+  description: string;
+  expected_amount: number;
+  date: string;
+  mode: "recebida" | "estimada";
+  category_id: string;
+  bank_account_id?: string | null;
+  probability_pct?: number;
+}>) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const errors: string[] = [];
+
+  for (const row of rows) {
+    if (!row.company_id || !row.category_id || !row.description || !row.expected_amount || row.expected_amount <= 0 || !row.date) {
+      errors.push("Linha inválida: preencha empresa, categoria, descrição, valor e data.");
+      continue;
+    }
+    const dateError = assertReasonableDate(row.date, "Data");
+    if (dateError) { errors.push(dateError); continue; }
+
+    const isReceived = row.mode === "recebida";
+    const { data: category } = await supabase
+      .from("categories")
+      .select("chart_account_id")
+      .eq("id", row.category_id)
+      .single();
+
+    const { data: revenue, error } = await supabase
+      .from("revenues")
+      .insert({
+        company_id: row.company_id,
+        description: row.description,
+        expected_amount: row.expected_amount,
+        category_id: row.category_id,
+        chart_account_id: category?.chart_account_id ?? null,
+        expected_date: row.date,
+        receiving_bank_account_id: row.bank_account_id || null,
+        probability_pct: isReceived ? 100 : row.probability_pct ?? 100,
+        ...(isReceived
+          ? { realized_amount: row.expected_amount, realized_date: row.date, status: "recebida" }
+          : { status: "estimada" }),
+        created_by: user?.id,
+        updated_by: user?.id,
+      })
+      .select("id")
+      .single();
+
+    if (error) { errors.push(error.message); continue; }
+
+    if (isReceived && revenue) {
+      await supabase.from("revenue_realizations").insert({
+        revenue_id: revenue.id,
+        amount: row.expected_amount,
+        received_at: row.date,
+        bank_account_id: row.bank_account_id || null,
+        created_by: user?.id,
+      });
+    }
+  }
+
+  revalidatePath("/receitas");
+  revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
+  return { errors };
+}
