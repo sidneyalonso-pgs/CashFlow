@@ -23,6 +23,12 @@ const NAV_SECTIONS: Array<{ label: string | null; items: Array<{ href: string; l
     ],
   },
   {
+    label: "Operações",
+    items: [
+      { href: "/operacoes/central-piloto", label: "Central Piloto", icon: "M12 2v6m0 8v6m10-10h-6M8 12H2m15.5-7.5-4.2 4.2m-6.6 6.6-4.2 4.2m14.9 0-4.2-4.2M8.9 8.9 4.7 4.7" },
+    ],
+  },
+  {
     label: "Faturamento",
     items: [
       { href: "/faturamento", label: "Faturamento", icon: "M9 7H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M9 7h6M9 12h6M9 16h4" },
@@ -70,7 +76,7 @@ function isActive(pathname: string | null, href: string) {
 }
 
 /**
- * O papel "diretoria" só enxerga a Posição Executiva, então o menu mostra apenas ela — não
+ * O papel "diretoria" só enxerga a Posição Executiva, e "piloto" só a Central Piloto — não
  * adianta oferecer caminho que o servidor vai barrar. O bloqueio de verdade está no middleware.
  */
 export function Sidebar({ role }: { role?: string | null }) {
@@ -79,6 +85,8 @@ export function Sidebar({ role }: { role?: string | null }) {
   const secoes =
     role === "diretoria"
       ? NAV_SECTIONS.map((s) => ({ ...s, items: s.items.filter((i) => i.href === "/") })).filter((s) => s.items.length)
+      : role === "piloto"
+      ? NAV_SECTIONS.map((s) => ({ ...s, items: s.items.filter((i) => i.href === "/operacoes/central-piloto") })).filter((s) => s.items.length)
       : NAV_SECTIONS;
 
   useEffect(() => {

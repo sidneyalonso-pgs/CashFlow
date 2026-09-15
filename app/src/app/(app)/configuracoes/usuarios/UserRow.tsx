@@ -12,6 +12,7 @@ const ROLES = [
   { value: "fpa", label: "FP&A" },
   { value: "visualizador", label: "Visualizador" },
   { value: "diretoria", label: "Diretoria (só a Posição Executiva)" },
+  { value: "piloto", label: "Piloto (só a Central Piloto)" },
 ];
 
 export function UserRow({
