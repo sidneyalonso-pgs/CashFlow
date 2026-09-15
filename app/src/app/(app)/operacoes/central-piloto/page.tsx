@@ -97,13 +97,18 @@ export default async function CentralPilotoPage({
     const valorAplicado = saldoEmConta != null ? saldoEmConta - 80000 : null;
     const gap = saldo4111 && valorAplicado != null && deixarNaCcme != null ? (valorAplicado + deixarNaCcme) / saldo4111 : null;
 
+    // se o dia já foi salvo, usa o que está gravado (mesmo que seja null/zero — foi assim que
+    // o piloto lançou). Só calcula uma prévia ao vivo quando o dia NUNCA foi salvo, senão um
+    // dia com CCME zerado de propósito (ex.: fim de semana no histórico antigo) mostrava um
+    // valor calculado bem diferente do que realmente aconteceu
     const ontemValorAplicado = ontemSaldoEmConta != null ? ontemSaldoEmConta - 80000 : null;
-    const remuneracaoCcme =
-      existing?.remuneracao_ccme != null
+    const remuneracaoCcme = existing
+      ? existing.remuneracao_ccme != null
         ? Number(existing.remuneracao_ccme)
-        : ontemValorAplicado != null && ontemDeixarNaCcme != null
-        ? (ontemValorAplicado + ontemDeixarNaCcme) * ontemTaxaCcme
-        : null;
+        : null
+      : ontemValorAplicado != null && ontemDeixarNaCcme != null
+      ? (ontemValorAplicado + ontemDeixarNaCcme) * ontemTaxaCcme
+      : null;
 
     // prepara a semente pro próximo dia do loop
     ontemSaldoEmConta = saldoEmConta;
