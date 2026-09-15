@@ -46,6 +46,12 @@ function isWeekend(iso: string) {
   return day === 0 || day === 6;
 }
 
+// uma linha entra em modo de leitura automaticamente quando já tem algo salvo — sem isso, toda
+// vez que a tela recarrega tudo fica aberto pra edição de novo, mesmo dia já lançado há semanas
+function hasSavedData(row: SalvaGuardaRow) {
+  return row.saldoEmConta != null || row.fee != null || row.remuneracaoSpi != null || row.saldo4111 != null;
+}
+
 const inputCls =
   "w-full min-w-[108px] rounded-ps-sm border border-ps-navy/10 bg-ps-bg-2/60 px-2.5 py-1.5 text-xs font-medium tabular-nums text-ps-ink focus:outline-none focus:ring-2 focus:ring-ps-green/50 focus:border-ps-green focus:bg-white transition-colors";
 
@@ -68,6 +74,10 @@ function Editable({
       className={inputCls}
     />
   );
+}
+
+function ReadCell({ children }: { children: React.ReactNode }) {
+  return <span className="text-ps-ink font-medium tabular-nums whitespace-nowrap">{children}</span>;
 }
 
 function GapBadge({ value }: { value: number | null }) {
@@ -97,6 +107,12 @@ export function SalvaGuardaTable({
   const [state, setState] = useState<Record<string, SalvaGuardaRow>>(() =>
     Object.fromEntries(rows.map((r) => [r.data, r]))
   );
+  // linha sem nada salvo já nasce editável; linha já lançada nasce em modo leitura, com botão
+  // "Editar" pra reabrir — evita a tela inteira ficar com dezenas de campos abertos de uma vez
+  const [editing, setEditing] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(rows.map((r) => [r.data, !hasSavedData(r)]))
+  );
+  const bankById = new Map(bankAccounts.map((a) => [a.id, a.label]));
   const [savingDate, setSavingDate] = useState<string | null>(null);
   const [savedDate, setSavedDate] = useState<string | null>(null);
   const [errorByDate, setErrorByDate] = useState<Record<string, string>>({});
@@ -138,6 +154,7 @@ export function SalvaGuardaTable({
         setErrorByDate((prev) => ({ ...prev, [data]: result.error! }));
       } else {
         setSavedDate(data);
+        setEditing((prev) => ({ ...prev, [data]: false }));
       }
     });
   }
@@ -170,6 +187,7 @@ export function SalvaGuardaTable({
             const row = state[initial.data] ?? initial;
             const weekend = isWeekend(initial.data);
             const busy = savingDate === initial.data && isPending;
+            const isEditing = editing[initial.data] ?? true;
             return (
               <tr
                 key={initial.data}
@@ -182,13 +200,13 @@ export function SalvaGuardaTable({
                   </span>
                 </td>
                 <td className="px-3 py-2">
-                  <Editable value={row.saldoEmConta} onChange={(v) => update(initial.data, "saldoEmConta", v)} />
+                  {isEditing ? <Editable value={row.saldoEmConta} onChange={(v) => update(initial.data, "saldoEmConta", v)} /> : <ReadCell>{fmt(row.saldoEmConta)}</ReadCell>}
                 </td>
                 <td className="px-3 py-2">
-                  <Editable value={row.fee} onChange={(v) => update(initial.data, "fee", v)} />
+                  {isEditing ? <Editable value={row.fee} onChange={(v) => update(initial.data, "fee", v)} /> : <ReadCell>{fmt(row.fee)}</ReadCell>}
                 </td>
                 <td className="px-3 py-2">
-                  <Editable value={row.remuneracaoSpi} onChange={(v) => update(initial.data, "remuneracaoSpi", v)} />
+                  {isEditing ? <Editable value={row.remuneracaoSpi} onChange={(v) => update(initial.data, "remuneracaoSpi", v)} /> : <ReadCell>{fmt(row.remuneracaoSpi)}</ReadCell>}
                 </td>
                 <td className="px-3 py-2 text-ps-ink-2 font-medium tabular-nums whitespace-nowrap">{fmt(row.saldoAdmin)}</td>
                 <td className="px-3 py-2 text-ps-ink-2 font-medium tabular-nums whitespace-nowrap">{fmt(row.valorAplicadoSalvaGuarda)}</td>
@@ -196,47 +214,65 @@ export function SalvaGuardaTable({
                   {fmt(row.remuneracaoCcme)}
                 </td>
                 <td className="px-3 py-2">
-                  <select
-                    value={row.bankAccountId ?? ""}
-                    onChange={(e) => update(initial.data, "bankAccountId", e.target.value || null)}
-                    className={`${inputCls} min-w-[150px]`}
-                  >
-                    <option value="">Selecione...</option>
-                    {bankAccounts.map((a) => (
-                      <option key={a.id} value={a.id}>{a.label}</option>
-                    ))}
-                  </select>
+                  {isEditing ? (
+                    <select
+                      value={row.bankAccountId ?? ""}
+                      onChange={(e) => update(initial.data, "bankAccountId", e.target.value || null)}
+                      className={`${inputCls} min-w-[150px]`}
+                    >
+                      <option value="">Selecione...</option>
+                      {bankAccounts.map((a) => (
+                        <option key={a.id} value={a.id}>{a.label}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <ReadCell>{bankById.get(row.bankAccountId ?? "") ?? "—"}</ReadCell>
+                  )}
                 </td>
                 <td className="px-3 py-2">
-                  <Editable value={row.saldo4111} onChange={(v) => update(initial.data, "saldo4111", v)} />
+                  {isEditing ? <Editable value={row.saldo4111} onChange={(v) => update(initial.data, "saldo4111", v)} /> : <ReadCell>{fmt(row.saldo4111)}</ReadCell>}
                 </td>
                 <td className="px-3 py-2">
                   <GapBadge value={row.gap} />
                 </td>
                 <td className="px-3 py-2">
-                  <input
-                    type="number"
-                    step="0.0001"
-                    value={row.taxaCcme}
-                    onChange={(e) => update(initial.data, "taxaCcme", Number(e.target.value))}
-                    className={`${inputCls} min-w-[64px]`}
-                  />
+                  {isEditing ? (
+                    <input
+                      type="number"
+                      step="0.0001"
+                      value={row.taxaCcme}
+                      onChange={(e) => update(initial.data, "taxaCcme", Number(e.target.value))}
+                      className={`${inputCls} min-w-[64px]`}
+                    />
+                  ) : (
+                    <ReadCell>{fmtPct(row.taxaCcme)}</ReadCell>
+                  )}
                 </td>
                 <td className="px-3 py-2 text-ps-ink-2 font-medium tabular-nums whitespace-nowrap" title="Calculado: saídas reais da conta Administrativo/SPB nesse dia">
                   {fmt(row.retiradas)}
                 </td>
                 <td className="px-3 py-2">
-                  <Editable value={row.deixarNaCcme} onChange={(v) => update(initial.data, "deixarNaCcme", v)} />
+                  {isEditing ? <Editable value={row.deixarNaCcme} onChange={(v) => update(initial.data, "deixarNaCcme", v)} /> : <ReadCell>{fmt(row.deixarNaCcme)}</ReadCell>}
                 </td>
                 <td className="px-3 py-2">
-                  <button
-                    type="button"
-                    onClick={() => handleSave(initial.data)}
-                    disabled={busy}
-                    className="bg-ps-navy text-white font-medium rounded-ps-sm px-3 py-1.5 text-[11px] disabled:opacity-60 hover:bg-ps-navy-700 transition-colors whitespace-nowrap"
-                  >
-                    {busy ? "..." : "Salvar"}
-                  </button>
+                  {isEditing ? (
+                    <button
+                      type="button"
+                      onClick={() => handleSave(initial.data)}
+                      disabled={busy}
+                      className="bg-ps-navy text-white font-medium rounded-ps-sm px-3 py-1.5 text-[11px] disabled:opacity-60 hover:bg-ps-navy-700 transition-colors whitespace-nowrap"
+                    >
+                      {busy ? "..." : "Salvar"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setEditing((prev) => ({ ...prev, [initial.data]: true }))}
+                      className="bg-white border border-ps-navy/15 text-ps-ink font-medium rounded-ps-sm px-3 py-1.5 text-[11px] hover:bg-ps-bg-2 transition-colors whitespace-nowrap"
+                    >
+                      Editar
+                    </button>
+                  )}
                   {savedDate === initial.data && <p className="text-[10px] text-ps-green-700 mt-1 font-medium">✓ Salvo</p>}
                   {errorByDate[initial.data] && <p className="text-[10px] text-red-600 mt-1 max-w-[160px]">{errorByDate[initial.data]}</p>}
                 </td>
