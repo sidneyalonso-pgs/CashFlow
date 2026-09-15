@@ -131,7 +131,6 @@ export function SalvaGuardaTable({
         bank_account_id: row.bankAccountId,
         saldo_4111: row.saldo4111,
         taxa_ccme: row.taxaCcme,
-        retiradas: row.retiradas,
         deixar_na_ccme: row.deixarNaCcme,
       });
       setSavingDate(null);
@@ -161,7 +160,7 @@ export function SalvaGuardaTable({
             <th className={thCls}>Saldo 4111</th>
             <th className={thCls}>GAP 4111</th>
             <th className={thCls}>Taxa CCME</th>
-            <th className={thCls}>Retiradas</th>
+            <th className={thCls}>Retiradas (calc.)</th>
             <th className={thCls}>Deixar na CCME</th>
             <th className={thCls}></th>
           </tr>
@@ -223,8 +222,8 @@ export function SalvaGuardaTable({
                     className={`${inputCls} min-w-[64px]`}
                   />
                 </td>
-                <td className="px-3 py-2">
-                  <Editable value={row.retiradas} onChange={(v) => update(initial.data, "retiradas", v)} />
+                <td className="px-3 py-2 text-ps-ink-2 font-medium tabular-nums whitespace-nowrap" title="Calculado: saídas reais da conta Administrativo/SPB nesse dia">
+                  {fmt(row.retiradas)}
                 </td>
                 <td className="px-3 py-2">
                   <Editable value={row.deixarNaCcme} onChange={(v) => update(initial.data, "deixarNaCcme", v)} />

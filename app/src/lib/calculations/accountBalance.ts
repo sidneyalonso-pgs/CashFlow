@@ -58,3 +58,21 @@ export async function getAccountBalanceAsOf(
 
   return initial + inflows - outflows + invNet + transferNet;
 }
+
+/** Total de saídas (transferências) de uma conta em UM dia específico — as "retiradas". */
+export async function getAccountOutflowsOnDay(
+  supabase: ReturnType<typeof createClient>,
+  accountId: string,
+  companyId: string,
+  date: string
+): Promise<number> {
+  const { data: transfersRaw } = await supabase
+    .from("transfers")
+    .select("tipo, amount, transfer_date, company_id, to_company_id, from_account_id, to_account_id")
+    .or(`company_id.eq.${companyId},to_company_id.eq.${companyId}`)
+    .eq("transfer_date", date);
+
+  const scopeAccountIds = scopeAccounts(accountId, [{ id: accountId }]);
+  const { isOutflow } = transferDirection(scopeAccountIds, companyId);
+  return sumMoney(((transfersRaw ?? []) as any[]).filter(isOutflow).map((t: any) => t.amount)).toNumber();
+}

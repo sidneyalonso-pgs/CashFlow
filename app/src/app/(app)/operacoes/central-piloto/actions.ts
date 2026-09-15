@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/serviceRole";
+import { getAccountOutflowsOnDay } from "@/lib/calculations/accountBalance";
 
 type SalvaGuardaInput = {
   company_id: string;
@@ -13,7 +14,6 @@ type SalvaGuardaInput = {
   bank_account_id: string | null;
   saldo_4111: number | null;
   taxa_ccme: number | null;
-  retiradas: number | null;
   deixar_na_ccme: number | null;
 };
 
@@ -148,6 +148,18 @@ export async function saveSalvaGuardaDay(input: SalvaGuardaInput) {
       ? (valorAplicadoOntem + Number(ontem.deixar_na_ccme)) * Number(ontem.taxa_ccme ?? 0.0005166)
       : null;
 
+  // Retiradas também não é digitada: soma real das saídas da conta Administrativo/SPB naquele dia
+  const { data: administrativoAccount } = await supabase
+    .from("bank_accounts")
+    .select("id")
+    .eq("company_id", input.company_id)
+    .or("nickname.ilike.%administrativo%,nickname.ilike.%SPB%")
+    .limit(1)
+    .maybeSingle();
+  const retiradas = administrativoAccount
+    ? await getAccountOutflowsOnDay(supabase, administrativoAccount.id, input.company_id, input.data)
+    : null;
+
   const dia = dataBR(input.data);
 
   const feeResult = await upsertLinkedRevenue(svc, {
@@ -198,7 +210,7 @@ export async function saveSalvaGuardaDay(input: SalvaGuardaInput) {
     remuneracao_ccme_revenue_id: ccmeResult.revenueId,
     saldo_4111: input.saldo_4111,
     taxa_ccme: input.taxa_ccme ?? 0.0005166,
-    retiradas: input.retiradas,
+    retiradas,
     deixar_na_ccme: input.deixar_na_ccme,
     updated_by: user.id,
   };

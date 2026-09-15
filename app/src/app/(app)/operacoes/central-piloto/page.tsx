@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
-import { getAccountBalanceAsOf } from "@/lib/calculations/accountBalance";
+import { getAccountBalanceAsOf, getAccountOutflowsOnDay } from "@/lib/calculations/accountBalance";
 import { SalvaGuardaTable, type SalvaGuardaRow } from "./SalvaGuardaTable";
 
 export default async function CentralPilotoPage({
@@ -76,6 +76,11 @@ export default async function CentralPilotoPage({
     ? await Promise.all(days.map((day) => getAccountBalanceAsOf(supabase, administrativoAccount.id, company.id, day)))
     : days.map(() => null);
 
+  // Retiradas = saídas reais da conta Administrativo/SPB naquele dia — lido ao vivo, não digitado
+  const retiradasPorDia = administrativoAccount
+    ? await Promise.all(days.map((day) => getAccountOutflowsOnDay(supabase, administrativoAccount.id, company.id, day)))
+    : days.map(() => null);
+
   // Remuneração CCME não é digitada: acumula sobre o custodiado no dia ANTERIOR (Valor Aplicado
   // Salva-Guarda + Deixar na CCME de ontem) × Taxa CCME de ontem. Quando já foi salva, usa o
   // valor gravado (é o que realmente virou receita); senão calcula a partir do dia anterior.
@@ -117,7 +122,7 @@ export default async function CentralPilotoPage({
       saldo4111,
       gap,
       taxaCcme,
-      retiradas: existing?.retiradas != null ? Number(existing.retiradas) : null,
+      retiradas: retiradasPorDia[i],
       deixarNaCcme,
     };
   });
@@ -154,8 +159,9 @@ export default async function CentralPilotoPage({
         banco escolhido na linha) assim que a linha é salva. Saldo Admin é lido ao vivo da conta
         Administrativo/SPB — não precisa digitar. Valor Aplicado Salva-Guarda = Saldo em conta −
         R$80.000. Remuneração CCME é calculada, não digitada: (Aplicado + Deixar na CCME do dia
-        anterior) × Taxa CCME do dia anterior. GAP 4111 - Salva-Guarda = (Valor Aplicado + Deixar
-        na CCME) ÷ Saldo 4111.
+        anterior) × Taxa CCME do dia anterior. Retiradas também é lida ao vivo — soma das saídas
+        reais da conta Administrativo/SPB naquele dia. GAP 4111 - Salva-Guarda = (Valor Aplicado +
+        Deixar na CCME) ÷ Saldo 4111.
       </p>
     </div>
   );
