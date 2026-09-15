@@ -128,7 +128,6 @@ export function SalvaGuardaTable({
         saldo_em_conta: row.saldoEmConta,
         fee: row.fee,
         remuneracao_spi: row.remuneracaoSpi,
-        remuneracao_ccme: row.remuneracaoCcme,
         bank_account_id: row.bankAccountId,
         saldo_4111: row.saldo4111,
         taxa_ccme: row.taxaCcme,
