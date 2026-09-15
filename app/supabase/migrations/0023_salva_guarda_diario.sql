@@ -26,7 +26,7 @@ create table salva_guarda_diario (
   remuneracao_ccme_bank_account_id uuid references bank_accounts(id),
   remuneracao_ccme_revenue_id uuid references revenues(id),
   saldo_4111 numeric,
-  taxa_ccme numeric not null default 0.0005,
+  taxa_ccme numeric not null default 0.0005166,
   retiradas numeric,
   deixar_na_ccme numeric,
 

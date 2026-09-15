@@ -36,10 +36,18 @@ function dataBR(iso: string) {
   return `${d}/${m}/${a}`;
 }
 
+function diaSemanaCurto(iso: string) {
+  const dias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  return dias[new Date(iso + "T00:00:00Z").getUTCDay()];
+}
+
 function isWeekend(iso: string) {
   const day = new Date(iso + "T00:00:00Z").getUTCDay();
   return day === 0 || day === 6;
 }
+
+const inputCls =
+  "w-full min-w-[108px] rounded-ps-sm border border-ps-navy/10 bg-ps-bg-2/60 px-2.5 py-1.5 text-xs font-medium tabular-nums text-ps-ink focus:outline-none focus:ring-2 focus:ring-ps-green/50 focus:border-ps-green focus:bg-white transition-colors";
 
 function Editable({
   value,
@@ -57,8 +65,23 @@ function Editable({
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
       placeholder={placeholder ?? "0,00"}
-      className="w-full min-w-[110px] rounded-ps-sm border border-ps-navy/15 px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-ps-green focus:border-ps-green"
+      className={inputCls}
     />
+  );
+}
+
+function GapBadge({ value }: { value: number | null }) {
+  if (value == null) return <span className="text-ps-muted text-xs">—</span>;
+  const ok = value >= 1;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${
+        ok ? "bg-ps-green-200 text-ps-green-700" : "bg-amber-100 text-amber-700"
+      }`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${ok ? "bg-ps-green-700" : "bg-amber-600"}`} />
+      {fmtPct(value)}
+    </span>
   );
 }
 
@@ -82,7 +105,6 @@ export function SalvaGuardaTable({
   function update(data: string, field: keyof SalvaGuardaRow, value: number | string | null) {
     setState((prev) => {
       const row = { ...prev[data], [field]: value } as SalvaGuardaRow;
-      // recalcula os campos derivados na hora, pra tela já refletir antes de salvar
       row.valorAplicadoSalvaGuarda = row.saldoEmConta != null ? row.saldoEmConta - 80000 : null;
       row.gap =
         row.saldo4111 && row.valorAplicadoSalvaGuarda != null && row.deixarNaCcme != null
@@ -90,6 +112,7 @@ export function SalvaGuardaTable({
           : null;
       return { ...prev, [data]: row };
     });
+    setSavedDate((prev) => (prev === data ? null : prev));
   }
 
   function handleSave(data: string) {
@@ -121,23 +144,23 @@ export function SalvaGuardaTable({
     });
   }
 
-  const thCls = "text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-ps-green-300 whitespace-nowrap";
+  const thCls = "text-left px-3 py-3 text-[10px] font-semibold uppercase tracking-wide text-ps-muted whitespace-nowrap";
 
   return (
-    <div className="overflow-x-auto bg-ps-navy rounded-ps shadow-ps-sm">
+    <div className="overflow-x-auto bg-white rounded-ps shadow-ps-sm border border-ps-navy/5">
       <table className="w-full text-xs border-collapse">
-        <thead>
-          <tr className="border-b border-white/10">
+        <thead className="bg-ps-bg-2 sticky top-0 z-10">
+          <tr>
             <th className={thCls}>Data</th>
             <th className={thCls}>Saldo em conta</th>
             <th className={thCls}>Fee</th>
-            <th className={thCls}>Remuneração SPI</th>
+            <th className={thCls}>Rem. SPI</th>
             <th className={thCls}>Saldo Admin</th>
-            <th className={thCls}>Valor aplicado Salva-Guarda</th>
-            <th className={thCls}>Remuneração CCME</th>
-            <th className={thCls}>Banco (Fee/SPI/CCME)</th>
+            <th className={thCls}>Aplicado Salva-Guarda</th>
+            <th className={thCls}>Rem. CCME (calc.)</th>
+            <th className={thCls}>Banco</th>
             <th className={thCls}>Saldo 4111</th>
-            <th className={thCls}>GAP 4111 - Salva-Guarda</th>
+            <th className={thCls}>GAP 4111</th>
             <th className={thCls}>Taxa CCME</th>
             <th className={thCls}>Retiradas</th>
             <th className={thCls}>Deixar na CCME</th>
@@ -150,10 +173,15 @@ export function SalvaGuardaTable({
             const weekend = isWeekend(initial.data);
             const busy = savingDate === initial.data && isPending;
             return (
-              <tr key={initial.data} className={`border-t border-white/5 ${weekend ? "bg-white/5" : ""}`}>
-                <td className="px-3 py-2 text-white font-medium whitespace-nowrap">
-                  {dataBR(initial.data)}
-                  {weekend && <span className="ml-1.5 text-[9px] text-ps-green-300/70 uppercase">fim de semana</span>}
+              <tr
+                key={initial.data}
+                className={`border-t border-ps-navy/5 transition-colors ${weekend ? "bg-ps-bg-2/40" : "hover:bg-ps-bg-2/20"}`}
+              >
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <span className="font-semibold text-ps-ink">{dataBR(initial.data)}</span>
+                  <span className={`ml-1.5 text-[10px] ${weekend ? "text-ps-green-700 font-semibold" : "text-ps-muted"}`}>
+                    {diaSemanaCurto(initial.data)}
+                  </span>
                 </td>
                 <td className="px-3 py-2">
                   <Editable value={row.saldoEmConta} onChange={(v) => update(initial.data, "saldoEmConta", v)} />
@@ -164,16 +192,16 @@ export function SalvaGuardaTable({
                 <td className="px-3 py-2">
                   <Editable value={row.remuneracaoSpi} onChange={(v) => update(initial.data, "remuneracaoSpi", v)} />
                 </td>
-                <td className="px-3 py-2 text-white/70 tabular-nums whitespace-nowrap">{fmt(row.saldoAdmin)}</td>
-                <td className="px-3 py-2 text-white/70 tabular-nums whitespace-nowrap">{fmt(row.valorAplicadoSalvaGuarda)}</td>
-                <td className="px-3 py-2">
-                  <Editable value={row.remuneracaoCcme} onChange={(v) => update(initial.data, "remuneracaoCcme", v)} />
+                <td className="px-3 py-2 text-ps-ink-2 font-medium tabular-nums whitespace-nowrap">{fmt(row.saldoAdmin)}</td>
+                <td className="px-3 py-2 text-ps-ink-2 font-medium tabular-nums whitespace-nowrap">{fmt(row.valorAplicadoSalvaGuarda)}</td>
+                <td className="px-3 py-2 text-ps-ink-2 font-medium tabular-nums whitespace-nowrap" title="Calculado: (Aplicado + Deixar na CCME de ontem) × Taxa CCME de ontem">
+                  {fmt(row.remuneracaoCcme)}
                 </td>
                 <td className="px-3 py-2">
                   <select
                     value={row.bankAccountId ?? ""}
                     onChange={(e) => update(initial.data, "bankAccountId", e.target.value || null)}
-                    className="w-full min-w-[150px] rounded-ps-sm border border-ps-navy/15 px-2 py-1.5 text-xs bg-white"
+                    className={`${inputCls} min-w-[150px]`}
                   >
                     <option value="">Selecione...</option>
                     {bankAccounts.map((a) => (
@@ -184,14 +212,16 @@ export function SalvaGuardaTable({
                 <td className="px-3 py-2">
                   <Editable value={row.saldo4111} onChange={(v) => update(initial.data, "saldo4111", v)} />
                 </td>
-                <td className="px-3 py-2 text-white/70 tabular-nums whitespace-nowrap">{fmtPct(row.gap)}</td>
+                <td className="px-3 py-2">
+                  <GapBadge value={row.gap} />
+                </td>
                 <td className="px-3 py-2">
                   <input
                     type="number"
                     step="0.0001"
                     value={row.taxaCcme}
                     onChange={(e) => update(initial.data, "taxaCcme", Number(e.target.value))}
-                    className="w-full min-w-[70px] rounded-ps-sm border border-ps-navy/15 px-2 py-1.5 text-xs bg-white"
+                    className={`${inputCls} min-w-[64px]`}
                   />
                 </td>
                 <td className="px-3 py-2">
@@ -205,12 +235,12 @@ export function SalvaGuardaTable({
                     type="button"
                     onClick={() => handleSave(initial.data)}
                     disabled={busy}
-                    className="bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-3 py-1.5 text-xs disabled:opacity-60 hover:brightness-105 transition-all whitespace-nowrap"
+                    className="bg-ps-navy text-white font-medium rounded-ps-sm px-3 py-1.5 text-[11px] disabled:opacity-60 hover:bg-ps-navy-700 transition-colors whitespace-nowrap"
                   >
                     {busy ? "..." : "Salvar"}
                   </button>
-                  {savedDate === initial.data && <p className="text-[10px] text-ps-green-300 mt-1">Salvo!</p>}
-                  {errorByDate[initial.data] && <p className="text-[10px] text-red-400 mt-1 max-w-[160px]">{errorByDate[initial.data]}</p>}
+                  {savedDate === initial.data && <p className="text-[10px] text-ps-green-700 mt-1 font-medium">✓ Salvo</p>}
+                  {errorByDate[initial.data] && <p className="text-[10px] text-red-600 mt-1 max-w-[160px]">{errorByDate[initial.data]}</p>}
                 </td>
               </tr>
             );

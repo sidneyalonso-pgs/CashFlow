@@ -18,8 +18,13 @@ import { NextResponse, type NextRequest } from "next/server";
 /** Rotas liberadas para quem só pode ver a dashboard executiva. */
 const LIBERADAS_DIRETORIA = ["/", "/configuracoes/senha", "/configuracoes/2fa"];
 
-/** Rotas liberadas para quem só pode lançar na Central Piloto. */
-const LIBERADAS_PILOTO = ["/operacoes/central-piloto", "/configuracoes/senha", "/configuracoes/2fa"];
+/** Rotas liberadas para quem só pode lançar na Central Piloto (prefixo — cobre sub-rotas). */
+const PREFIXOS_PILOTO = ["/operacoes/central-piloto", "/print/salva-guarda"];
+const LIBERADAS_PILOTO = ["/configuracoes/senha", "/configuracoes/2fa"];
+
+function pilotoPodeAcessar(caminho: string) {
+  return LIBERADAS_PILOTO.includes(caminho) || PREFIXOS_PILOTO.some((p) => caminho === p || caminho.startsWith(p + "/"));
+}
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -60,7 +65,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(destino);
   }
 
-  if (perfil?.role === "piloto" && !LIBERADAS_PILOTO.includes(caminho)) {
+  if (perfil?.role === "piloto" && !pilotoPodeAcessar(caminho)) {
     const destino = request.nextUrl.clone();
     destino.pathname = "/operacoes/central-piloto";
     destino.search = "";

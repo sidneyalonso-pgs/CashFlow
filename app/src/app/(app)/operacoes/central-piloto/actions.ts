@@ -10,7 +10,6 @@ type SalvaGuardaInput = {
   saldo_em_conta: number | null;
   fee: number | null;
   remuneracao_spi: number | null;
-  remuneracao_ccme: number | null;
   bank_account_id: string | null;
   saldo_4111: number | null;
   taxa_ccme: number | null;
@@ -21,6 +20,12 @@ type SalvaGuardaInput = {
 function dataBR(iso: string) {
   const [a, m, d] = iso.split("-");
   return `${d}/${m}/${a}`;
+}
+
+function diaAnterior(iso: string) {
+  const d = new Date(iso + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
 }
 
 async function upsertLinkedRevenue(
@@ -97,6 +102,7 @@ async function upsertLinkedRevenue(
 /**
  * Salva o dia da Salva-Guarda e reflete Fee / Remuneração SPI / Remuneração CCME em Receitas
  * automaticamente — cada um vira (ou atualiza) uma receita já recebida, no banco escolhido.
+ * Remuneração CCME não vem do formulário: é calculada aqui a partir do dia anterior.
  * A escrita em `revenues`/`revenue_realizations` usa o client de service role de propósito: o
  * papel "piloto" só tem permissão de escrita na própria tabela da Central Piloto (RLS), não em
  * Receitas em geral — é este server action, e só ele, que faz a ponte.
@@ -125,6 +131,22 @@ export async function saveSalvaGuardaDay(input: SalvaGuardaInput) {
     .eq("company_id", input.company_id)
     .eq("data", input.data)
     .maybeSingle();
+
+  // Remuneração CCME não é digitada: acumula sobre o que ficou custodiado no dia ANTERIOR
+  // (Valor Aplicado Salva-Guarda + Deixar na CCME do dia de ontem) × Taxa CCME de ontem —
+  // fórmula confirmada na planilha original (G = (L_ontem + F_ontem) * J_ontem).
+  const { data: ontem } = await supabase
+    .from("salva_guarda_diario")
+    .select("saldo_em_conta, deixar_na_ccme, taxa_ccme")
+    .eq("company_id", input.company_id)
+    .eq("data", diaAnterior(input.data))
+    .maybeSingle();
+
+  const valorAplicadoOntem = ontem?.saldo_em_conta != null ? Number(ontem.saldo_em_conta) - 80000 : null;
+  const remuneracaoCcme =
+    valorAplicadoOntem != null && ontem?.deixar_na_ccme != null
+      ? (valorAplicadoOntem + Number(ontem.deixar_na_ccme)) * Number(ontem.taxa_ccme ?? 0.0005166)
+      : null;
 
   const dia = dataBR(input.data);
 
@@ -155,7 +177,7 @@ export async function saveSalvaGuardaDay(input: SalvaGuardaInput) {
     companyId: input.company_id,
     categoryId,
     description: `Remuneração CCME — Salva-Guarda (${dia})`,
-    amount: input.remuneracao_ccme,
+    amount: remuneracaoCcme,
     date: input.data,
     bankAccountId: input.bank_account_id,
   });
@@ -171,11 +193,11 @@ export async function saveSalvaGuardaDay(input: SalvaGuardaInput) {
     remuneracao_spi: input.remuneracao_spi,
     remuneracao_spi_bank_account_id: input.bank_account_id,
     remuneracao_spi_revenue_id: spiResult.revenueId,
-    remuneracao_ccme: input.remuneracao_ccme,
+    remuneracao_ccme: remuneracaoCcme,
     remuneracao_ccme_bank_account_id: input.bank_account_id,
     remuneracao_ccme_revenue_id: ccmeResult.revenueId,
     saldo_4111: input.saldo_4111,
-    taxa_ccme: input.taxa_ccme ?? 0.0005,
+    taxa_ccme: input.taxa_ccme ?? 0.0005166,
     retiradas: input.retiradas,
     deixar_na_ccme: input.deixar_na_ccme,
     updated_by: user.id,
