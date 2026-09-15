@@ -28,6 +28,11 @@ function diaAnterior(iso: string) {
   return d.toISOString().slice(0, 10);
 }
 
+function isWeekend(iso: string) {
+  const day = new Date(iso + "T00:00:00Z").getUTCDay();
+  return day === 0 || day === 6;
+}
+
 async function upsertLinkedRevenue(
   svc: ReturnType<typeof createServiceRoleClient>,
   opts: {
@@ -142,11 +147,13 @@ export async function saveSalvaGuardaDay(input: SalvaGuardaInput) {
     .eq("data", diaAnterior(input.data))
     .maybeSingle();
 
+  // não acumula CCME em fim de semana — só dias úteis rendem
   const valorAplicadoOntem = ontem?.saldo_em_conta != null ? Number(ontem.saldo_em_conta) - 80000 : null;
-  const remuneracaoCcme =
-    valorAplicadoOntem != null && ontem?.deixar_na_ccme != null
-      ? (valorAplicadoOntem + Number(ontem.deixar_na_ccme)) * Number(ontem.taxa_ccme ?? 0.0005166)
-      : null;
+  const remuneracaoCcme = isWeekend(input.data)
+    ? null
+    : valorAplicadoOntem != null && ontem?.deixar_na_ccme != null
+    ? (valorAplicadoOntem + Number(ontem.deixar_na_ccme)) * Number(ontem.taxa_ccme ?? 0.0005166)
+    : null;
 
   // Retiradas também não é digitada: soma real das saídas da conta Administrativo/SPB naquele dia
   const { data: administrativoAccount } = await supabase

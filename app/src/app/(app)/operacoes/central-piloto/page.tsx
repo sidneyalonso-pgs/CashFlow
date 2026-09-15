@@ -5,6 +5,11 @@ import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 import { getAccountBalanceAsOf, getAccountOutflowsOnDay } from "@/lib/calculations/accountBalance";
 import { SalvaGuardaTable, type SalvaGuardaRow } from "./SalvaGuardaTable";
 
+function isWeekend(iso: string) {
+  const day = new Date(iso + "T00:00:00Z").getUTCDay();
+  return day === 0 || day === 6;
+}
+
 export default async function CentralPilotoPage({
   searchParams,
 }: {
@@ -101,11 +106,14 @@ export default async function CentralPilotoPage({
     // o piloto lançou). Só calcula uma prévia ao vivo quando o dia NUNCA foi salvo, senão um
     // dia com CCME zerado de propósito (ex.: fim de semana no histórico antigo) mostrava um
     // valor calculado bem diferente do que realmente aconteceu
+    // não acumula CCME em fim de semana — só dias úteis rendem
     const ontemValorAplicado = ontemSaldoEmConta != null ? ontemSaldoEmConta - 80000 : null;
     const remuneracaoCcme = existing
       ? existing.remuneracao_ccme != null
         ? Number(existing.remuneracao_ccme)
         : null
+      : isWeekend(day)
+      ? null
       : ontemValorAplicado != null && ontemDeixarNaCcme != null
       ? (ontemValorAplicado + ontemDeixarNaCcme) * ontemTaxaCcme
       : null;
