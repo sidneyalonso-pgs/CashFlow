@@ -481,3 +481,16 @@ export async function cancelarNotaDebito(ndId: string) {
   revalidatePath("/faturamento/notas-debito");
   return { error: null };
 }
+
+/**
+ * Notas de débito não têm revenue_id/payment_id — são só documentais, nunca geram lançamento
+ * de caixa. Por isso dá pra excluir de verdade (sem soft delete) em qualquer status, sem risco
+ * de deixar um pagamento/receita órfão.
+ */
+export async function excluirNotaDebito(ndId: string) {
+  const supabase = createClient();
+  const { error } = await supabase.from("billing_debit_notes").delete().eq("id", ndId);
+  if (error) return { error: error.message };
+  revalidatePath("/faturamento/notas-debito");
+  return { error: null };
+}
