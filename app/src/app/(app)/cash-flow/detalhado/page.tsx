@@ -249,6 +249,12 @@ export default async function CashFlowDetalhadoPage({
     .plus(priorTransferNet)
     .toNumber();
 
+  // "Saldo da conta" e "Saldo C/C + Investimentos" no dia a dia precisam refletir o disponível
+  // de verdade (sem o bloqueado) — senão uma provisão de hoje parece coberta usando dinheiro
+  // que na prática está bloqueado. O saldo bancário bruto (openingBalance, igual extrato do
+  // banco) continua servindo pro card "Saldo bancário"/"Saldo disponível" lá embaixo.
+  const openingBalanceDisponivel = openingBalance - blockedBalance;
+
   // saldo investido inicial: todo aplicação/resgate anterior ao período, incluindo os marcados
   // como saldo de abertura (eles representam principal já investido, não um movimento de caixa novo)
   const openingInvestedBalance = sumMoney(
@@ -261,7 +267,7 @@ export default async function CashFlowDetalhadoPage({
     days.push(d.toISOString().slice(0, 10));
   }
 
-  let runningBalance = openingBalance;
+  let runningBalance = openingBalanceDisponivel;
   let cumulativeProvisaoSaidas = 0;
   let cumulativeProvisaoEntradas = 0;
   let cumulativeInvested = openingInvestedBalance;
@@ -358,9 +364,10 @@ export default async function CashFlowDetalhadoPage({
     // saldo em conta ainda não afetado por provisões — saídas/entradas já inclui o efeito de caixa do investimento
     runningBalance = runningBalance - saidas + entradas;
 
-    // "saldo da conta": saldo realizado, descontando as provisões (saída e entrada) acumuladas até
-    // esse dia. O saldo bloqueado NÃO é descontado aqui — ele já faz parte do saldo bancário real,
-    // só é exibido separadamente (card "Saldo bloqueado") como informação.
+    // "saldo da conta": saldo realizado disponível (já descontado o bloqueado no saldo inicial),
+    // menos as provisões (saída e entrada) acumuladas até esse dia — reflete o que dá pra usar
+    // de verdade, não o saldo bancário bruto. O bloqueado continua exibido à parte no card
+    // "Saldo bloqueado", só não soma mais na coluna de saldo do dia a dia.
     cumulativeProvisaoSaidas += provisaoSaidas;
     cumulativeProvisaoEntradas += provisaoEntradas;
     const saldoConta = runningBalance - cumulativeProvisaoSaidas + cumulativeProvisaoEntradas;
@@ -505,8 +512,8 @@ export default async function CashFlowDetalhadoPage({
       </CollapsiblePanel>
 
       <DetalhadoTable
-        openingSaldoConta={openingBalance}
-        openingSaldoProjetado={openingBalance + openingInvestedBalance}
+        openingSaldoConta={openingBalanceDisponivel}
+        openingSaldoProjetado={openingBalanceDisponivel + openingInvestedBalance}
         dateFrom={dateFrom}
         rows={dayRows}
       />
