@@ -250,12 +250,11 @@ export default async function CashFlowDetalhadoPage({
     .toNumber();
 
   // "Saldo da conta" e "Saldo C/C + Investimentos" precisam refletir o disponível de verdade
-  // (sem o bloqueado) só de HOJE em diante — senão uma provisão de hoje parece coberta usando
-  // dinheiro que na prática está bloqueado. Mas o bloqueio é uma situação atual: aplicar esse
-  // mesmo desconto em dias passados (ex.: um agosto já fechado) deixaria o histórico todo
-  // artificialmente negativo, como se o bloqueio já existisse lá atrás. Por isso o desconto só
-  // entra a partir de hoje — dias anteriores mostram o saldo real que de fato aconteceu.
-  const todayIso = new Date().toISOString().slice(0, 10);
+  // (sem o bloqueado) em TODOS os dias, passados ou não — dinheiro bloqueado nunca é dinheiro
+  // que dava pra usar, então nunca deve aparecer como parte do saldo disponível ali embaixo. O
+  // saldo bancário bruto (com o bloqueado incluído) só aparece no card "Saldo bancário" lá em
+  // cima, junto com o "Saldo bloqueado" separado.
+  const openingBalanceDisponivel = openingBalance - blockedBalance;
 
   // saldo investido inicial: todo aplicação/resgate anterior ao período, incluindo os marcados
   // como saldo de abertura (eles representam principal já investido, não um movimento de caixa novo)
@@ -269,7 +268,7 @@ export default async function CashFlowDetalhadoPage({
     days.push(d.toISOString().slice(0, 10));
   }
 
-  let runningBalance = openingBalance;
+  let runningBalance = openingBalanceDisponivel;
   let cumulativeProvisaoSaidas = 0;
   let cumulativeProvisaoEntradas = 0;
   let cumulativeInvested = openingInvestedBalance;
@@ -366,14 +365,13 @@ export default async function CashFlowDetalhadoPage({
     // saldo em conta ainda não afetado por provisões — saídas/entradas já inclui o efeito de caixa do investimento
     runningBalance = runningBalance - saidas + entradas;
 
-    // "saldo da conta": saldo realizado menos as provisões (saída e entrada) acumuladas até esse
-    // dia. De hoje em diante, desconta também o bloqueado atual — reflete o que dá pra usar de
-    // verdade pra cobrir provisões futuras. Em dias passados não desconta: o bloqueio é uma
-    // situação de hoje, não existia (ou era outro valor) lá atrás.
+    // "saldo da conta": saldo realizado disponível (já sem o bloqueado, descontado no saldo
+    // inicial) menos as provisões (saída e entrada) acumuladas até esse dia — reflete o que dá
+    // pra usar de verdade, em qualquer dia do período. O bloqueado nunca entra aqui, só no card
+    // "Saldo bancário" lá em cima.
     cumulativeProvisaoSaidas += provisaoSaidas;
     cumulativeProvisaoEntradas += provisaoEntradas;
-    const saldoContaBruto = runningBalance - cumulativeProvisaoSaidas + cumulativeProvisaoEntradas;
-    const saldoConta = day >= todayIso ? saldoContaBruto - blockedBalance : saldoContaBruto;
+    const saldoConta = runningBalance - cumulativeProvisaoSaidas + cumulativeProvisaoEntradas;
 
     // "saldo projetado": saldo da conta (acima) + tudo que está investido — visão de patrimônio total
     const saldoProjetado = saldoConta + cumulativeInvested;
@@ -515,8 +513,8 @@ export default async function CashFlowDetalhadoPage({
       </CollapsiblePanel>
 
       <DetalhadoTable
-        openingSaldoConta={dateFrom >= todayIso ? openingBalance - blockedBalance : openingBalance}
-        openingSaldoProjetado={(dateFrom >= todayIso ? openingBalance - blockedBalance : openingBalance) + openingInvestedBalance}
+        openingSaldoConta={openingBalanceDisponivel}
+        openingSaldoProjetado={openingBalanceDisponivel + openingInvestedBalance}
         dateFrom={dateFrom}
         rows={dayRows}
       />
