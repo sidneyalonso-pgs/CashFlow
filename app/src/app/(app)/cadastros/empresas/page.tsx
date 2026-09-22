@@ -16,6 +16,11 @@ export default async function CompaniesPage() {
   const reservaPorEmpresa = new Map<string, number | null>(
     ((reservas ?? []) as any[]).map((r) => [r.id, r.operational_reserve == null ? null : Number(r.operational_reserve)])
   );
+  // Mesmo padrão: coluna só existe depois da migration 0026.
+  const { data: codigosContabeis } = await supabase.from("companies").select("id, codigo_contabil");
+  const codigoContabilPorEmpresa = new Map<string, string | null>(
+    ((codigosContabeis ?? []) as any[]).map((r) => [r.id, r.codigo_contabil ?? null])
+  );
 
   return (
     <div>
@@ -32,6 +37,7 @@ export default async function CompaniesPage() {
               <th className="text-left px-4 py-3">Razão social</th>
               <th className="text-left px-4 py-3">Nome fantasia</th>
               <th className="text-left px-4 py-3">CNPJ</th>
+              <th className="text-left px-4 py-3">Cód. contábil</th>
               <th className="text-left px-4 py-3">Moeda</th>
               <th className="text-left px-4 py-3">Status</th>
               <th className="text-left px-4 py-3">Ações</th>
@@ -43,18 +49,25 @@ export default async function CompaniesPage() {
                 <td className="px-4 py-3 font-medium text-ps-ink">{c.legal_name}</td>
                 <td className="px-4 py-3 text-ps-muted">{c.trade_name ?? "—"}</td>
                 <td className="px-4 py-3 font-mono text-xs text-ps-muted">{c.cnpj}</td>
+                <td className="px-4 py-3 font-mono text-xs text-ps-muted">{codigoContabilPorEmpresa.get(c.id) ?? "—"}</td>
                 <td className="px-4 py-3">{c.default_currency}</td>
                 <td className="px-4 py-3">
                   <StatusBadge status={c.status} />
                 </td>
                 <td className="px-4 py-3">
-                  <EditCompanyButton company={{ ...c, operational_reserve: reservaPorEmpresa.get(c.id) ?? null }} />
+                  <EditCompanyButton
+                    company={{
+                      ...c,
+                      operational_reserve: reservaPorEmpresa.get(c.id) ?? null,
+                      codigo_contabil: codigoContabilPorEmpresa.get(c.id) ?? null,
+                    }}
+                  />
                 </td>
               </tr>
             ))}
             {(!companies || companies.length === 0) && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-ps-muted">
+                <td colSpan={7} className="px-4 py-8 text-center text-ps-muted">
                   Nenhuma empresa cadastrada ainda.
                 </td>
               </tr>

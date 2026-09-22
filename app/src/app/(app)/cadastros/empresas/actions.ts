@@ -46,10 +46,25 @@ export async function updateCompany(companyId: string, formData: FormData) {
   if (error) return { error: error.message };
 
   await salvarReservaOperacional(supabase, companyId, formData.get("operational_reserve"));
+  await salvarCodigoContabil(supabase, companyId, formData.get("codigo_contabil"));
 
   revalidatePath("/cadastros/empresas");
   revalidatePath("/");
   return { error: null };
+}
+
+/**
+ * Código contábil (usado como "Lote" no De-Para) em update separado e tolerante, mesmo
+ * padrão da reserva operacional: a coluna só existe depois da migration 0026.
+ */
+async function salvarCodigoContabil(
+  supabase: ReturnType<typeof createClient>,
+  companyId: string,
+  bruto: FormDataEntryValue | null
+) {
+  if (bruto === null) return;
+  const valor = String(bruto).trim();
+  await supabase.from("companies").update({ codigo_contabil: valor === "" ? null : valor }).eq("id", companyId);
 }
 
 /**

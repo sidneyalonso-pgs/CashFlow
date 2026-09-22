@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { ReconcileRow } from "./ReconcileRow";
 import { ExportReconciliationButton } from "./ExportReconciliationButton";
+import { ExportDeParaButton } from "./ExportDeParaButton";
 import { SessionDeleteButton } from "./SessionDeleteButton";
 import { companyLabel } from "@/lib/format";
 
@@ -253,6 +254,7 @@ export default async function ReconciliationPage({
         actions={
           <div className="flex gap-2">
             <ExportReconciliationButton bankAccountId={openImport?.bank_account_id} />
+            <ExportDeParaButton bankAccountId={openImport?.bank_account_id} />
             <Link
               href="/conciliacao/intercompany"
               className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"

@@ -18,6 +18,8 @@ export function EditCompanyButton({
     status: string;
     /** ausente enquanto a migration 0018 não tiver sido aplicada */
     operational_reserve?: number | null;
+    /** ausente enquanto a migration 0026 não tiver sido aplicada */
+    codigo_contabil?: string | null;
   };
 }) {
   const router = useRouter();
@@ -49,6 +51,17 @@ export function EditCompanyButton({
           <TextField label="Nome fantasia" name="trade_name" defaultValue={company.trade_name ?? ""} />
           <TextField label="CNPJ" name="cnpj" defaultValue={company.cnpj} required />
           <TextField label="Moeda padrão" name="default_currency" defaultValue={company.default_currency} />
+          <div>
+            <TextField
+              label="Código contábil (Lote)"
+              name="codigo_contabil"
+              defaultValue={company.codigo_contabil ?? ""}
+            />
+            <p className="mt-1 text-xs text-ps-muted">
+              Código desta empresa no sistema da contabilidade (ex.: 2212). Vai na coluna "Lote"
+              do relatório De-Para Contábil.
+            </p>
+          </div>
           <div>
             <TextField
               label="Reserva operacional (R$)"
