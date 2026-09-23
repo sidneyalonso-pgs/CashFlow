@@ -30,11 +30,12 @@ export function ExportDeParaButton({ bankAccountId }: { bankAccountId?: string }
     const bankChartAccount: ChartAccountRef = (bankAccount as any).chart_of_accounts ?? null;
     const lote: string = (bankAccount as any).companies?.codigo_contabil ?? "";
 
+    // reconciliations.entity_id é polimórfico (não tem FK pra payments/revenues), então o
+    // PostgREST não consegue montar esse join sozinho — busca à parte, igual o
+    // ExportReconciliationButton já faz.
     const { data: entries, error: fetchError } = await supabase
       .from("bank_statement_entries")
-      .select(
-        "id, entry_date, bank_description, amount, direction, bank_balance, reconciliations(entity_type, entity_id, payments(description, chart_of_accounts(codigo, descricao)), revenues(description, chart_of_accounts(codigo, descricao)))"
-      )
+      .select("id, entry_date, bank_description, amount, direction, bank_balance, reconciliations(entity_type, entity_id)")
       .eq("bank_account_id", bankAccountId)
       .eq("reconciliation_status", "conciliado_manualmente")
       .order("entry_date");
@@ -45,13 +46,27 @@ export function ExportDeParaButton({ bankAccountId }: { bankAccountId?: string }
       return;
     }
 
-    const accountLabel = (a: ChartAccountRef) => (a ? `${a.codigo} - ${a.descricao}` : "");
+    const rows = (entries ?? []) as any[];
+    const paymentIds = rows.flatMap((e) => (e.reconciliations ?? []).filter((r: any) => r.entity_type === "payment").map((r: any) => r.entity_id));
+    const revenueIds = rows.flatMap((e) => (e.reconciliations ?? []).filter((r: any) => r.entity_type === "revenue").map((r: any) => r.entity_id));
+
+    const [{ data: payments }, { data: revenues }] = await Promise.all([
+      paymentIds.length
+        ? supabase.from("payments").select("id, description, chart_of_accounts(codigo, descricao)").in("id", paymentIds)
+        : Promise.resolve({ data: [] as any[] }),
+      revenueIds.length
+        ? supabase.from("revenues").select("id, description, chart_of_accounts(codigo, descricao)").in("id", revenueIds)
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
+
+    const paymentById = new Map((payments ?? []).map((p: any) => [p.id, p]));
+    const revenueById = new Map((revenues ?? []).map((r: any) => [r.id, r]));
 
     const header = ["Operação", "Lote", "Data", "Valor", "Débito", "D. Débito", "Crédito", "D. Crédito", "Histórico", "Saldo"];
     const csvLines = [header.join(";")];
     let skipped = 0;
 
-    for (const entry of (entries ?? []) as any[]) {
+    for (const entry of rows) {
       const rec = (entry.reconciliations ?? [])[0];
       if (!rec || (rec.entity_type !== "payment" && rec.entity_type !== "revenue")) {
         // vínculos com aplicação/resgate/transferência não têm conta contábil mapeada ainda
@@ -61,7 +76,7 @@ export function ExportDeParaButton({ bankAccountId }: { bankAccountId?: string }
 
       const isPagamento = rec.entity_type === "payment";
       const operacao = isPagamento ? "PAGTO" : "RECBTO";
-      const entidade = isPagamento ? rec.payments : rec.revenues;
+      const entidade = isPagamento ? paymentById.get(rec.entity_id) : revenueById.get(rec.entity_id);
       const contaEntidade: ChartAccountRef = entidade?.chart_of_accounts ?? null;
       const debito = isPagamento ? contaEntidade : bankChartAccount;
       const credito = isPagamento ? bankChartAccount : contaEntidade;
