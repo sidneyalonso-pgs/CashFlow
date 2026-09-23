@@ -62,7 +62,9 @@ export function ExportDeParaButton({ bankAccountId }: { bankAccountId?: string }
     const paymentById = new Map((payments ?? []).map((p: any) => [p.id, p]));
     const revenueById = new Map((revenues ?? []).map((r: any) => [r.id, r]));
 
-    const header = ["Operação", "Lote", "Data", "Valor", "Débito", "D. Débito", "Crédito", "D. Crédito", "Histórico", "Saldo"];
+    // mesma organização de colunas do modelo da contabilidade: Data, Histórico, Valor, Saldo,
+    // Operação, Lote, Débito, D. Débito, Crédito, D. Crédito
+    const header = ["Data", "Histórico", "Valor", "Saldo", "Operação", "Lote", "Débito", "D. Débito", "Crédito", "D. Crédito"];
     const csvLines = [header.join(";")];
     let skipped = 0;
 
@@ -73,7 +75,7 @@ export function ExportDeParaButton({ bankAccountId }: { bankAccountId?: string }
       const delta = first.direction === "entrada" ? Number(first.amount) : -Number(first.amount);
       const saldoAnterior = Number(first.bank_balance) - delta;
       csvLines.push(
-        ["", lote, formatDateBR(first.entry_date), "", "", "", "", "", "SALDO ANTERIOR", formatNumberBR(saldoAnterior)]
+        [formatDateBR(first.entry_date), "SALDO ANTERIOR", "", formatNumberBR(saldoAnterior), "", lote, "", "", "", ""]
           .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
           .join(";")
       );
@@ -102,16 +104,16 @@ export function ExportDeParaButton({ bankAccountId }: { bankAccountId?: string }
 
       csvLines.push(
         [
+          formatDateBR(entry.entry_date),
+          historico,
+          formatNumberBR(Math.abs(Number(entry.amount))),
+          entry.bank_balance != null ? formatNumberBR(Number(entry.bank_balance)) : "",
           operacao,
           lote,
-          formatDateBR(entry.entry_date),
-          formatNumberBR(Math.abs(Number(entry.amount))),
           debito?.codigo ?? "",
           debito?.descricao ?? "",
           credito?.codigo ?? "",
           credito?.descricao ?? "",
-          historico,
-          entry.bank_balance != null ? formatNumberBR(Number(entry.bank_balance)) : "",
         ]
           .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
           .join(";")
