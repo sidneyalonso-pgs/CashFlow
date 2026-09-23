@@ -62,9 +62,23 @@ export function ExportDeParaButton({ bankAccountId }: { bankAccountId?: string }
     const paymentById = new Map((payments ?? []).map((p: any) => [p.id, p]));
     const revenueById = new Map((revenues ?? []).map((r: any) => [r.id, r]));
 
-    // mesma organização de colunas do modelo da contabilidade: Data, Histórico, Valor, Saldo,
-    // Operação, Lote, Débito, D. Débito, Crédito, D. Crédito
-    const header = ["Data", "Histórico", "Valor", "Saldo", "Operação", "Lote", "Débito", "D. Débito", "Crédito", "D. Crédito"];
+    // mesma organização de colunas do modelo da contabilidade: Data, Histórico (bruto do banco),
+    // Valor, Saldo, Operação, Lote, Débito, D. Débito, Crédito, D. Crédito, e por fim o Histórico
+    // formatado ("VALOR REF. ...") — o modelo original tem os dois, um bruto (coluna B) e um
+    // contábil (coluna O), não é pra substituir um pelo outro.
+    const header = [
+      "Data",
+      "Histórico",
+      "Valor",
+      "Saldo",
+      "Operação",
+      "Lote",
+      "Débito",
+      "D. Débito",
+      "Crédito",
+      "D. Crédito",
+      "Histórico (contábil)",
+    ];
     const csvLines = [header.join(";")];
     let skipped = 0;
 
@@ -75,7 +89,7 @@ export function ExportDeParaButton({ bankAccountId }: { bankAccountId?: string }
       const delta = first.direction === "entrada" ? Number(first.amount) : -Number(first.amount);
       const saldoAnterior = Number(first.bank_balance) - delta;
       csvLines.push(
-        [formatDateBR(first.entry_date), "SALDO ANTERIOR", "", formatNumberBR(saldoAnterior), "", lote, "", "", "", ""]
+        [formatDateBR(first.entry_date), "SALDO ANTERIOR", "", formatNumberBR(saldoAnterior), "", lote, "", "", "", "", ""]
           .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
           .join(";")
       );
@@ -100,12 +114,12 @@ export function ExportDeParaButton({ bankAccountId }: { bankAccountId?: string }
 
       const descricaoBase = entidade?.description || entry.bank_description || "";
       const nomeConta = contaEntidade?.descricao ?? "";
-      const historico = `VALOR REF. ${operacao} ${descricaoBase}${nomeConta ? ` - ${nomeConta}` : ""}`.toUpperCase();
+      const historicoContabil = `VALOR REF. ${operacao} ${descricaoBase}${nomeConta ? ` - ${nomeConta}` : ""}`.toUpperCase();
 
       csvLines.push(
         [
           formatDateBR(entry.entry_date),
-          historico,
+          entry.bank_description ?? "",
           formatNumberBR(Math.abs(Number(entry.amount))),
           entry.bank_balance != null ? formatNumberBR(Number(entry.bank_balance)) : "",
           operacao,
@@ -114,6 +128,7 @@ export function ExportDeParaButton({ bankAccountId }: { bankAccountId?: string }
           debito?.descricao ?? "",
           credito?.codigo ?? "",
           credito?.descricao ?? "",
+          historicoContabil,
         ]
           .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
           .join(";")
