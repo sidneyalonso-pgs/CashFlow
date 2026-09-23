@@ -22,6 +22,10 @@ const LIBERADAS_DIRETORIA = ["/", "/configuracoes/senha", "/configuracoes/2fa"];
 const PREFIXOS_PILOTO = ["/operacoes/central-piloto", "/print/salva-guarda"];
 const LIBERADAS_PILOTO = ["/configuracoes/senha", "/configuracoes/2fa"];
 
+/** Único lugar acessível pra quem ainda não configurou o segundo fator — precisa dar pra
+ * chegar lá e cadastrar antes de qualquer outra tela liberar. */
+const ROTAS_SETUP_MFA = ["/configuracoes/2fa", "/configuracoes/senha"];
+
 function pilotoPodeAcessar(caminho: string) {
   return LIBERADAS_PILOTO.includes(caminho) || PREFIXOS_PILOTO.some((p) => caminho === p || caminho.startsWith(p + "/"));
 }
@@ -53,10 +57,43 @@ export async function middleware(request: NextRequest) {
 
   const caminho = request.nextUrl.pathname;
 
-  // rota já permitida para os dois perfis restritos: não custa uma consulta de papel
-  if (!user || (LIBERADAS_DIRETORIA.includes(caminho) && LIBERADAS_PILOTO.includes(caminho))) return response;
+  // sem sessão: manda pro login em vez de deixar passar — a página em si pode até checar de
+  // novo, mas o controle de acesso não pode depender só disso (visto num invasor real usando
+  // uma conta criada por fora do fluxo normal)
+  if (!user) {
+    const destino = request.nextUrl.clone();
+    destino.pathname = "/login";
+    destino.search = "";
+    return NextResponse.redirect(destino);
+  }
 
-  const { data: perfil } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  // MFA obrigatório pra todo mundo: sem fator cadastrado, só dá pra ir pra tela de 2FA/senha.
+  // getAuthenticatorAssuranceLevel() só sobe currentLevel pra "aal2" depois do desafio no
+  // login (já forçado em login/actions.ts); currentLevel === nextLevel === "aal1" quer dizer
+  // que a conta nunca cadastrou fator nenhum.
+  if (!ROTAS_SETUP_MFA.includes(caminho)) {
+    const { data: aal, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aalError || (aal && aal.currentLevel === "aal1" && aal.nextLevel === "aal1")) {
+      const destino = request.nextUrl.clone();
+      destino.pathname = "/configuracoes/2fa";
+      destino.search = "";
+      return NextResponse.redirect(destino);
+    }
+  }
+
+  // rota já permitida para os dois perfis restritos: não custa uma consulta de papel
+  if (LIBERADAS_DIRETORIA.includes(caminho) && LIBERADAS_PILOTO.includes(caminho)) return response;
+
+  const { data: perfil, error: perfilError } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+
+  // falha ao ler o perfil: nega em vez de deixar passar sem restrição (fail-closed) — um erro
+  // transitório não pode virar uma brecha pra quem deveria estar restrito a poucas telas
+  if (perfilError) {
+    const destino = request.nextUrl.clone();
+    destino.pathname = "/login";
+    destino.search = "";
+    return NextResponse.redirect(destino);
+  }
 
   if (perfil?.role === "diretoria" && !LIBERADAS_DIRETORIA.includes(caminho)) {
     const destino = request.nextUrl.clone();
