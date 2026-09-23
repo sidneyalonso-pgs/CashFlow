@@ -66,6 +66,19 @@ export function ExportDeParaButton({ bankAccountId }: { bankAccountId?: string }
     const csvLines = [header.join(";")];
     let skipped = 0;
 
+    // saldo anterior ao primeiro lançamento conciliado do período, pra abrir o arquivo mostrando
+    // de onde partiu o saldo (igual a linha "Saldo Anterior" do modelo da contabilidade)
+    if (rows.length > 0) {
+      const first = rows[0];
+      const delta = first.direction === "entrada" ? Number(first.amount) : -Number(first.amount);
+      const saldoAnterior = Number(first.bank_balance) - delta;
+      csvLines.push(
+        ["", lote, formatDateBR(first.entry_date), "", "", "", "", "", "SALDO ANTERIOR", formatNumberBR(saldoAnterior)]
+          .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
+          .join(";")
+      );
+    }
+
     for (const entry of rows) {
       const rec = (entry.reconciliations ?? [])[0];
       if (!rec || (rec.entity_type !== "payment" && rec.entity_type !== "revenue")) {
@@ -78,8 +91,10 @@ export function ExportDeParaButton({ bankAccountId }: { bankAccountId?: string }
       const operacao = isPagamento ? "PAGTO" : "RECBTO";
       const entidade = isPagamento ? paymentById.get(rec.entity_id) : revenueById.get(rec.entity_id);
       const contaEntidade: ChartAccountRef = entidade?.chart_of_accounts ?? null;
-      const debito = isPagamento ? contaEntidade : bankChartAccount;
-      const credito = isPagamento ? bankChartAccount : contaEntidade;
+      // Saída (PAGTO): débito no banco, crédito na conta contábil (fornecedor/despesa).
+      // Entrada (RECBTO): débito na conta contábil (categoria/receita), crédito no banco.
+      const debito = isPagamento ? bankChartAccount : contaEntidade;
+      const credito = isPagamento ? contaEntidade : bankChartAccount;
 
       const descricaoBase = entidade?.description || entry.bank_description || "";
       const nomeConta = contaEntidade?.descricao ?? "";
