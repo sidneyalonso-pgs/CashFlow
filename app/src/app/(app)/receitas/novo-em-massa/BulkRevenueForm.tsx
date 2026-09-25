@@ -156,7 +156,6 @@ export function BulkRevenueForm({
                     value={row.bank_account_id}
                     onChange={(e) => updateRow(row.id, "bank_account_id", e.target.value)}
                     className={inputCls}
-                    disabled={row.mode === "estimada"}
                   >
                     <option value="">(sem conta)</option>
                     {bankAccounts
