@@ -15,6 +15,10 @@ type SalvaGuardaInput = {
   saldo_4111: number | null;
   taxa_ccme: number | null;
   deixar_na_ccme: number | null;
+  /** Normalmente calculada; se vier preenchida, o valor digitado manda (liberado por enquanto). */
+  remuneracao_ccme?: number | null;
+  /** Normalmente calculada; se vier preenchida, o valor digitado manda (liberado por enquanto). */
+  retiradas?: number | null;
 };
 
 function dataBR(iso: string) {
@@ -149,11 +153,13 @@ export async function saveSalvaGuardaDay(input: SalvaGuardaInput) {
 
   // não acumula CCME em fim de semana — só dias úteis rendem
   const valorAplicadoOntem = ontem?.saldo_em_conta != null ? Number(ontem.saldo_em_conta) - 80000 : null;
-  const remuneracaoCcme = isWeekend(input.data)
+  const remuneracaoCcmeCalculada = isWeekend(input.data)
     ? null
     : valorAplicadoOntem != null && ontem?.deixar_na_ccme != null
     ? (valorAplicadoOntem + Number(ontem.deixar_na_ccme)) * Number(ontem.taxa_ccme ?? 0.0005166)
     : null;
+  // edição manual liberada por enquanto: se vier valor digitado, ele manda em vez do cálculo
+  const remuneracaoCcme = input.remuneracao_ccme !== undefined ? input.remuneracao_ccme : remuneracaoCcmeCalculada;
 
   // Retiradas também não é digitada: soma real das saídas da conta Administrativo/SPB naquele dia
   const { data: administrativoAccount } = await supabase
@@ -163,9 +169,11 @@ export async function saveSalvaGuardaDay(input: SalvaGuardaInput) {
     .or("nickname.ilike.%administrativo%,nickname.ilike.%SPB%")
     .limit(1)
     .maybeSingle();
-  const retiradas = administrativoAccount
+  const retiradasCalculadas = administrativoAccount
     ? await getAccountOutflowsOnDay(supabase, administrativoAccount.id, input.company_id, input.data)
     : null;
+  // edição manual liberada por enquanto: se vier valor digitado, ele manda em vez do cálculo
+  const retiradas = input.retiradas !== undefined ? input.retiradas : retiradasCalculadas;
 
   const dia = dataBR(input.data);
 

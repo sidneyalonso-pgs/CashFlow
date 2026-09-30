@@ -148,6 +148,8 @@ export function SalvaGuardaTable({
         saldo_4111: row.saldo4111,
         taxa_ccme: row.taxaCcme,
         deixar_na_ccme: row.deixarNaCcme,
+        remuneracao_ccme: row.remuneracaoCcme,
+        retiradas: row.retiradas,
       });
       setSavingDate(null);
       if (result.error) {
@@ -172,12 +174,12 @@ export function SalvaGuardaTable({
             <th className={thCls}>Rem. SPI</th>
             <th className={thCls}>Saldo Admin</th>
             <th className={thCls}>Aplicado Salva-Guarda</th>
-            <th className={thCls}>Rem. CCME (calc.)</th>
+            <th className={thCls}>Rem. CCME</th>
             <th className={thCls}>Banco</th>
             <th className={thCls}>Saldo 4111</th>
             <th className={thCls}>GAP 4111</th>
             <th className={thCls}>Taxa CCME</th>
-            <th className={thCls}>Retiradas (calc.)</th>
+            <th className={thCls}>Retiradas</th>
             <th className={thCls}>Deixar na CCME</th>
             <th className={thCls}></th>
           </tr>
@@ -210,8 +212,8 @@ export function SalvaGuardaTable({
                 </td>
                 <td className="px-3 py-2 text-ps-ink-2 font-medium tabular-nums whitespace-nowrap">{fmt(row.saldoAdmin)}</td>
                 <td className="px-3 py-2 text-ps-ink-2 font-medium tabular-nums whitespace-nowrap">{fmt(row.valorAplicadoSalvaGuarda)}</td>
-                <td className="px-3 py-2 text-ps-ink-2 font-medium tabular-nums whitespace-nowrap" title="Calculado: (Aplicado + Deixar na CCME de ontem) × Taxa CCME de ontem">
-                  {fmt(row.remuneracaoCcme)}
+                <td className="px-3 py-2" title="Normalmente calculado: (Aplicado + Deixar na CCME de ontem) × Taxa CCME de ontem — edição manual liberada por enquanto">
+                  {isEditing ? <Editable value={row.remuneracaoCcme} onChange={(v) => update(initial.data, "remuneracaoCcme", v)} /> : <ReadCell>{fmt(row.remuneracaoCcme)}</ReadCell>}
                 </td>
                 <td className="px-3 py-2">
                   {isEditing ? (
@@ -248,8 +250,8 @@ export function SalvaGuardaTable({
                     <ReadCell>{fmtPct(row.taxaCcme)}</ReadCell>
                   )}
                 </td>
-                <td className="px-3 py-2 text-ps-ink-2 font-medium tabular-nums whitespace-nowrap" title="Calculado: saídas reais da conta Administrativo/SPB nesse dia">
-                  {fmt(row.retiradas)}
+                <td className="px-3 py-2" title="Normalmente calculado: saídas reais da conta Administrativo/SPB nesse dia — edição manual liberada por enquanto">
+                  {isEditing ? <Editable value={row.retiradas} onChange={(v) => update(initial.data, "retiradas", v)} /> : <ReadCell>{fmt(row.retiradas)}</ReadCell>}
                 </td>
                 <td className="px-3 py-2">
                   {isEditing ? <Editable value={row.deixarNaCcme} onChange={(v) => update(initial.data, "deixarNaCcme", v)} /> : <ReadCell>{fmt(row.deixarNaCcme)}</ReadCell>}
