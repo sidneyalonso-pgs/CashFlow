@@ -59,20 +59,34 @@ export async function getAccountBalanceAsOf(
   return initial + inflows - outflows + invNet + transferNet;
 }
 
-/** Total de saídas (transferências) de uma conta em UM dia específico — as "retiradas". */
+/**
+ * Total de saídas de uma conta em UM dia específico — as "retiradas": transferências de saída
+ * mais pagamentos pagos por essa conta (ex.: "Saídas Operacionais - SPB"), o mesmo total que o
+ * Cash Flow Detalhado mostra como saídas do dia.
+ */
 export async function getAccountOutflowsOnDay(
   supabase: ReturnType<typeof createClient>,
   accountId: string,
   companyId: string,
   date: string
 ): Promise<number> {
-  const { data: transfersRaw } = await supabase
-    .from("transfers")
-    .select("tipo, amount, transfer_date, company_id, to_company_id, from_account_id, to_account_id")
-    .or(`company_id.eq.${companyId},to_company_id.eq.${companyId}`)
-    .eq("transfer_date", date);
+  const [{ data: transfersRaw }, { data: paymentsRaw }] = await Promise.all([
+    supabase
+      .from("transfers")
+      .select("tipo, amount, transfer_date, company_id, to_company_id, from_account_id, to_account_id")
+      .or(`company_id.eq.${companyId},to_company_id.eq.${companyId}`)
+      .eq("transfer_date", date),
+    supabase
+      .from("payment_realizations")
+      .select("amount, payments!inner(paying_bank_account_id, deleted_at)")
+      .eq("payments.paying_bank_account_id", accountId)
+      .is("payments.deleted_at", null)
+      .eq("paid_at", date),
+  ]);
 
   const scopeAccountIds = scopeAccounts(accountId, [{ id: accountId }]);
   const { isOutflow } = transferDirection(scopeAccountIds, companyId);
-  return sumMoney(((transfersRaw ?? []) as any[]).filter(isOutflow).map((t: any) => t.amount)).toNumber();
+  const transfers = sumMoney(((transfersRaw ?? []) as any[]).filter(isOutflow).map((t: any) => t.amount));
+  const payments = sumMoney(((paymentsRaw ?? []) as any[]).map((p: any) => p.amount));
+  return transfers.plus(payments).toNumber();
 }

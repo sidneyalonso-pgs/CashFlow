@@ -135,7 +135,8 @@ export default async function CentralPilotoPage({
       saldo4111,
       gap,
       taxaCcme,
-      retiradas: retiradasPorDia[i],
+      // valor gravado manda (pode ter sido ajustado à mão); sem gravação, mostra o calculado ao vivo
+      retiradas: existing?.retiradas != null ? Number(existing.retiradas) : retiradasPorDia[i],
       deixarNaCcme,
     };
   });
