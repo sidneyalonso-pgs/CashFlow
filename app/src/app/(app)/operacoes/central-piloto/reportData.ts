@@ -39,7 +39,8 @@ export async function getReportData(
   const saldoEmConta = row?.saldo_em_conta != null ? Number(row.saldo_em_conta) : null;
   const saldo4111 = row?.saldo_4111 != null ? Number(row.saldo_4111) : null;
   const deixarNaCcme = row?.deixar_na_ccme != null ? Number(row.deixar_na_ccme) : null;
-  const valorAplicado = saldoEmConta != null ? saldoEmConta - 80000 : null;
+  // sem saldo em conta lançado (ex.: fim de semana) nada foi aplicado: R$0, não −R$80.000
+  const valorAplicado = saldoEmConta != null ? saldoEmConta - 80000 : saldo4111 != null || deixarNaCcme != null ? 0 : null;
   const gap = saldo4111 && valorAplicado != null && deixarNaCcme != null ? (valorAplicado + deixarNaCcme) / saldo4111 : null;
 
   const bank = (row as any)?.bank_accounts;

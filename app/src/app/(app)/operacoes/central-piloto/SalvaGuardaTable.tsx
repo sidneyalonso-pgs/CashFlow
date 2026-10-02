@@ -31,6 +31,11 @@ function fmtPct(n: number | null) {
   return `${(n * 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 }
 
+// a taxa tem precisão de 7+ casas (0,0507880035%), então não cabe nas 2 casas do fmtPct
+function fmtTaxa(n: number) {
+  return `${(n * 100).toLocaleString("pt-BR", { maximumFractionDigits: 7 })}%`;
+}
+
 function dataBR(iso: string) {
   const [a, m, d] = iso.split("-");
   return `${d}/${m}/${a}`;
@@ -121,7 +126,9 @@ export function SalvaGuardaTable({
   function update(data: string, field: keyof SalvaGuardaRow, value: number | string | null) {
     setState((prev) => {
       const row = { ...prev[data], [field]: value } as SalvaGuardaRow;
-      row.valorAplicadoSalvaGuarda = row.saldoEmConta != null ? row.saldoEmConta - 80000 : null;
+      // sem saldo em conta lançado (ex.: fim de semana) nada foi aplicado: R$0, não −R$80.000
+      row.valorAplicadoSalvaGuarda =
+        row.saldoEmConta != null ? row.saldoEmConta - 80000 : row.saldo4111 != null || row.deixarNaCcme != null ? 0 : null;
       row.gap =
         row.saldo4111 && row.valorAplicadoSalvaGuarda != null && row.deixarNaCcme != null
           ? (row.valorAplicadoSalvaGuarda + row.deixarNaCcme) / row.saldo4111
@@ -239,15 +246,19 @@ export function SalvaGuardaTable({
                 </td>
                 <td className="px-3 py-2">
                   {isEditing ? (
-                    <input
-                      type="number"
-                      step="0.0001"
-                      value={row.taxaCcme}
-                      onChange={(e) => update(initial.data, "taxaCcme", Number(e.target.value))}
-                      className={`${inputCls} min-w-[64px]`}
-                    />
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        step="any"
+                        value={Number((row.taxaCcme * 100).toFixed(10))}
+                        onChange={(e) => update(initial.data, "taxaCcme", Number(e.target.value) / 100)}
+                        title="Taxa em % (ex.: 0,0507880035 = 0,0507880035%)"
+                        className={`${inputCls} min-w-[110px]`}
+                      />
+                      <span className="text-ps-muted text-[11px]">%</span>
+                    </div>
                   ) : (
-                    <ReadCell>{fmtPct(row.taxaCcme)}</ReadCell>
+                    <ReadCell>{fmtTaxa(row.taxaCcme)}</ReadCell>
                   )}
                 </td>
                 <td className="px-3 py-2" title="Normalmente calculado: saídas reais da conta Administrativo/SPB nesse dia — edição manual liberada por enquanto">

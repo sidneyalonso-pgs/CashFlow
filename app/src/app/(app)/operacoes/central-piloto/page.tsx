@@ -99,7 +99,8 @@ export default async function CentralPilotoPage({
     const deixarNaCcme = existing?.deixar_na_ccme != null ? Number(existing.deixar_na_ccme) : null;
     const saldo4111 = existing?.saldo_4111 != null ? Number(existing.saldo_4111) : null;
     const taxaCcme = existing?.taxa_ccme != null ? Number(existing.taxa_ccme) : 0.0005166;
-    const valorAplicado = saldoEmConta != null ? saldoEmConta - 80000 : null;
+    // sem saldo em conta lançado (ex.: fim de semana) nada foi aplicado: R$0, não −R$80.000
+    const valorAplicado = saldoEmConta != null ? saldoEmConta - 80000 : saldo4111 != null || deixarNaCcme != null ? 0 : null;
     const gap = saldo4111 && valorAplicado != null && deixarNaCcme != null ? (valorAplicado + deixarNaCcme) / saldo4111 : null;
 
     // se o dia já foi salvo, usa o que está gravado (mesmo que seja null/zero — foi assim que
