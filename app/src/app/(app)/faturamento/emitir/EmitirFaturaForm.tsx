@@ -306,7 +306,7 @@ export function EmitirFaturaForm({
                           {/* Fee IN */}
                           <td className="px-2 py-2.5">
                             <div className="flex flex-col gap-0.5">
-                              <input type="number" min="0" step="0.01"
+                              <input type="number" min="0" step="any"
                                 value={row.feeInOverride ?? sFeeIn}
                                 onChange={e => updateRow(sub.id, "feeInOverride", Number(e.target.value))}
                                 className={inputSmCls + " text-ps-green-700 font-semibold"} />
@@ -318,7 +318,7 @@ export function EmitirFaturaForm({
                             {sub.in_tipo === "perc" ? (
                               <div className="flex flex-col gap-0.5">
                                 <div className="flex items-center gap-1">
-                                  <input type="number" min="0" max="100" step="0.01" value={row.repPercIn}
+                                  <input type="number" min="0" max="100" step="any" value={row.repPercIn}
                                     onChange={e => updateRow(sub.id, "repPercIn", Number(e.target.value))}
                                     className={inputSmCls + " w-16"} />
                                   <span className="text-ps-muted text-xs font-medium">%</span>
@@ -326,7 +326,7 @@ export function EmitirFaturaForm({
                                 <span className="text-[10px] text-ps-muted tabular-nums">{fmt(sub.in_val > 0 ? sFeeIn * (row.repPercIn / sub.in_val) : 0)}</span>
                               </div>
                             ) : (
-                              <input type="number" min="0" step="0.01" value={row.repIn}
+                              <input type="number" min="0" step="any" value={row.repIn}
                                 onChange={e => updateRow(sub.id, "repIn", Number(e.target.value))}
                                 className={inputSmCls} />
                             )}
@@ -343,7 +343,7 @@ export function EmitirFaturaForm({
                           {/* Fee OUT */}
                           <td className="px-2 py-2.5">
                             <div className="flex flex-col gap-0.5">
-                              <input type="number" min="0" step="0.01"
+                              <input type="number" min="0" step="any"
                                 value={row.feeOutOverride ?? sFeeOut}
                                 onChange={e => updateRow(sub.id, "feeOutOverride", Number(e.target.value))}
                                 className={inputSmCls + " text-ps-green-700 font-semibold"} />
@@ -355,7 +355,7 @@ export function EmitirFaturaForm({
                             {sub.out_tipo === "perc" ? (
                               <div className="flex flex-col gap-0.5">
                                 <div className="flex items-center gap-1">
-                                  <input type="number" min="0" max="100" step="0.01" value={row.repPercOut}
+                                  <input type="number" min="0" max="100" step="any" value={row.repPercOut}
                                     onChange={e => updateRow(sub.id, "repPercOut", Number(e.target.value))}
                                     className={inputSmCls + " w-16"} />
                                   <span className="text-ps-muted text-xs font-medium">%</span>
@@ -363,7 +363,7 @@ export function EmitirFaturaForm({
                                 <span className="text-[10px] text-ps-muted tabular-nums">{fmt(sub.out_val > 0 ? sFeeOut * (row.repPercOut / sub.out_val) : 0)}</span>
                               </div>
                             ) : (
-                              <input type="number" min="0" step="0.01" value={row.repOut}
+                              <input type="number" min="0" step="any" value={row.repOut}
                                 onChange={e => updateRow(sub.id, "repOut", Number(e.target.value))}
                                 className={inputSmCls} />
                             )}
@@ -447,7 +447,7 @@ export function EmitirFaturaForm({
                     </div>
                     <div>
                       <label className={labelCls}>Remessas (%)</label>
-                      <input type="number" min="0" step="0.01" value={bRemessaPerc} onChange={e => setBRemessaPerc(Number(e.target.value))} className={inputCls} />
+                      <input type="number" min="0" step="any" value={bRemessaPerc} onChange={e => setBRemessaPerc(Number(e.target.value))} className={inputCls} />
                     </div>
                   </div>
                 </div>
@@ -470,7 +470,7 @@ export function EmitirFaturaForm({
                   <label className={labelCls}>Qtd PIX IN</label>
                   <input type="number" min="0" value={qtdIn} onChange={e => setQtdIn(Number(e.target.value))} className={inputCls} />
                   {client.in_tipo !== "fixo" && (
-                    <div className="mt-2"><label className={labelCls}>Volume PIX IN (R$)</label><input type="number" min="0" step="0.01" value={volumeIn} onChange={e => setVolumeIn(Number(e.target.value))} className={inputCls} /></div>
+                    <div className="mt-2"><label className={labelCls}>Volume PIX IN (R$)</label><input type="number" min="0" step="any" value={volumeIn} onChange={e => setVolumeIn(Number(e.target.value))} className={inputCls} /></div>
                   )}
                   <p className="text-xs text-ps-muted mt-1">
                     Fee calculado: {fmt(client.in_tipo === "fixo" ? qtdIn * client.in_val : volumeIn * (client.in_val / 100))} | Repasse calculado: {fmt(client.in_tipo === "perc" ? volumeIn * (client.rep_in / 100) : qtdIn * client.rep_in)}
@@ -480,7 +480,7 @@ export function EmitirFaturaForm({
                   <label className={labelCls}>Qtd PIX OUT</label>
                   <input type="number" min="0" value={qtdOut} onChange={e => setQtdOut(Number(e.target.value))} className={inputCls} />
                   {client.out_tipo !== "fixo" && (
-                    <div className="mt-2"><label className={labelCls}>Volume PIX OUT (R$)</label><input type="number" min="0" step="0.01" value={volumeOut} onChange={e => setVolumeOut(Number(e.target.value))} className={inputCls} /></div>
+                    <div className="mt-2"><label className={labelCls}>Volume PIX OUT (R$)</label><input type="number" min="0" step="any" value={volumeOut} onChange={e => setVolumeOut(Number(e.target.value))} className={inputCls} /></div>
                   )}
                   <p className="text-xs text-ps-muted mt-1">
                     Fee calculado: {fmt(client.out_tipo === "fixo" ? qtdOut * client.out_val : volumeOut * (client.out_val / 100))} | Repasse calculado: {fmt(client.out_tipo === "perc" ? volumeOut * (client.rep_out / 100) : qtdOut * client.rep_out)}
@@ -496,24 +496,24 @@ export function EmitirFaturaForm({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className={labelCls}>Fee IN manual</label>
-                    <input type="number" min="0" step="0.01" placeholder="calculado"
+                    <input type="number" min="0" step="any" placeholder="calculado"
                       value={feeInOverride ?? ""} onChange={e => setFeeInOverride(e.target.value === "" ? null : Number(e.target.value))}
                       className={inputCls + " text-ps-green-700 font-semibold"} />
                     <div className="mt-2">
                       <label className={labelCls}>Repasse IN manual</label>
-                      <input type="number" min="0" step="0.01" placeholder="calculado"
+                      <input type="number" min="0" step="any" placeholder="calculado"
                         value={repInOverride ?? ""} onChange={e => setRepInOverride(e.target.value === "" ? null : Number(e.target.value))}
                         className={inputCls} />
                     </div>
                   </div>
                   <div>
                     <label className={labelCls}>Fee OUT manual</label>
-                    <input type="number" min="0" step="0.01" placeholder="calculado"
+                    <input type="number" min="0" step="any" placeholder="calculado"
                       value={feeOutOverride ?? ""} onChange={e => setFeeOutOverride(e.target.value === "" ? null : Number(e.target.value))}
                       className={inputCls + " text-ps-green-700 font-semibold"} />
                     <div className="mt-2">
                       <label className={labelCls}>Repasse OUT manual</label>
-                      <input type="number" min="0" step="0.01" placeholder="calculado"
+                      <input type="number" min="0" step="any" placeholder="calculado"
                         value={repOutOverride ?? ""} onChange={e => setRepOutOverride(e.target.value === "" ? null : Number(e.target.value))}
                         className={inputCls} />
                     </div>
@@ -552,7 +552,7 @@ export function EmitirFaturaForm({
           <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5 space-y-4">
             <h3 className="font-semibold text-ps-ink text-sm border-b border-ps-navy/5 pb-3">Ajustes e datas</h3>
             <div className="grid grid-cols-3 gap-4">
-              <div><label className={labelCls}>Desconto (%)</label><input type="number" min="0" max="100" step="0.01" value={descontoPerc} onChange={e => setDescontoPerc(Number(e.target.value))} className={inputCls} /></div>
+              <div><label className={labelCls}>Desconto (%)</label><input type="number" min="0" max="100" step="any" value={descontoPerc} onChange={e => setDescontoPerc(Number(e.target.value))} className={inputCls} /></div>
               <div><label className={labelCls}>Vencimento</label><input type="date" value={dataVencimento} onChange={e => setDataVencimento(e.target.value)} className={inputCls} /></div>
               <div><label className={labelCls}>Data de repasse</label><input type="date" value={dataRepasse} onChange={e => setDataRepasse(e.target.value)} className={inputCls} /></div>
             </div>
