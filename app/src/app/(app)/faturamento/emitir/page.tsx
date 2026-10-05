@@ -7,7 +7,9 @@ export default async function EmitirFaturaPage() {
   const [{ data: clients }, { data: companies }, { data: allSubcontas }] = await Promise.all([
     supabase.from("billing_clients").select("id, razao, modelo, in_tipo, in_val, out_tipo, out_val, rep_in, rep_out, faixas_mens").eq("status", "ativo").order("razao"),
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
-    supabase.from("billing_subcontas").select("id, client_id, razao, cnpj, num_conta, in_tipo, in_val, out_tipo, out_val, rep_in, rep_out"),
+    // ordem alfabética (e por número da conta quando o nome repete): é a ordem em que as contas
+    // aparecem na hora de faturar e também na fatura emitida
+    supabase.from("billing_subcontas").select("id, client_id, razao, cnpj, num_conta, in_tipo, in_val, out_tipo, out_val, rep_in, rep_out").order("razao").order("num_conta"),
   ]);
 
   const subcontasMap: Record<string, any[]> = {};
