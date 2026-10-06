@@ -11,9 +11,15 @@ const NO_REPASSE_MODELS = ["mensalidade", "mensalidade_intro", "bet", "bets"];
 const isMensalidade = (modelo: string) => modelo?.startsWith("mensalidade");
 const isBets = (modelo: string) => modelo === "bet" || modelo === "bets";
 
-function psValues(inv: { modelo: string; total: number; total_faturado: number; total_repasse: number }) {
+// transação sem repasse e com receita vinculada (ex.: Grupo Pagsmile - CH) é um fee mensal a
+// receber de verdade — ao contrário das outras de transação, o fee dela NÃO é reconhecido
+// diariamente, então entra no relatório pelo valor da fatura (já com desconto)
+const isFeeMensal = (inv: { modelo: string; total_repasse: number; revenue_id: string | null }) =>
+  inv.modelo === "transacao" && Number(inv.total_repasse) === 0 && !!inv.revenue_id;
+
+function psValues(inv: { modelo: string; total: number; total_faturado: number; total_repasse: number; revenue_id: string | null }) {
   const noRepasse = NO_REPASSE_MODELS.includes(inv.modelo);
-  const receita = noRepasse ? Number(inv.total) : Number(inv.total_faturado) - Number(inv.total_repasse);
+  const receita = noRepasse || isFeeMensal(inv) ? Number(inv.total) : Number(inv.total_faturado) - Number(inv.total_repasse);
   const repasse = noRepasse ? 0 : Number(inv.total_repasse);
   return { receita, repasse };
 }
@@ -45,7 +51,7 @@ export default async function RelatorioFaturamentoPage({
   // dataOperativa (baixa se já pago, senão a expectativa), que não dá pra fazer só com filtro SQL
   let invoicesQuery = supabase
     .from("billing_invoices")
-    .select("id, client_id, company_id, competencia, modelo, status, total, total_faturado, total_repasse, data_pgto, data_vencimento, data_repasse, billing_clients(razao)")
+    .select("id, client_id, company_id, competencia, modelo, status, total, total_faturado, total_repasse, revenue_id, data_pgto, data_vencimento, data_repasse, billing_clients(razao)")
     .in("status", ["pago", "pendente"]);
 
   if (searchParams.company_id) invoicesQuery = invoicesQuery.eq("company_id", searchParams.company_id);
@@ -65,6 +71,7 @@ export default async function RelatorioFaturamentoPage({
   // transação fica de fora: o fee dela já é reconhecido diariamente (CCME/FEE) — contar aqui
   // também seria receita em dobro. Só bets é receita de verdade da fatura.
   const outrasReceitas = rows.filter((r: any) => isBets(r.modelo) && r.receita > 0);
+  const feeMensal = rows.filter((r: any) => isFeeMensal(r) && r.receita > 0);
 
   const [label] = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"].slice(mesNum - 1, mesNum);
 
@@ -96,15 +103,17 @@ export default async function RelatorioFaturamentoPage({
         <ExportMonthlyReportButton mes={mes} companyId={searchParams.company_id} modo={modo} />
       </AutoSubmitForm>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <ResumoCard titulo={`Repasses em ${label}`} rows={repasses} campo="repasse" tone="red" rotuloPago="repassado" />
         <ResumoCard titulo={`Mensalidades em ${label}`} rows={mensalidades} campo="receita" tone="green" rotuloPago="recebido" />
         <ResumoCard titulo={`Bets em ${label}`} rows={outrasReceitas} campo="receita" tone="blue" rotuloPago="recebido" />
+        <ResumoCard titulo={`Fee Mensal em ${label}`} rows={feeMensal} campo="receita" tone="amber" rotuloPago="recebido" />
       </div>
 
       <Secao titulo="Repasses no mês" rows={repasses} campo="repasse" valorLabel="Valor do repasse" rotuloPago="Repassado" vazio="Nenhum repasse provisionado ou pago nesse mês." />
       <Secao titulo="Mensalidades" rows={mensalidades} campo="receita" valorLabel="Valor" rotuloPago="Recebido" vazio="Nenhuma mensalidade provisionada ou recebida nesse mês." />
       <Secao titulo="Bets — receita recebida" rows={outrasReceitas} campo="receita" valorLabel="Valor" rotuloPago="Recebido" vazio="Nenhuma fatura de bets provisionada ou recebida nesse mês." />
+      <Secao titulo="Fee Mensal — a receber" rows={feeMensal} campo="receita" valorLabel="Valor" rotuloPago="Recebido" vazio="Nenhum fee mensal provisionado ou recebido nesse mês." />
 
       <p className="text-xs text-ps-muted mt-2">
         {modo === "competencia" ? (
@@ -112,9 +121,11 @@ export default async function RelatorioFaturamentoPage({
         ) : (
           <>Filtro por <strong>período de repasse</strong>: cada linha usa a data da baixa quando já foi paga, ou a data de vencimento quando ainda está pendente — por isso uma fatura de competência diferente pode aparecer aqui se o repasse cai nesse mês. Troque para "competência" acima se quiser ver pelo mês a que a fatura se refere.</>
         )}{" "}
-        Faturas de transação não entram em "receita": o fee delas já é reconhecido diariamente pelo
-        CCME/FEE, e listar aqui de novo contaria a mesma receita duas vezes. O repasse da transação
-        continua entrando normalmente na primeira seção.
+        Faturas de transação com repasse não entram em "receita": o fee delas já é reconhecido
+        diariamente pelo CCME/FEE, e listar aqui de novo contaria a mesma receita duas vezes. O
+        repasse da transação continua entrando normalmente na primeira seção. A exceção é o Fee
+        Mensal: fatura de transação sem repasse (ex.: Grupo Pagsmile - CH), que é valor a receber
+        de verdade e entra pelo total da fatura, já com desconto.
       </p>
     </div>
   );
@@ -130,13 +141,14 @@ function ResumoCard({
   titulo: string;
   rows: any[];
   campo: "repasse" | "receita";
-  tone: "red" | "green" | "blue";
+  tone: "red" | "green" | "blue" | "amber";
   rotuloPago: string;
 }) {
   const pago = rows.filter((r) => r.status === "pago").reduce((s, r) => s + r[campo], 0);
   const pendente = rows.filter((r) => r.status === "pendente").reduce((s, r) => s + r[campo], 0);
   const total = pago + pendente;
-  const border = tone === "red" ? "border-l-red-400" : tone === "green" ? "border-l-ps-green" : "border-l-blue-400";
+  const border =
+    tone === "red" ? "border-l-red-400" : tone === "green" ? "border-l-ps-green" : tone === "amber" ? "border-l-amber-400" : "border-l-blue-400";
   return (
     <div className={`rounded-ps shadow-ps-sm border border-ps-navy/5 border-l-4 ${border} bg-white p-5`}>
       <p className="text-xs text-ps-muted uppercase tracking-wide font-semibold mb-1">{titulo}</p>

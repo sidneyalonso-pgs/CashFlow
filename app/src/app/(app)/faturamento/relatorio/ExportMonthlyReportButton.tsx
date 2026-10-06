@@ -7,9 +7,13 @@ const NO_REPASSE_MODELS = ["mensalidade", "mensalidade_intro", "bet", "bets"];
 const isMensalidade = (modelo: string) => modelo?.startsWith("mensalidade");
 const isBets = (modelo: string) => modelo === "bet" || modelo === "bets";
 
-function psValues(inv: { modelo: string; total: number; total_faturado: number; total_repasse: number }) {
+// transação sem repasse e com receita vinculada (ex.: Grupo Pagsmile - CH): fee mensal a receber
+const isFeeMensal = (inv: { modelo: string; total_repasse: number; revenue_id: string | null }) =>
+  inv.modelo === "transacao" && Number(inv.total_repasse) === 0 && !!inv.revenue_id;
+
+function psValues(inv: { modelo: string; total: number; total_faturado: number; total_repasse: number; revenue_id: string | null }) {
   const noRepasse = NO_REPASSE_MODELS.includes(inv.modelo);
-  const receita = noRepasse ? Number(inv.total) : Number(inv.total_faturado) - Number(inv.total_repasse);
+  const receita = noRepasse || isFeeMensal(inv) ? Number(inv.total) : Number(inv.total_faturado) - Number(inv.total_repasse);
   const repasse = noRepasse ? 0 : Number(inv.total_repasse);
   return { receita, repasse };
 }
@@ -41,7 +45,7 @@ export function ExportMonthlyReportButton({ mes, companyId, modo }: { mes: strin
 
     let query = supabase
       .from("billing_invoices")
-      .select("modelo, status, total, total_faturado, total_repasse, data_pgto, data_vencimento, data_repasse, competencia, billing_clients(razao)")
+      .select("modelo, status, total, total_faturado, total_repasse, revenue_id, data_pgto, data_vencimento, data_repasse, competencia, billing_clients(razao)")
       .in("status", ["pago", "pendente"]);
     if (companyId) query = query.eq("company_id", companyId);
 
@@ -58,6 +62,7 @@ export function ExportMonthlyReportButton({ mes, companyId, modo }: { mes: strin
       if (r.repasse > 0) linhas.push([formatDateBR(r.data), "Repasse", r.billing_clients?.razao ?? "", r.competencia, r.modelo, formatNumberBR(r.repasse), statusLabel]);
       if (isMensalidade(r.modelo) && r.receita > 0) linhas.push([formatDateBR(r.data), "Mensalidade", r.billing_clients?.razao ?? "", r.competencia, r.modelo, formatNumberBR(r.receita), statusLabel]);
       if (isBets(r.modelo) && r.receita > 0) linhas.push([formatDateBR(r.data), "Bets", r.billing_clients?.razao ?? "", r.competencia, r.modelo, formatNumberBR(r.receita), statusLabel]);
+      if (isFeeMensal(r) && r.receita > 0) linhas.push([formatDateBR(r.data), "Fee Mensal", r.billing_clients?.razao ?? "", r.competencia, r.modelo, formatNumberBR(r.receita), statusLabel]);
     }
 
     const csvLines = [
