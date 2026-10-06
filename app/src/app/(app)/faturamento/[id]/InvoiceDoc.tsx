@@ -176,13 +176,17 @@ export function TransacaoDoc({ inv, client, subcontas: rawSubcontas }: { inv: an
     return s + fee;
   }, 0) || Number(inv.total_faturado);
   const totalRepasse = subcontas.reduce((s: number, r: any) => s + Number(r.repasse ?? 0), 0) || Number(inv.total_repasse);
+  // transação sem repasse e com receita vinculada = valor a RECEBER (ex.: Grupo Pagsmile - CH):
+  // o documento vira uma fatura, com dados bancários e vencimento no rodapé, como nas bets
+  const aReceber = Number(inv.total_repasse ?? 0) === 0 && !!inv.revenue_id;
+  const dadosBanc = "Banco Inter | Ag. 1 | CC 35635543-8 | CNPJ: 37.753.531/0001-65 | PIX: Pagsmile Instituição de Pagamento LTDA";
 
   return (
     <div className="bg-white p-10">
       <div className="flex justify-between items-start mb-6">
         <Logo />
         <div className="text-right">
-          <h1 className="text-xl font-black text-ps-navy tracking-tight uppercase">Demonstrativo de Repasse</h1>
+          <h1 className="text-xl font-black text-ps-navy tracking-tight uppercase">{aReceber ? "Fatura" : "Demonstrativo de Repasse"}</h1>
           <p className="text-xs text-ps-muted mt-1">Emissão: <strong className="text-ps-ink">{fmtDate(inv.data_emissao)}</strong></p>
           <p className="text-xs text-ps-muted">Competência: <strong className="text-ps-ink">{fmtCompetencia(inv.competencia)}</strong></p>
           {(inv.inicio || inv.fim) && (
@@ -216,7 +220,7 @@ export function TransacaoDoc({ inv, client, subcontas: rawSubcontas }: { inv: an
           <p className="font-bold mt-0.5 text-ps-green">{inv.inicio && inv.fim ? `${fmtDate(inv.inicio)} a ${fmtDate(inv.fim)}` : "—"}</p>
         </div>
         <div className="px-4 py-3 border-l border-white/10">
-          <p className="text-white/60 uppercase tracking-wide text-[10px]">{inv.status === "pago" ? "Data de Repasse" : "Vencimento"}</p>
+          <p className="text-white/60 uppercase tracking-wide text-[10px]">{inv.status === "pago" ? (aReceber ? "Data de Pagamento" : "Data de Repasse") : "Vencimento"}</p>
           <p className="font-bold mt-0.5">{inv.status === "pago" ? fmtDate(inv.data_pgto ?? inv.data_baixa ?? inv.data_repasse) : fmtDate(inv.data_vencimento ?? inv.data_repasse)}</p>
         </div>
       </div>
@@ -231,7 +235,7 @@ export function TransacaoDoc({ inv, client, subcontas: rawSubcontas }: { inv: an
             <th className="text-right px-3 py-2.5 font-semibold">Qtd IN | Movimentado</th>
             <th className="text-right px-3 py-2.5 font-semibold">Qtd OUT | Movimentado</th>
             <th className="text-right px-3 py-2.5 font-semibold">Apurado</th>
-            <th className="text-right px-3 py-2.5 font-semibold">Valor de Repasse</th>
+            <th className="text-right px-3 py-2.5 font-semibold">{aReceber ? "Tarifa IN | OUT" : "Valor de Repasse"}</th>
           </tr>
         </thead>
         <tbody>
@@ -252,7 +256,11 @@ export function TransacaoDoc({ inv, client, subcontas: rawSubcontas }: { inv: an
                   {Number(s.volOut ?? 0) > 0 ? N(s.volOut) : (s.qtdOut ?? s.tOut ?? 0).toLocaleString("pt-BR")}
                 </td>
                 <td className="px-3 py-2.5 text-right tabular-nums text-ps-ink">{N(apurado)}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-ps-green-700">{N(s.repasse ?? 0)}</td>
+                {aReceber ? (
+                  <td className="px-3 py-2.5 text-right tabular-nums text-ps-muted">{N(s.valIn ?? 0)} | {N(s.valOut ?? 0)}</td>
+                ) : (
+                  <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-ps-green-700">{N(s.repasse ?? 0)}</td>
+                )}
               </tr>
             );
           }) : (
@@ -268,11 +276,11 @@ export function TransacaoDoc({ inv, client, subcontas: rawSubcontas }: { inv: an
           <tr className="bg-ps-bg-2 font-bold border-t-2 border-ps-navy/15">
             <td colSpan={4} className="px-3 py-2.5 text-ps-ink text-xs">TOTAL</td>
             <td className="px-3 py-2.5 text-right tabular-nums text-ps-ink">{N(totalApurado)}</td>
-            <td className="px-3 py-2.5 text-right tabular-nums text-ps-green-700">{N(totalRepasse)}</td>
+            <td className="px-3 py-2.5 text-right tabular-nums text-ps-green-700">{aReceber ? "" : N(totalRepasse)}</td>
           </tr>
         </tbody>
       </table>
-      {(Number(client?.in_val) > 0 || Number(client?.out_val) > 0) && (
+      {!aReceber && (Number(client?.in_val) > 0 || Number(client?.out_val) > 0) && (
         <div className="border border-t-0 border-ps-navy/10 px-4 py-2 flex gap-6 text-[10px] text-ps-muted bg-white">
           {Number(client.in_val) > 0 && <span>Tarifa PIX IN: R$ {Number(client.in_val).toFixed(2).replace(".", ",")}/tx</span>}
           {Number(client.out_val) > 0 && <span>Tarifa PIX OUT: R$ {Number(client.out_val).toFixed(2).replace(".", ",")}/tx</span>}
@@ -290,20 +298,37 @@ export function TransacaoDoc({ inv, client, subcontas: rawSubcontas }: { inv: an
             </div>
           )}
           <div className="bg-ps-navy text-white rounded px-5 py-3.5 flex justify-between items-center font-bold mt-2">
-            <span className="text-sm uppercase tracking-wide">Valor de Repasse</span>
-            <span className="text-ps-green tabular-nums text-xl">{N(totalRepasse)}</span>
+            <span className="text-sm uppercase tracking-wide">{aReceber ? "Valor a Receber" : "Valor de Repasse"}</span>
+            <span className="text-ps-green tabular-nums text-xl">{N(aReceber ? inv.total : totalRepasse)}</span>
           </div>
         </div>
       </div>
-      <div className="mt-6 pt-4 border-t border-ps-navy/10 flex justify-between items-end text-xs text-ps-muted">
-        <div>{inv.obs && <><p className="font-semibold text-ps-ink uppercase tracking-wide text-[10px] mb-1">Observações</p><p>{inv.obs}</p></>}</div>
-        {(inv.data_pgto || inv.data_baixa) && (
-          <div className="text-right">
-            <p className="font-semibold text-ps-ink uppercase tracking-wide text-[10px] mb-1">Data de Repasse</p>
-            <p className="font-bold text-ps-ink text-sm">{fmtDate(inv.data_pgto ?? inv.data_baixa)}</p>
+      {aReceber ? (
+        <div className="mt-6 pt-4 border-t border-ps-navy/10 grid grid-cols-2 gap-8 text-xs text-ps-muted">
+          <div>
+            <p className="font-semibold text-ps-ink uppercase tracking-wide text-[10px] mb-1">Observações</p>
+            <p className="leading-relaxed">Dados bancários para pagamento: {dadosBanc}</p>
+            {inv.obs && <p className="mt-1">{inv.obs}</p>}
           </div>
-        )}
-      </div>
+          <div className="text-right space-y-1">
+            <div><span className="text-ps-muted">Data de emissão da fatura: </span><span className="font-semibold text-ps-ink">{fmtDate(inv.data_emissao)}</span></div>
+            <div><span className="text-ps-muted">Data de vencimento: </span><span className="font-semibold text-ps-ink">{fmtDate(inv.data_vencimento)}</span></div>
+            {(inv.data_pgto || inv.data_baixa) && (
+              <div><span className="text-ps-muted">Data de pagamento: </span><span className="font-semibold text-ps-ink">{fmtDate(inv.data_pgto ?? inv.data_baixa)}</span></div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-6 pt-4 border-t border-ps-navy/10 flex justify-between items-end text-xs text-ps-muted">
+          <div>{inv.obs && <><p className="font-semibold text-ps-ink uppercase tracking-wide text-[10px] mb-1">Observações</p><p>{inv.obs}</p></>}</div>
+          {(inv.data_pgto || inv.data_baixa) && (
+            <div className="text-right">
+              <p className="font-semibold text-ps-ink uppercase tracking-wide text-[10px] mb-1">Data de Repasse</p>
+              <p className="font-bold text-ps-ink text-sm">{fmtDate(inv.data_pgto ?? inv.data_baixa)}</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
