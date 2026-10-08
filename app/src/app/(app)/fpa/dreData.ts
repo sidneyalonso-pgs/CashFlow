@@ -13,11 +13,14 @@ const MESES = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "O
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const dm = (s: string) => `${s.slice(8, 10)}/${s.slice(5, 7)}`;
 
+// DRE gerencial começa em set/26: meses anteriores ficam fora das colunas
+const INICIO_DRE = "2026-09";
+
 export function colunasMensais(ano: number): Col[] {
   return MESES.map((m, i) => {
     const mm = String(i + 1).padStart(2, "0");
     return { key: `${ano}-${mm}`, label: `${m}-${String(ano).slice(2)}`, from: `${ano}-${mm}-01`, to: iso(new Date(Date.UTC(ano, i + 1, 0))) };
-  });
+  }).filter((c) => c.key >= INICIO_DRE);
 }
 
 /** Semanas (segunda a domingo) do mês, cortadas nos limites do mês. */

@@ -13,7 +13,7 @@ export default async function DreGerencialPage({
   const supabase = createClient();
   const hoje = new Date().toISOString().slice(0, 10);
   const semanal = searchParams.visao === "semanal";
-  const ano = Number(searchParams.ano) || Number(hoje.slice(0, 4));
+  const ano = Math.max(2026, Number(searchParams.ano) || Number(hoje.slice(0, 4)));
   const mes = /^\d{4}-\d{2}$/.test(searchParams.mes ?? "") ? searchParams.mes! : hoje.slice(0, 7);
 
   const { data: companies } = await supabase.from("companies").select("id, legal_name, trade_name").order("legal_name");
@@ -81,7 +81,7 @@ export default async function DreGerencialPage({
         {semanal ? (
           <input type="month" name="mes" defaultValue={mes} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm" />
         ) : (
-          <input type="number" name="ano" defaultValue={ano} min={2024} max={2035} className="w-24 rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm" />
+          <input type="number" name="ano" defaultValue={ano} min={2026} max={2035} className="w-24 rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm" />
         )}
         <button className="text-sm text-ps-navy underline" type="submit">
           Atualizar
