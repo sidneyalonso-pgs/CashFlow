@@ -13,7 +13,7 @@ create table dre_ajustes_manuais (
 alter table dre_ajustes_manuais enable row level security;
 
 create policy "dre_ajustes_select" on dre_ajustes_manuais for select
-  using (current_user_role() in ('administrador', 'tesouraria', 'diretoria', 'fpa'));
+  using (current_user_role() in ('administrador', 'tesouraria', 'fpa'));
 create policy "dre_ajustes_insert" on dre_ajustes_manuais for insert
   with check (current_user_role() in ('administrador', 'tesouraria'));
 create policy "dre_ajustes_update" on dre_ajustes_manuais for update
