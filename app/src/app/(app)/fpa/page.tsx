@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
+import { FpaTabs } from "./FpaTabs";
 import { FinancialCard } from "@/components/FinancialCard";
 import { ExpandableTable, type ExpandableRow } from "@/components/ExpandableTable";
 import { formatBRL, sumMoney } from "@/lib/calculations/money";
@@ -97,6 +98,7 @@ export default async function FpaPage({
   return (
     <div>
       <PageHeader title="FP&A" subtitle="Realizado classificado por categoria, centro de custo e natureza" />
+      <FpaTabs ativa="visao" />
 
       <form className="flex flex-wrap gap-3 mb-6">
         <select
