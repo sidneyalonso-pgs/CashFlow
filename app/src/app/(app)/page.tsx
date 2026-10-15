@@ -141,7 +141,7 @@ export default async function PosicaoExecutivaPage({
     <div className="space-y-6 print:space-y-4">
       {/* cabeçalho */}
       <div className="-mx-8 -mt-8 bg-ps-navy print:bg-transparent print:mx-0 print:mt-0">
-        <div className="flex items-end justify-between gap-6 flex-wrap px-8 pt-6 pb-3">
+        <div className="flex items-end justify-between gap-6 flex-wrap px-8 pt-6 pb-3 min-h-[132px]">
           <div>
             <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/60 print:text-ps-navy">Pagsmile · Tesouraria</p>
             <h1 className="mt-1 text-2xl font-light tracking-tight text-white print:text-ps-ink">

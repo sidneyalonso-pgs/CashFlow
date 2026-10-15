@@ -107,7 +107,7 @@ export function Sidebar({ role }: { role?: string | null }) {
     >
       <div className="pointer-events-none absolute -top-24 -left-16 w-64 h-64 rounded-full bg-ps-green/10 blur-3xl" />
 
-      <div className="relative px-3 py-6 border-b border-white/10 flex items-center justify-center">
+      <div className="relative px-3 h-[132px] border-b border-white/10 flex items-center justify-center">
         {!collapsed && (
           <div className="inline-flex flex-col items-end">
             <img src="/logos/pagsmile-logo-transparent.png" alt="PagSmile" className="h-10" />
