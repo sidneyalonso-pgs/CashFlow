@@ -20,7 +20,7 @@ export function SignOutButton() {
     <button
       onClick={handleSignOut}
       disabled={loading}
-      className="text-sm text-ps-muted hover:text-red-600 transition-colors disabled:opacity-60"
+      className="text-sm text-white/80 hover:text-ps-mint transition-colors disabled:opacity-60"
     >
       {loading ? "Saindo..." : "Sair"}
     </button>
