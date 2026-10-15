@@ -10,6 +10,7 @@ import { getWeekBuckets, getMonthBuckets, getQuarterBuckets, shiftDay, type Buck
 import { scopeAccounts, transferDirection } from "@/lib/calculations/transfers";
 import { eliminarIntercompany } from "@/lib/calculations/intercompany";
 import { contaPadraoDaEmpresa, precisaContaPadrao } from "@/lib/calculations/defaultAccount";
+import { SaldoChart } from "./SaldoChart";
 
 type Granularity = "semana" | "mes" | "trimestre";
 
@@ -404,9 +405,17 @@ export default async function CashFlowPage({
         </p>
       )}
 
+      <SaldoChart
+        projetado={projetado}
+        pontos={[
+          { label: `Início (${formatShort(rangeStart)})`, saldo: openingBalance.toNumber(), saldoInvest: openingBalance.toNumber() + openingInvBalance },
+          ...bucketRows.map((r) => ({ label: r.label, saldo: r.balance.toNumber(), saldoInvest: r.balance.toNumber() + r.invBalance })),
+        ]}
+      />
+
       <div className="flex items-center gap-3 mb-2">
         <h3 className="font-semibold text-ps-ink">
-          Evolução do Saldo — {granularity === "semana" ? "Semanal" : granularity === "mes" ? "Mensal" : "Trimestral"}
+          Evolução do Saldo —{granularity === "semana" ? "Semanal" : granularity === "mes" ? "Mensal" : "Trimestral"}
         </h3>
         {projetado && (
           <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 rounded px-2 py-0.5">
