@@ -32,7 +32,7 @@ export function PageHeader({
 }) {
   return (
     <div className="-mx-8 -mt-8 mb-2 bg-ps-navy print:bg-transparent print:mx-0 print:mt-0">
-      <div className="flex items-end justify-between gap-6 flex-wrap px-8 pb-3">
+      <div className="flex items-end justify-between gap-6 flex-wrap px-8 pt-6 pb-3">
         <div>
           {/* deriva o destino do endereço: tela interna nova já nasce com saída */}
           <BackLink />

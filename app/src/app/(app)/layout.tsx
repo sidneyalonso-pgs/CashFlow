@@ -25,13 +25,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   // o papel decide o que o menu oferece; quem barra a rota de fato é o middleware
-  const { data: perfil } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const { data: perfil } = await supabase.from("profiles").select("role, full_name").eq("id", user.id).single();
 
   return (
     <div className="app-shell flex min-h-screen bg-ps-bg">
       <Sidebar role={perfil?.role} />
       <div className="flex-1 flex flex-col bg-ps-navy min-w-0">
-        <Topbar userEmail={user.email} />
+        <Topbar userEmail={user.email} userName={perfil?.full_name} />
         <main className="flex-1 p-8 bg-ps-bg rounded-tl-[24px]">{children}</main>
       </div>
     </div>

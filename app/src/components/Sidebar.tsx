@@ -107,10 +107,10 @@ export function Sidebar({ role }: { role?: string | null }) {
     >
       <div className="pointer-events-none absolute -top-24 -left-16 w-64 h-64 rounded-full bg-ps-green/10 blur-3xl" />
 
-      <div className="relative px-3 py-6 border-b border-white/10 flex items-center justify-between">
+      <div className="relative px-3 py-6 border-b border-white/10 flex items-center justify-center">
         {!collapsed && (
-          <div>
-            <img src="/logos/pagsmile-logo-transparent.png" alt="PagSmile" className="h-10" />
+          <div className="text-center">
+            <img src="/logos/pagsmile-logo-transparent.png" alt="PagSmile" className="h-10 mx-auto" />
             <p className="mt-2 text-[13px] text-white/60 font-mono tracking-wide uppercase">Treasury</p>
           </div>
         )}
@@ -118,7 +118,7 @@ export function Sidebar({ role }: { role?: string | null }) {
           onClick={toggle}
           title={collapsed ? "Expandir menu" : "Recolher menu"}
           aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
-          className="text-white/60 hover:text-white hover:bg-white/10 rounded-ps-sm p-1.5 transition-colors mx-auto"
+          className={`text-white/60 hover:text-white hover:bg-white/10 rounded-ps-sm p-1.5 transition-colors ${collapsed ? "mx-auto" : "absolute top-2 right-2"}`}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`w-4 h-4 transition-transform ${collapsed ? "rotate-180" : ""}`}>
             <path d="M15 18l-6-6 6-6" />
