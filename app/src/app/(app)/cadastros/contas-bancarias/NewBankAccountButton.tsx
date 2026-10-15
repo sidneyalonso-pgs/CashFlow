@@ -41,7 +41,7 @@ export function NewBankAccountButton({
     <>
       <button
         onClick={() => setOpen(true)}
-        className="bg-ps-navy text-white text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-navy-700 transition-colors"
+        className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors"
       >
         Nova conta
       </button>
@@ -95,7 +95,7 @@ export function NewBankAccountButton({
             <button
               type="submit"
               disabled={isPending}
-              className="bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-4 py-2 text-sm disabled:opacity-60"
+              className="bg-ps-green text-ps-navy-900 font-semibold rounded-full px-4 py-2 text-sm disabled:opacity-60"
             >
               {isPending ? "Salvando..." : "Salvar"}
             </button>

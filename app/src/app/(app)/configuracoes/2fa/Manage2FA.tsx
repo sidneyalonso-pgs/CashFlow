@@ -145,7 +145,7 @@ export function Manage2FA() {
             <button
               type="submit"
               disabled={loading}
-              className="bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-4 py-2 text-sm disabled:opacity-60"
+              className="bg-ps-green text-ps-navy-900 font-semibold rounded-full px-4 py-2 text-sm disabled:opacity-60"
             >
               {loading ? "Verificando..." : "Ativar"}
             </button>
@@ -159,7 +159,7 @@ export function Manage2FA() {
           <button
             onClick={handleEnroll}
             disabled={loading}
-            className="bg-ps-navy text-white text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-navy-700 transition-colors disabled:opacity-60"
+            className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors disabled:opacity-60"
           >
             {loading ? "Gerando..." : "Ativar autenticação em duas etapas"}
           </button>

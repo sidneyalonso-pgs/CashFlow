@@ -272,7 +272,7 @@ export function BulkPaymentForm({
           type="button"
           onClick={handleSubmit}
           disabled={isPending}
-          className="bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-6 py-2.5 text-sm disabled:opacity-60 hover:brightness-105 transition-all"
+          className="bg-ps-green text-ps-navy-900 font-semibold rounded-full px-6 py-2.5 text-sm disabled:opacity-60 hover:brightness-105 transition-all"
         >
           {isPending ? "Salvando..." : "Salvar todos os pagamentos"}
         </button>

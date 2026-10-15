@@ -97,7 +97,7 @@ export default async function RevenuesPage({
             </Link>
             <Link
               href="/receitas/novo"
-              className="bg-ps-navy text-white text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-navy-700 transition-colors"
+              className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors"
             >
               Nova receita
             </Link>

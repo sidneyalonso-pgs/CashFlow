@@ -196,7 +196,7 @@ function MerchantForm({ initial, onSaved, onCancel }: {
       )}
 
       <div className="flex gap-2">
-        <button type="submit" disabled={isPending} className="flex-1 bg-ps-navy text-white text-sm font-semibold rounded-ps-sm py-2 hover:bg-ps-navy-700 disabled:opacity-60">
+        <button type="submit" disabled={isPending} className="flex-1 bg-ps-navy text-white text-sm font-semibold rounded-full py-2 hover:bg-ps-navy-700 disabled:opacity-60">
           {isPending ? "Salvando..." : initial ? "Salvar alterações" : "Adicionar merchant"}
         </button>
         {onCancel && (
@@ -288,7 +288,7 @@ function SubcontaForm({ clientId, initial, onSaved, onCancel }: {
         </div>
       )}
       <div className="flex gap-2 pt-1">
-        <button type="submit" disabled={isPending} className="flex-1 bg-ps-navy text-white text-xs font-semibold rounded-ps-sm py-1.5 disabled:opacity-60">
+        <button type="submit" disabled={isPending} className="flex-1 bg-ps-navy text-white text-xs font-semibold rounded-full py-1.5 disabled:opacity-60">
           {isPending ? "Salvando..." : initial ? "Salvar subconta" : "Adicionar subconta"}
         </button>
         <button type="button" onClick={onCancel} className="px-3 bg-white border border-ps-navy/15 text-ps-ink text-xs rounded-ps-sm">Cancelar</button>
@@ -475,7 +475,7 @@ export function MerchantList({ clients }: { clients: Client[] }) {
         />
         <button
           onClick={() => setShowForm(!showForm)}
-          className="bg-ps-navy text-white text-sm font-semibold rounded-ps-sm px-4 py-2 hover:bg-ps-navy-700"
+          className="bg-ps-navy text-white text-sm font-semibold rounded-full px-4 py-2 hover:bg-ps-navy-700"
         >
           {showForm ? "Cancelar" : "+ Novo merchant"}
         </button>

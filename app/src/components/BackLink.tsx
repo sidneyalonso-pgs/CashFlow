@@ -50,7 +50,7 @@ export function BackLink() {
   return (
     <Link
       href={destino}
-      className="inline-flex items-center gap-1.5 text-xs text-ps-muted hover:text-ps-navy transition-colors mb-1.5 print:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ps-navy/30 rounded"
+      className="inline-flex items-center gap-1.5 text-xs text-white/60 hover:text-ps-mint transition-colors mb-1.5 print:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ps-navy/30 rounded"
     >
       <span aria-hidden="true">←</span>
       {rotulo}

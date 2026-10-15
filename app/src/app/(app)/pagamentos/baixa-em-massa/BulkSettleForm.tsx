@@ -145,7 +145,7 @@ export function BulkSettleForm({
       <button
         onClick={handleSubmit}
         disabled={selected.size === 0 || isPending}
-        className="bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-5 py-2 text-sm disabled:opacity-60"
+        className="bg-ps-green text-ps-navy-900 font-semibold rounded-full px-5 py-2 text-sm disabled:opacity-60"
       >
         {isPending ? "Baixando..." : `Baixar ${selected.size} selecionado(s)`}
       </button>

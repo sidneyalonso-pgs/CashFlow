@@ -273,7 +273,7 @@ export function SalvaGuardaTable({
                       type="button"
                       onClick={() => handleSave(initial.data)}
                       disabled={busy}
-                      className="bg-ps-navy text-white font-medium rounded-ps-sm px-3 py-1.5 text-[11px] disabled:opacity-60 hover:bg-ps-navy-700 transition-colors whitespace-nowrap"
+                      className="bg-ps-navy text-white font-medium rounded-full px-3 py-1.5 text-[11px] disabled:opacity-60 hover:bg-ps-navy-700 transition-colors whitespace-nowrap"
                     >
                       {busy ? "..." : "Salvar"}
                     </button>

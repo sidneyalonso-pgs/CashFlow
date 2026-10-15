@@ -85,7 +85,7 @@ export function ExportMonthlyReportButton({ mes, companyId, modo }: { mes: strin
       type="button"
       onClick={handleExport}
       disabled={loading}
-      className="bg-ps-navy text-white text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-navy-700 transition-colors disabled:opacity-60"
+      className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors disabled:opacity-60"
     >
       {loading ? "Gerando..." : "Exportar CSV"}
     </button>

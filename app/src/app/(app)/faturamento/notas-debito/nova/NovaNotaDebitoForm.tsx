@@ -157,7 +157,7 @@ export function NovaNotaDebitoForm() {
             <button
               type="submit"
               disabled={isPending}
-              className="w-full mt-2 bg-ps-green text-ps-navy font-bold text-sm py-2.5 rounded-ps-sm hover:bg-ps-green/90 disabled:opacity-50 transition-colors"
+              className="w-full mt-2 bg-ps-green text-ps-navy font-bold text-sm py-2.5 rounded-full hover:bg-ps-green/90 disabled:opacity-50 transition-colors"
             >
               {isPending ? "Emitindo..." : "Emitir nota de débito"}
             </button>

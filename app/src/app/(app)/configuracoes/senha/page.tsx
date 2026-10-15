@@ -74,7 +74,7 @@ export default function ChangePasswordPage() {
         <button
           type="submit"
           disabled={loading}
-          className="bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-5 py-2 text-sm disabled:opacity-60"
+          className="bg-ps-green text-ps-navy-900 font-semibold rounded-full px-5 py-2 text-sm disabled:opacity-60"
         >
           {loading ? "Salvando..." : "Salvar nova senha"}
         </button>

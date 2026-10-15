@@ -51,7 +51,7 @@ export function NDActions({ ndId, status }: { ndId: string; status: string }) {
           <button
             onClick={handleBaixar}
             disabled={isPending}
-            className="w-full bg-ps-green text-ps-navy text-sm font-bold rounded-ps-sm py-2 hover:bg-ps-green/90 disabled:opacity-60 transition-colors"
+            className="w-full bg-ps-green text-ps-navy text-sm font-bold rounded-full py-2 hover:bg-ps-green/90 disabled:opacity-60 transition-colors"
           >
             {isPending ? "..." : "✓ Dar baixa (pago)"}
           </button>

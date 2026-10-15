@@ -101,7 +101,7 @@ export function EditPaymentButton({
             <button
               type="submit"
               disabled={isPending}
-              className="bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-4 py-2 text-sm disabled:opacity-60"
+              className="bg-ps-green text-ps-navy-900 font-semibold rounded-full px-4 py-2 text-sm disabled:opacity-60"
             >
               {isPending ? "Salvando..." : "Salvar"}
             </button>

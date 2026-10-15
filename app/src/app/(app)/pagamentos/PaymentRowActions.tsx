@@ -156,7 +156,7 @@ export function PaymentRowActions({
                 Cancelar
               </button>
               <button onClick={handleRecurring} disabled={scheduleMode === "dia" && !dayOfMonth}
-                className="px-4 py-2 text-sm rounded-ps-sm bg-ps-green text-ps-navy-900 font-medium disabled:opacity-50">
+                className="px-4 py-2 text-sm rounded-full bg-ps-green text-ps-navy-900 font-medium disabled:opacity-50">
                 Adicionar
               </button>
             </div>
@@ -199,7 +199,7 @@ export function PaymentRowActions({
               </button>
               <button
                 onClick={handleMarkPaid}
-                className="px-4 py-2 text-sm rounded-ps-sm bg-ps-green text-ps-navy-900 font-medium hover:brightness-105 transition-all"
+                className="px-4 py-2 text-sm rounded-full bg-ps-green text-ps-navy-900 font-medium hover:brightness-105 transition-all"
               >
                 Confirmar pago
               </button>

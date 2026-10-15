@@ -23,7 +23,7 @@ export function VincularButton({ a, b }: { a: Perna; b: Perna }) {
             router.refresh();
           })
         }
-        className="bg-ps-navy text-white text-xs font-semibold rounded-ps-sm px-3 py-1.5 hover:bg-ps-navy/90 disabled:opacity-60 transition-colors whitespace-nowrap"
+        className="bg-ps-navy text-white text-xs font-semibold rounded-full px-3 py-1.5 hover:bg-ps-navy/90 disabled:opacity-60 transition-colors whitespace-nowrap"
       >
         {pendente ? "..." : "Vincular par"}
       </button>

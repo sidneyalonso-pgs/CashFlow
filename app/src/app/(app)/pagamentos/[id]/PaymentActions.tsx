@@ -99,7 +99,7 @@ export function PaymentActions({
       <button
         onClick={handleSettle}
         disabled={isPending}
-        className="w-full bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-4 py-2 text-sm disabled:opacity-60"
+        className="w-full bg-ps-green text-ps-navy-900 font-semibold rounded-full px-4 py-2 text-sm disabled:opacity-60"
       >
         {isPending ? "Baixando..." : "Confirmar pagamento"}
       </button>

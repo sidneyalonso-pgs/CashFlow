@@ -46,7 +46,7 @@ export function AttachmentUploader({ paymentId }: { paymentId: string }) {
 
   return (
     <div>
-      <label className="inline-block bg-ps-navy text-white text-sm font-medium rounded-ps-sm px-4 py-2 cursor-pointer hover:bg-ps-navy-700 transition-colors">
+      <label className="inline-block bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 cursor-pointer hover:bg-ps-navy-700 transition-colors">
         {uploading ? "Enviando..." : "Anexar documento"}
         <input
           ref={inputRef}

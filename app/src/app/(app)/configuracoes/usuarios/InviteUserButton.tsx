@@ -35,7 +35,7 @@ export function InviteUserButton() {
           setError(null);
           setTempPassword(null);
         }}
-        className="bg-ps-navy text-white text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-navy-700 transition-colors"
+        className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors"
       >
         Criar usuário
       </button>
@@ -55,7 +55,7 @@ export function InviteUserButton() {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-4 py-2 text-sm"
+                className="bg-ps-green text-ps-navy-900 font-semibold rounded-full px-4 py-2 text-sm"
               >
                 Fechar
               </button>
@@ -75,7 +75,7 @@ export function InviteUserButton() {
               <button
                 type="submit"
                 disabled={isPending}
-                className="bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-4 py-2 text-sm disabled:opacity-60"
+                className="bg-ps-green text-ps-navy-900 font-semibold rounded-full px-4 py-2 text-sm disabled:opacity-60"
               >
                 {isPending ? "Criando..." : "Criar usuário"}
               </button>

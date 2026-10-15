@@ -79,7 +79,7 @@ export function InvoiceActions({
         </p>
       </div>
       <button onClick={handleBaixar} disabled={isPending}
-        className="w-full bg-ps-green text-ps-navy text-sm font-bold rounded-ps-sm py-2 hover:bg-ps-green/90 disabled:opacity-60 transition-colors">
+        className="w-full bg-ps-green text-ps-navy text-sm font-bold rounded-full py-2 hover:bg-ps-green/90 disabled:opacity-60 transition-colors">
         {isPending ? "..." : "✓ Dar baixa (pago)"}
       </button>
 
@@ -90,7 +90,7 @@ export function InvoiceActions({
             className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-1.5 text-sm bg-white" />
           <div className="flex gap-2">
             <button onClick={handleReagendar} disabled={isPending}
-              className="flex-1 bg-ps-navy text-white text-sm font-medium rounded-ps-sm py-1.5 hover:bg-ps-navy/90 disabled:opacity-60 transition-colors">
+              className="flex-1 bg-ps-navy text-white text-sm font-medium rounded-full py-1.5 hover:bg-ps-navy/90 disabled:opacity-60 transition-colors">
               {isPending ? "..." : "Salvar data"}
             </button>
             <button onClick={() => setReagendando(false)} disabled={isPending}

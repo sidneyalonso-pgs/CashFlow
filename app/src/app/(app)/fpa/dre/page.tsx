@@ -62,7 +62,7 @@ export default async function DreGerencialPage({
     return `/fpa/dre?${q.toString()}`;
   };
   const pill = (on: boolean) =>
-    `px-3 py-1.5 text-sm rounded-ps-sm border ${on ? "bg-ps-navy text-white border-ps-navy" : "border-ps-navy/15 text-ps-ink hover:bg-ps-navy/[0.04]"}`;
+    `px-3 py-1.5 text-sm rounded-full border ${on ? "bg-ps-navy text-white border-ps-navy" : "border-ps-navy/15 text-ps-ink hover:bg-ps-navy/[0.04]"}`;
 
   return (
     <div>

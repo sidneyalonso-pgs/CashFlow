@@ -604,7 +604,7 @@ export function EmitirFaturaForm({
             ) : (
               <p className="text-xs text-white/50">Selecione um merchant para ver o resumo</p>
             )}
-            <button type="submit" disabled={isPending || !client} className="w-full mt-2 bg-ps-green text-ps-navy font-bold text-sm py-2.5 rounded-ps-sm hover:bg-ps-green/90 disabled:opacity-50 transition-colors">
+            <button type="submit" disabled={isPending || !client} className="w-full mt-2 bg-ps-green text-ps-navy font-bold text-sm py-2.5 rounded-full hover:bg-ps-green/90 disabled:opacity-50 transition-colors">
               {isPending ? "Emitindo..." : "Emitir demonstrativo"}
             </button>
           </div>

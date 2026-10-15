@@ -41,7 +41,7 @@ export default async function RelatorioDiarioPage({ searchParams }: { searchPara
               href={`/print/salva-guarda/${data}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-ps-navy text-white text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-navy-700 transition-colors"
+              className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors"
             >
               🖨️ Imprimir / PDF
             </a>

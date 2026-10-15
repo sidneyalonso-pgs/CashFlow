@@ -98,7 +98,7 @@ export function ImportRevenueWizard() {
           <button
             onClick={handleConfirm}
             disabled={isPending}
-            className="mt-4 bg-ps-green text-ps-navy-900 font-semibold rounded-ps-sm px-5 py-2 text-sm disabled:opacity-60"
+            className="mt-4 bg-ps-green text-ps-navy-900 font-semibold rounded-full px-5 py-2 text-sm disabled:opacity-60"
           >
             {isPending ? "Importando..." : `Confirmar importação de ${rows.length} linha(s)`}
           </button>
