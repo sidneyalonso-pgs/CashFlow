@@ -141,13 +141,13 @@ export default async function PosicaoExecutivaPage({
     <div className="space-y-6 print:space-y-4">
       {/* cabeçalho */}
       <div className="-mx-8 -mt-8 bg-ps-navy print:bg-transparent print:mx-0 print:mt-0">
-        <div className="flex items-end justify-between gap-6 flex-wrap px-8 pt-1 pb-6">
+        <div className="flex items-end justify-between gap-6 flex-wrap px-8 pb-3">
           <div>
             <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/60 print:text-ps-navy">Pagsmile · Tesouraria</p>
-            <h1 className="mt-1 text-3xl font-light tracking-tight text-white print:text-ps-ink">
+            <h1 className="mt-1 text-2xl font-light tracking-tight text-white print:text-ps-ink">
               Posição Executiva de <span className="text-ps-mint font-medium print:text-ps-ink">Recursos</span>
             </h1>
-            <p className="mt-1.5 text-sm text-white/70 print:text-ps-muted">Capacidade financeira atual e suporte à tomada de decisão</p>
+            <p className="mt-1 text-sm text-white/70 print:text-ps-muted">Capacidade financeira atual e suporte à tomada de decisão</p>
           </div>
           <div className="text-right text-[11px] font-mono uppercase tracking-wider text-white/60 leading-relaxed print:text-ps-muted-2">
             <p className="font-sans text-sm font-semibold normal-case tracking-normal text-white print:text-ps-muted">
@@ -157,7 +157,7 @@ export default async function PosicaoExecutivaPage({
             <p>Compromissos {horizonte.label} (até {dataBR(horizonEnd)})</p>
           </div>
         </div>
-        <div className="h-7 bg-ps-bg rounded-tl-[28px] print:hidden" />
+        <div className="h-4 bg-ps-bg rounded-tl-[24px] print:hidden" />
       </div>
 
       <form className="flex flex-wrap gap-3 print:hidden">

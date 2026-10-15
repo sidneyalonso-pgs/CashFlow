@@ -12,6 +12,11 @@ function Titulo({ texto }: { texto: string }) {
   );
 }
 
+// Botões do cabeçalho viram contorno translúcido sobre o verde, qualquer que seja o estilo de origem
+const ACOES_NO_VERDE =
+  "flex items-center gap-2 [&_a]:!bg-white/10 [&_a]:!text-white [&_a]:!border [&_a]:!border-white/30 [&_a]:!rounded-full [&_a:hover]:!bg-white/20 " +
+  "[&_button]:!bg-white/10 [&_button]:!text-white [&_button]:!border [&_button]:!border-white/30 [&_button]:!rounded-full [&_button:hover]:!bg-white/20";
+
 /**
  * Cabeçalho da página dentro da faixa verde. Sobe até a faixa do topo (a Topbar) cancelando o
  * padding do <main>, e termina com a borda arredondada do conteúdo claro.
@@ -27,18 +32,18 @@ export function PageHeader({
 }) {
   return (
     <div className="-mx-8 -mt-8 mb-2 bg-ps-navy print:bg-transparent print:mx-0 print:mt-0">
-      <div className="flex items-end justify-between gap-6 flex-wrap px-8 pt-1 pb-6">
+      <div className="flex items-end justify-between gap-6 flex-wrap px-8 pb-3">
         <div>
           {/* deriva o destino do endereço: tela interna nova já nasce com saída */}
           <BackLink />
-          <h1 className="text-3xl font-light tracking-tight text-white print:text-ps-ink">
+          <h1 className="text-2xl font-light tracking-tight text-white print:text-ps-ink">
             <Titulo texto={title} />
           </h1>
-          {subtitle && <p className="text-sm text-white/70 mt-1.5 print:text-ps-muted">{subtitle}</p>}
+          {subtitle && <p className="text-sm text-white/70 mt-1 print:text-ps-muted">{subtitle}</p>}
         </div>
-        {actions && <div className="bg-white rounded-full px-2 py-1.5 shadow-ps-sm print:hidden">{actions}</div>}
+        {actions && <div className={`${ACOES_NO_VERDE} print:hidden`}>{actions}</div>}
       </div>
-      <div className="h-7 bg-ps-bg rounded-tl-[28px] print:hidden" />
+      <div className="h-4 bg-ps-bg rounded-tl-[24px] print:hidden" />
     </div>
   );
 }
