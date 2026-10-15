@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 
 function Icon({ path }: { path: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px] shrink-0">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 shrink-0">
       <path d={path} />
     </svg>
   );
@@ -110,8 +110,8 @@ export function Sidebar({ role }: { role?: string | null }) {
       <div className="relative px-3 py-6 border-b border-white/10 flex items-center justify-between">
         {!collapsed && (
           <div>
-            <img src="/logos/pagsmile-logo-transparent.png" alt="PagSmile" className="h-8" />
-            <p className="mt-2 text-xs text-white/50 font-mono tracking-wide uppercase">Treasury</p>
+            <img src="/logos/pagsmile-logo-transparent.png" alt="PagSmile" className="h-10" />
+            <p className="mt-2 text-[13px] text-white/60 font-mono tracking-wide uppercase">Treasury</p>
           </div>
         )}
         <button
@@ -130,7 +130,7 @@ export function Sidebar({ role }: { role?: string | null }) {
         {secoes.map((section, idx) => (
           <div key={section.label ?? `section-${idx}`} className="space-y-1">
             {section.label && !collapsed && (
-              <p className="px-3 pb-1 text-[11px] font-medium uppercase tracking-[0.12em] text-ps-green-300/70">{section.label}</p>
+              <p className="px-3 pb-1 text-xs font-medium uppercase tracking-[0.12em] text-ps-green-300/70">{section.label}</p>
             )}
             {section.items.map((item) => {
               const active = isActive(pathname, item.href);
@@ -139,7 +139,7 @@ export function Sidebar({ role }: { role?: string | null }) {
                   key={item.href}
                   href={item.href}
                   title={collapsed ? item.label : undefined}
-                  className={`relative flex items-center gap-2.5 px-3 py-2 rounded-full text-sm transition-colors ${
+                  className={`relative flex items-center gap-2.5 px-3.5 py-2.5 rounded-full text-[15px] transition-colors ${
                     active ? "bg-ps-mint text-ps-navy-900 font-semibold" : "text-white/70 hover:bg-white/5 hover:text-white"
                   } ${collapsed ? "justify-center" : ""}`}
                 >

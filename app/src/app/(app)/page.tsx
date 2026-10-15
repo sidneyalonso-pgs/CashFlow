@@ -149,17 +149,11 @@ export default async function PosicaoExecutivaPage({
             </h1>
             <p className="mt-1 text-sm text-white/70 print:text-ps-muted">Capacidade financeira atual e suporte à tomada de decisão</p>
           </div>
-          <div className="text-right text-[11px] font-mono uppercase tracking-wider text-white/60 leading-relaxed print:text-ps-muted-2">
-            <p className="font-sans text-sm font-semibold normal-case tracking-normal text-white print:text-ps-muted">
-              {companyId ? empresas[0]?.trade_name || empresas[0]?.legal_name : "Consolidado — todas as empresas"}
-            </p>
-            <p>Posição em {dataBR(hoje)}</p>
-            <p>Compromissos {horizonte.label} (até {dataBR(horizonEnd)})</p>
-          </div>
         </div>
         <div className="h-4 bg-ps-bg rounded-tl-[24px] print:hidden" />
       </div>
 
+      <div className="flex items-start justify-between gap-6 flex-wrap">
       <form className="flex flex-wrap gap-3 print:hidden">
         <select name="company_id" defaultValue={companyId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
           <option value="">Consolidado — todas as empresas</option>
@@ -174,6 +168,14 @@ export default async function PosicaoExecutivaPage({
         </select>
         <button className="text-sm text-ps-navy underline" type="submit">Filtrar</button>
       </form>
+      <div className="text-right text-[11px] font-mono uppercase tracking-wider text-ps-muted-2 leading-relaxed">
+        <p className="font-sans text-sm font-semibold normal-case tracking-normal text-ps-muted">
+          {companyId ? empresas[0]?.trade_name || empresas[0]?.legal_name : "Consolidado — todas as empresas"}
+        </p>
+        <p>Posição em {dataBR(hoje)}</p>
+        <p>Compromissos {horizonte.label} (até {dataBR(horizonEnd)})</p>
+      </div>
+      </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
