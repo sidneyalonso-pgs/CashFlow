@@ -111,7 +111,7 @@ export function Sidebar({ role }: { role?: string | null }) {
         {!collapsed && (
           <div className="inline-flex flex-col items-end">
             <img src="/logos/pagsmile-logo-transparent.png" alt="PagSmile" className="h-10" />
-            <p className="mt-1 text-[13px] text-white/60 font-mono tracking-[0.2em] uppercase">Treasury</p>
+            <p className="-mt-1 text-[13px] text-white/60 font-mono tracking-[0.2em] uppercase">Treasury</p>
           </div>
         )}
         <button
