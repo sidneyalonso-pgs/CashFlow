@@ -109,9 +109,9 @@ export function Sidebar({ role }: { role?: string | null }) {
 
       <div className="relative px-3 py-6 border-b border-white/10 flex items-center justify-center">
         {!collapsed && (
-          <div className="text-center">
-            <img src="/logos/pagsmile-logo-transparent.png" alt="PagSmile" className="h-10 mx-auto" />
-            <p className="mt-2 text-[13px] text-white/60 font-mono tracking-wide uppercase">Treasury</p>
+          <div className="inline-flex flex-col items-end">
+            <img src="/logos/pagsmile-logo-transparent.png" alt="PagSmile" className="h-10" />
+            <p className="mt-1 text-[13px] text-white/60 font-mono tracking-[0.2em] uppercase">Treasury</p>
           </div>
         )}
         <button
