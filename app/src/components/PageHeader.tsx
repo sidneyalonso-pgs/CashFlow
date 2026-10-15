@@ -41,7 +41,8 @@ export function PageHeader({
           </h1>
           {subtitle && <p className="text-sm text-white/70 mt-1 print:text-ps-muted">{subtitle}</p>}
         </div>
-        {actions && <div className={`${ACOES_NO_VERDE} print:hidden`}>{actions}</div>}
+        {/* mt-14: reserva a altura do usuário (canto superior direito) para os botões nunca ficarem por baixo dele */}
+        {actions && <div className={`${ACOES_NO_VERDE} mt-14 print:hidden print:mt-0`}>{actions}</div>}
       </div>
       <div className="h-4 bg-ps-bg rounded-tl-[24px] print:hidden" />
     </div>
