@@ -21,15 +21,15 @@ const ESTILO: Record<Tom, { caixa: string; icone: string; valor: string }> = {
 export function ResumoCard({ label, value, tom = "neutro", icone }: { label: string; value: string; tom?: Tom; icone: Icone }) {
   const e = ESTILO[tom];
   return (
-    <div className={`flex items-center gap-3 rounded-ps border shadow-ps-sm px-3.5 py-2.5 w-full sm:w-[236px] ${e.caixa}`}>
-      <span className={`w-9 h-9 rounded-ps-sm flex items-center justify-center shrink-0 ${e.icone}`}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
+    <div className={`flex items-center gap-3.5 rounded-ps border shadow-ps-sm px-4 py-3.5 w-full sm:w-[280px] ${e.caixa}`}>
+      <span className={`w-11 h-11 rounded-ps-sm flex items-center justify-center shrink-0 ${e.icone}`}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[22px] h-[22px]">
           <path d={ICONES[icone]} />
         </svg>
       </span>
       <div className="min-w-0">
-        <p className="text-[10px] uppercase tracking-[0.1em] text-ps-muted font-medium leading-tight">{label}</p>
-        <p className={`mt-0.5 text-[17px] font-bold tabular-nums leading-tight whitespace-nowrap ${e.valor}`}>{value}</p>
+        <p className="text-[11px] uppercase tracking-[0.1em] text-ps-muted font-medium leading-tight">{label}</p>
+        <p className={`mt-1 text-[21px] font-bold tabular-nums leading-tight whitespace-nowrap ${e.valor}`}>{value}</p>
       </div>
     </div>
   );
