@@ -130,7 +130,7 @@ export function Sidebar({ role }: { role?: string | null }) {
         {secoes.map((section, idx) => (
           <div key={section.label ?? `section-${idx}`} className="space-y-1">
             {section.label && !collapsed && (
-              <p className="px-3 pb-1 text-xs font-mono uppercase tracking-wide text-ps-green-300/70">{section.label}</p>
+              <p className="px-3 pb-1 text-[11px] font-medium uppercase tracking-[0.12em] text-ps-green-300/70">{section.label}</p>
             )}
             {section.items.map((item) => {
               const active = isActive(pathname, item.href);
@@ -139,12 +139,12 @@ export function Sidebar({ role }: { role?: string | null }) {
                   key={item.href}
                   href={item.href}
                   title={collapsed ? item.label : undefined}
-                  className={`relative flex items-center gap-2.5 px-3 py-2 rounded-ps-sm text-sm transition-colors ${
-                    active ? "bg-ps-green/15 text-white" : "text-white/70 hover:bg-white/5 hover:text-white"
+                  className={`relative flex items-center gap-2.5 px-3 py-2 rounded-full text-sm transition-colors ${
+                    active ? "bg-ps-mint text-ps-navy-900 font-semibold" : "text-white/70 hover:bg-white/5 hover:text-white"
                   } ${collapsed ? "justify-center" : ""}`}
                 >
-                  {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-ps-green" />}
-                  <span className={active ? "text-ps-green-300" : ""}>
+                  
+                  <span>
                     <Icon path={item.icon} />
                   </span>
                   {!collapsed && <span>{item.label}</span>}

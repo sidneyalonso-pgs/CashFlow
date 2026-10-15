@@ -46,7 +46,7 @@ export function ReportCard({ data }: { data: ReportData }) {
   const gapOk = data.gap != null && data.gap >= 1;
 
   return (
-    <div className="bg-ps-bg rounded-ps overflow-hidden max-w-3xl mx-auto" id="salva-guarda-report">
+    <div className="doc-navy bg-ps-bg rounded-ps overflow-hidden max-w-3xl mx-auto" id="salva-guarda-report">
       {/* Cabeçalho */}
       <div className="bg-ps-navy px-6 py-5 flex items-center justify-between">
         <div className="flex items-center gap-3">

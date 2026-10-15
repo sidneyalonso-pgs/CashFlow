@@ -28,7 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { data: perfil } = await supabase.from("profiles").select("role").eq("id", user.id).single();
 
   return (
-    <div className="flex min-h-screen bg-ps-bg">
+    <div className="app-shell flex min-h-screen bg-ps-bg">
       <Sidebar role={perfil?.role} />
       <div className="flex-1 flex flex-col">
         <Topbar userEmail={user.email} />

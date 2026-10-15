@@ -2,11 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+/* Paleta original (canais RGB): usada por login, documentos e tudo fora do app-shell */
+:root {
+  --ps-navy-900: 0 20 42;
+  --ps-navy-800: 0 27 53;
+  --ps-navy-700: 0 38 74;
+  --ps-navy-600: 0 53 102;
+  --ps-navy: 0 36 67;
+  --ps-navy-50: 232 238 245;
+  --ps-green-300: 92 247 207;
+  --ps-green-200: 182 252 230;
+  --ps-mint: 92 247 207;
+  --ps-bg: 244 246 244;
+  --ps-bg-2: 236 239 238;
+  --ps-ink: 0 20 42;
+  --ps-ink-2: 31 45 63;
+  --ps-muted: 91 108 126;
+  --font-ui: "Inter";
+}
+
+/* Tema da intranet (verde-floresta + menta): só dentro do app logado */
+.app-shell {
+  --ps-navy-900: 15 47 42;
+  --ps-navy-800: 20 60 54;
+  --ps-navy-700: 38 95 86;
+  --ps-navy-600: 46 107 97;
+  --ps-navy: 29 75 68;
+  --ps-navy-50: 231 240 238;
+  --ps-green-300: 125 240 190;
+  --ps-green-200: 201 248 227;
+  --ps-mint: 125 240 190;
+  --ps-bg: 243 246 249;
+  --ps-bg-2: 233 238 242;
+  --ps-ink: 18 54 47;
+  --ps-ink-2: 37 69 63;
+  --ps-muted: 95 115 128;
+  --font-ui: "Plus Jakarta Sans";
+}
+
+/* Documentos (faturas, relatórios para envio) mantêm a paleta e a fonte originais */
+.doc-navy {
+  --ps-navy-900: 0 20 42;
+  --ps-navy-800: 0 27 53;
+  --ps-navy-700: 0 38 74;
+  --ps-navy-600: 0 53 102;
+  --ps-navy: 0 36 67;
+  --ps-navy-50: 232 238 245;
+  --ps-ink: 0 20 42;
+  --ps-ink-2: 31 45 63;
+  --ps-muted: 91 108 126;
+  --font-ui: "Inter";
+  font-family: Inter, sans-serif;
+}
 
 html, body {
   background: #F4F6F4;
   color: #00142A;
+}
+
+.app-shell {
+  background: rgb(var(--ps-bg));
+  font-family: var(--font-ui), Inter, sans-serif;
+  color: rgb(var(--ps-ink));
 }
 
 .tabular-nums {

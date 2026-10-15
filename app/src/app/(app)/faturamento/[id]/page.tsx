@@ -56,7 +56,7 @@ function Logo() {
 
 function MensalidadeDoc({ inv, client, subcontas }: { inv: any; client: any; subcontas: any[] }) {
   return (
-    <div className="bg-white shadow-ps-sm border border-ps-navy/5 rounded-ps p-10 print:shadow-none print:border-none print:p-0">
+    <div className="doc-navy bg-white shadow-ps-sm border border-ps-navy/5 rounded-ps p-10 print:shadow-none print:border-none print:p-0">
       {/* Header */}
       <div className="flex justify-between items-start mb-6">
         <Logo />
@@ -189,7 +189,7 @@ function TransacaoDoc({ inv, client, subcontas: rawSubcontas }: { inv: any; clie
   const dadosBanc = "Banco Inter | Ag. 1 | CC 35635543-8 | CNPJ: 37.753.531/0001-65 | PIX: Pagsmile Instituição de Pagamento LTDA";
 
   return (
-    <div className="bg-white shadow-ps-sm border border-ps-navy/5 rounded-ps p-10 print:shadow-none print:border-none print:p-0">
+    <div className="doc-navy bg-white shadow-ps-sm border border-ps-navy/5 rounded-ps p-10 print:shadow-none print:border-none print:p-0">
       {/* Header */}
       <div className="flex justify-between items-start mb-6">
         <Logo />
@@ -391,7 +391,7 @@ function BetsDoc({ inv, client, company, det }: { inv: any; client: any; company
   const valRemessaPerc = Number(det?.val_remessa_perc ?? client?.val_remessa_perc ?? 0);
 
   return (
-    <div className="bg-white shadow-ps-sm border border-ps-navy/5 rounded-ps p-10 print:shadow-none print:border-none print:p-0">
+    <div className="doc-navy bg-white shadow-ps-sm border border-ps-navy/5 rounded-ps p-10 print:shadow-none print:border-none print:p-0">
       {/* Header */}
       <div className="flex justify-between items-start mb-6">
         <Logo />

@@ -62,7 +62,7 @@ function Logo() {
 
 export function MensalidadeDoc({ inv, client, subcontas }: { inv: any; client: any; subcontas: any[] }) {
   return (
-    <div className="bg-white p-10">
+    <div className="doc-navy bg-white p-10">
       <div className="flex justify-between items-start mb-6">
         <Logo />
         <div className="text-right">
@@ -182,7 +182,7 @@ export function TransacaoDoc({ inv, client, subcontas: rawSubcontas }: { inv: an
   const dadosBanc = "Banco Inter | Ag. 1 | CC 35635543-8 | CNPJ: 37.753.531/0001-65 | PIX: Pagsmile Instituição de Pagamento LTDA";
 
   return (
-    <div className="bg-white p-10">
+    <div className="doc-navy bg-white p-10">
       <div className="flex justify-between items-start mb-6">
         <Logo />
         <div className="text-right">
@@ -361,7 +361,7 @@ export function BetsDoc({ inv, client, det }: { inv: any; client: any; det: any 
   const valRemessaPerc = Number(det?.val_remessa_perc ?? 0);
 
   return (
-    <div className="bg-white p-10">
+    <div className="doc-navy bg-white p-10">
       <div className="flex justify-between items-start mb-6">
         <Logo />
         <div className="text-right">
