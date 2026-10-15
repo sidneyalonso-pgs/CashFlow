@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
-import { FinancialCard } from "@/components/FinancialCard";
+import { ResumoCard } from "./ResumoCard";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 import { formatBRL, sumMoney } from "@/lib/calculations/money";
 import { getWeekBuckets, getMonthBuckets, getQuarterBuckets, shiftDay, type Bucket } from "@/lib/calculations/cashflowPeriods";
@@ -382,14 +382,17 @@ export default async function CashFlowPage({
         </select>
       </AutoSubmitForm>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
-        <FinancialCard label={`Saldo C/C Inicial (${formatShort(rangeStart)})`} value={formatBRL(openingBalance)} />
-        <FinancialCard label="Total de Receitas" value={formatBRL(totalInflows)} tone="positive" />
-        <FinancialCard label="Total de Despesas" value={formatBRL(totalOutflows)} tone="negative" />
-        <FinancialCard
+      {/* Os seis cartões fecham a conta: inicial + receitas + outras entradas − despesas − outras saídas = final */}
+      <div className="flex flex-wrap gap-3 mb-3">
+        <ResumoCard icone="saldo" label={`Saldo C/C inicial (${formatShort(rangeStart)})`} value={formatBRL(openingBalance)} />
+        <ResumoCard icone="entrada" tom="entrada" label="Receitas" value={formatBRL(somaCol("inReceitas"))} />
+        <ResumoCard icone="entrada" tom="entrada" label="Outras entradas" value={formatBRL(somaCol("inTransf").plus(somaCol("inResgates")))} />
+        <ResumoCard icone="saida" tom="saida" label="Despesas" value={formatBRL(somaCol("outDespesas"))} />
+        <ResumoCard icone="saida" tom="saida" label="Outras saídas" value={formatBRL(somaCol("outTransf").plus(somaCol("outAplic")))} />
+        <ResumoCard
+          icone="carteira"
           label={`${projetado ? "Saldo C/C projetado" : "Saldo C/C"} (${formatShort(rangeEnd)})`}
           value={formatBRL(closingBalance)}
-          tone={closingBalance.isNegative() ? "negative" : "neutral"}
         />
       </div>
 
