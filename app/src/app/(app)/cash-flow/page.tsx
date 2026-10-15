@@ -384,8 +384,8 @@ export default async function CashFlowPage({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
         <FinancialCard label={`Saldo C/C Inicial (${formatShort(rangeStart)})`} value={formatBRL(openingBalance)} />
-        <FinancialCard label="Total de Entradas" value={formatBRL(totalInflows)} tone="positive" />
-        <FinancialCard label="Total de Saídas" value={formatBRL(totalOutflows)} tone="negative" />
+        <FinancialCard label="Total de Receitas" value={formatBRL(totalInflows)} tone="positive" />
+        <FinancialCard label="Total de Despesas" value={formatBRL(totalOutflows)} tone="negative" />
         <FinancialCard
           label={`${projetado ? "Saldo C/C projetado" : "Saldo C/C"} (${formatShort(rangeEnd)})`}
           value={formatBRL(closingBalance)}
