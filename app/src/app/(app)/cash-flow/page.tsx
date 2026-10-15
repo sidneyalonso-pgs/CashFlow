@@ -1,3 +1,4 @@
+import type Decimal from "decimal.js";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -154,7 +155,7 @@ export default async function CashFlowPage({
     companyId ? [companyId] : ((companies ?? []) as any[]).map((c) => c.id)
   );
   const empresaDaConta = new Map<string, string>(((allBankAccounts ?? []) as any[]).map((a) => [a.id, a.company_id]));
-  const { ignorar: icIgnorar, movimentos: icMovimentos } = eliminarIntercompany(
+  const { movimentos: icMovimentos } = eliminarIntercompany(
     [
       ...((icTransf ?? []) as any[]).map((t) => ({
         tabela: "transfers" as const,
@@ -169,17 +170,16 @@ export default async function CashFlowPage({
     empresasNoEscopo
   );
 
-  const paymentRealizations = (paymentRealizationsEscopo ?? []).filter(
-    (r: any) => !icIgnorar.payments.has(r.payments?.id)
-  );
-  const revenueRealizations = (revenueRealizationsEscopo ?? []).filter(
-    (r: any) => !icIgnorar.revenues.has(r.revenues?.id)
-  );
+  // O movimento entre empresas do grupo agora aparece nas colunas (a diretoria quer ver as
+  // transferências). As duas pernas entram nos dois lados com o mesmo valor, então o saldo
+  // continua o mesmo — só os totais de entradas e saídas crescem na mesma proporção.
+  const paymentRealizations = paymentRealizationsEscopo ?? [];
+  const revenueRealizations = revenueRealizationsEscopo ?? [];
 
   // Transferências: a conta de origem/destino define a direção dentro do escopo selecionado
   const scopeAccountIds = scopeAccounts(bankAccountId, (allBankAccounts ?? []) as { id: string }[]);
   const { isInflow: isTransferIn, isOutflow: isTransferOut } = transferDirection(scopeAccountIds, companyId);
-  const allTransfers = ((transfersRaw ?? []) as any[]).filter((t) => !icIgnorar.transfers.has(t.id)) as Array<{ id: string; tipo: string; amount: number; transfer_date: string; company_id: string | null; to_company_id: string | null; from_account_id: string | null; to_account_id: string | null; counterpart_name: string | null; description: string | null }>;
+  const allTransfers = ((transfersRaw ?? []) as any[]) as Array<{ id: string; tipo: string; amount: number; transfer_date: string; company_id: string | null; to_company_id: string | null; from_account_id: string | null; to_account_id: string | null; counterpart_name: string | null; description: string | null }>;
 
   const transferInflows = allTransfers
     .filter(isTransferIn)
@@ -256,9 +256,25 @@ export default async function CashFlowPage({
   const provInflowDates = provisionedInflows.map((i) => i.received_at);
   const provOutflowDates = provisionedOutflows.map((o: any) => o.paid_at);
 
+  // composição de entradas e saídas, para as colunas por origem
+  const receitasItens = (revenueRealizations ?? []) as Array<{ amount: number; received_at: string }>;
+  const despesasItens = (paymentRealizations ?? []) as Array<{ amount: number; paid_at: string }>;
+  const dRec = receitasItens.map((i) => i.received_at);
+  const dDesp = despesasItens.map((i) => i.paid_at);
+  const dTrIn = transferInflows.map((i) => i.received_at);
+  const dTrOut = transferOutflows.map((i) => i.paid_at);
+  const dResg = invInflows.map((i) => i.received_at);
+  const dAplic = invOutflows.map((i) => i.paid_at);
+
   const bucketRows = buckets.map((b) => {
     const bucketInflows = sumInRange(inflows, inflowDates, b.start, b.end);
     const bucketOutflows = sumInRange(outflows, outflowDates, b.start, b.end);
+    const inTransf = sumInRange(transferInflows, dTrIn, b.start, b.end);
+    const inReceitas = sumInRange(receitasItens, dRec, b.start, b.end);
+    const inResgates = sumInRange(invInflows, dResg, b.start, b.end);
+    const outTransf = sumInRange(transferOutflows, dTrOut, b.start, b.end);
+    const outDespesas = sumInRange(despesasItens, dDesp, b.start, b.end);
+    const outAplic = sumInRange(invOutflows, dAplic, b.start, b.end);
     const bucketProvInflows = sumInRange(provisionedInflows, provInflowDates, b.start, b.end);
     const bucketProvOutflows = sumInRange(provisionedOutflows, provOutflowDates, b.start, b.end);
 
@@ -274,6 +290,12 @@ export default async function CashFlowPage({
       ...b,
       inflows: bucketInflows,
       outflows: bucketOutflows,
+      inTransf,
+      inReceitas,
+      inResgates,
+      outTransf,
+      outDespesas,
+      outAplic,
       provInflows: bucketProvInflows,
       provOutflows: bucketProvOutflows,
       balance: runningBalance,
@@ -285,6 +307,8 @@ export default async function CashFlowPage({
   const totalProvOutflows = sumMoney(bucketRows.map((r) => r.provOutflows));
   const totalInflows = sumMoney(bucketRows.map((r) => r.inflows));
   const totalOutflows = sumMoney(bucketRows.map((r) => r.outflows));
+  const somaCol = (k: "inTransf" | "inReceitas" | "inResgates" | "outTransf" | "outDespesas" | "outAplic") =>
+    sumMoney(bucketRows.map((r) => r[k]));
   const closingBalance = runningBalance;
   const closingInvBalance = runningInvBalance;
 
@@ -392,26 +416,37 @@ export default async function CashFlowPage({
       </div>
       <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-ps-bg-2 text-ps-muted text-xs uppercase tracking-wide">
-            <tr>
+          <thead className="text-ps-muted text-xs uppercase tracking-wide">
+            <tr className="text-[11px] font-semibold tracking-[0.12em]">
+              <th className="px-4 py-2" />
+              <th colSpan={5} className="px-4 py-2 text-center bg-emerald-50 text-emerald-800">Entradas</th>
+              <th colSpan={5} className="px-4 py-2 text-center bg-red-50 text-red-800 border-l border-ps-navy/10">Saídas</th>
+              <th colSpan={2} className="px-4 py-2 text-center bg-ps-navy-50 text-ps-navy border-l border-ps-navy/10">Saldo</th>
+            </tr>
+            <tr className="bg-ps-bg-2">
               <th className="text-left px-4 py-3">Período</th>
-              <th className="text-left px-4 py-3">Entradas</th>
-              <th className="text-left px-4 py-3 text-amber-700">A receber</th>
-              <th className="text-left px-4 py-3">Saídas</th>
-              <th className="text-left px-4 py-3 text-amber-700">A pagar</th>
-              <th className="text-left px-4 py-3">{projetado ? "Saldo C/C projetado" : "Saldo C/C"}</th>
-              <th className="text-left px-4 py-3 text-ps-navy/70">Saldo C/C + Invest</th>
+              <th className="text-right px-3 py-3">Transf. recebidas</th>
+              <th className="text-right px-3 py-3">Receitas</th>
+              <th className="text-right px-3 py-3">Resgates</th>
+              <th className="text-right px-3 py-3 text-amber-700">A receber</th>
+              <th className="text-right px-3 py-3">Total</th>
+              <th className="text-right px-3 py-3 border-l border-ps-navy/10">Transf. enviadas</th>
+              <th className="text-right px-3 py-3">Despesas</th>
+              <th className="text-right px-3 py-3">Aplicações</th>
+              <th className="text-right px-3 py-3 text-amber-700">A pagar</th>
+              <th className="text-right px-3 py-3">Total</th>
+              <th className="text-right px-3 py-3 border-l border-ps-navy/10">{projetado ? "Saldo C/C projetado" : "Saldo C/C"}</th>
+              <th className="text-right px-3 py-3 text-ps-navy/70">Saldo C/C + Invest</th>
             </tr>
           </thead>
           <tbody>
             <tr className="border-t border-ps-navy/5 bg-ps-bg-2/40">
               <td className="px-4 py-3 font-medium text-ps-ink">Saldo Inicial ({formatShort(rangeStart)})</td>
-              <td className="px-4 py-3 text-ps-muted">—</td>
-              <td className="px-4 py-3 text-ps-muted">—</td>
-              <td className="px-4 py-3 text-ps-muted">—</td>
-              <td className="px-4 py-3 text-ps-muted">—</td>
-              <td className="px-4 py-3 tabular-nums font-semibold">{formatBRL(openingBalance)}</td>
-              <td className="px-4 py-3 tabular-nums font-semibold text-ps-navy/70">{formatBRL(openingBalance.toNumber() + openingInvBalance)}</td>
+              {Array.from({ length: 10 }).map((_, i) => (
+                <td key={i} className={`px-3 py-3 text-right text-ps-muted ${i === 5 ? "border-l border-ps-navy/10" : ""}`}>—</td>
+              ))}
+              <td className="px-3 py-3 text-right tabular-nums font-semibold border-l border-ps-navy/10">{formatBRL(openingBalance)}</td>
+              <td className="px-3 py-3 text-right tabular-nums font-semibold text-ps-navy/70">{formatBRL(openingBalance.toNumber() + openingInvBalance)}</td>
             </tr>
             {bucketRows.map((row) => {
               const detailHref = `/cash-flow/detalhe?start=${row.start}&end=${row.end}&label=${encodeURIComponent(row.label)}${
@@ -425,23 +460,40 @@ export default async function CashFlowPage({
                       {row.label}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 tabular-nums text-ps-green-700">{formatBRL(row.inflows)}</td>
-                  <td className="px-4 py-3 tabular-nums text-amber-700">
-                    {row.provInflows.isZero() ? <span className="text-ps-muted">—</span> : formatBRL(row.provInflows)}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums text-red-600">{formatBRL(row.outflows)}</td>
-                  <td className="px-4 py-3 tabular-nums text-amber-700">
-                    {row.provOutflows.isZero() ? <span className="text-ps-muted">—</span> : formatBRL(row.provOutflows)}
-                  </td>
-                  <td className={`px-4 py-3 tabular-nums font-semibold ${row.balance.isNegative() ? "text-red-600" : ""}`}>
+                  <td className="px-3 py-3 text-right tabular-nums text-ps-green-700">{valor(row.inTransf)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums text-ps-green-700">{valor(row.inReceitas)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums text-ps-green-700">{valor(row.inResgates)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums text-amber-700">{valor(row.provInflows)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums font-semibold text-ps-green-700">{formatBRL(row.inflows)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums text-red-600 border-l border-ps-navy/10">{valor(row.outTransf)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums text-red-600">{valor(row.outDespesas)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums text-red-600">{valor(row.outAplic)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums text-amber-700">{valor(row.provOutflows)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums font-semibold text-red-600">{formatBRL(row.outflows)}</td>
+                  <td className={`px-3 py-3 text-right tabular-nums font-semibold border-l border-ps-navy/10 ${row.balance.isNegative() ? "text-red-600" : ""}`}>
                     {formatBRL(row.balance)}
                   </td>
-                  <td className={`px-4 py-3 tabular-nums font-semibold text-ps-navy/70 ${totalWithInv < 0 ? "text-red-600" : ""}`}>
+                  <td className={`px-3 py-3 text-right tabular-nums font-semibold text-ps-navy/70 ${totalWithInv < 0 ? "text-red-600" : ""}`}>
                     {formatBRL(totalWithInv)}
                   </td>
                 </tr>
               );
             })}
+            <tr className="border-t-2 border-ps-navy/15 bg-ps-bg-2/60 font-semibold">
+              <td className="px-4 py-3 text-ps-ink">Total do período</td>
+              <td className="px-3 py-3 text-right tabular-nums text-ps-green-700">{valor(somaCol("inTransf"))}</td>
+              <td className="px-3 py-3 text-right tabular-nums text-ps-green-700">{valor(somaCol("inReceitas"))}</td>
+              <td className="px-3 py-3 text-right tabular-nums text-ps-green-700">{valor(somaCol("inResgates"))}</td>
+              <td className="px-3 py-3 text-right tabular-nums text-amber-700">{valor(totalProvInflows)}</td>
+              <td className="px-3 py-3 text-right tabular-nums text-ps-green-700">{formatBRL(totalInflows)}</td>
+              <td className="px-3 py-3 text-right tabular-nums text-red-600 border-l border-ps-navy/10">{valor(somaCol("outTransf"))}</td>
+              <td className="px-3 py-3 text-right tabular-nums text-red-600">{valor(somaCol("outDespesas"))}</td>
+              <td className="px-3 py-3 text-right tabular-nums text-red-600">{valor(somaCol("outAplic"))}</td>
+              <td className="px-3 py-3 text-right tabular-nums text-amber-700">{valor(totalProvOutflows)}</td>
+              <td className="px-3 py-3 text-right tabular-nums text-red-600">{formatBRL(totalOutflows)}</td>
+              <td className="px-3 py-3 text-right tabular-nums border-l border-ps-navy/10">{formatBRL(closingBalance)}</td>
+              <td className="px-3 py-3 text-right tabular-nums text-ps-navy/70">{formatBRL(closingBalance.toNumber() + closingInvBalance)}</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -449,13 +501,14 @@ export default async function CashFlowPage({
       <p className="text-xs text-ps-muted mt-4">
         {icMovimentos > 0 && (
           <>
-            {icMovimentos} movimento{icMovimentos > 1 ? "s" : ""} entre empresas do grupo {icMovimentos > 1 ? "foram" : "foi"} eliminado
-            {icMovimentos > 1 ? "s" : ""} das entradas e saídas — as duas pernas saíram juntas, então o saldo não muda.{" "}
+            {icMovimentos} movimento{icMovimentos > 1 ? "s" : ""} entre empresas do grupo aparece{icMovimentos > 1 ? "m" : ""} nas
+            transferências, receitas e despesas dos dois lados, com o mesmo valor — então o saldo não muda.{" "}
             <Link href="/conciliacao/intercompany" className="text-ps-navy underline">Ver vínculos</Link>.{" "}
           </>
         )}
         Saldo inicial do período = saldo cadastrado nas contas bancárias + todas as entradas e saídas realizadas
-        até o dia anterior ao início do período selecionado. Entradas e Saídas são o que já foi baixado;
+        até o dia anterior ao início do período selecionado. Resgates e Aplicações são os movimentos de investimento que
+        creditam ou debitam a conta corrente. Entradas e Saídas são o que já foi baixado;
         “A receber” e “A pagar” são as provisões com vencimento naquele intervalo e aparecem sempre, mas só
         entram no saldo quando o filtro está em “Provisionados” ou “Ambos”.
       </p>
@@ -467,4 +520,9 @@ export default async function CashFlowPage({
 function formatShort(iso: string) {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}`;
+}
+
+// célula de valor das colunas por origem: zero vira traço, como em "A receber" e "A pagar"
+function valor(v: Decimal) {
+  return v.isZero() ? <span className="text-ps-muted">—</span> : formatBRL(v);
 }
