@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { Portal } from "./Portal";
 
 export function ConfirmDialog({
   open,
@@ -44,6 +45,7 @@ export function ConfirmDialog({
     : "bg-amber-500 hover:bg-amber-600 focus-visible:ring-amber-400";
 
   return (
+    <Portal>
     <div
       role="dialog"
       aria-modal="true"
@@ -97,5 +99,6 @@ export function ConfirmDialog({
         </div>
       </div>
     </div>
+    </Portal>
   );
 }

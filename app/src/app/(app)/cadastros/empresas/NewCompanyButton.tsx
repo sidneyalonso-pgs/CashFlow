@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { createCompany } from "./actions";
+import { Portal } from "@/components/Portal";
 
 export function NewCompanyButton() {
   const [open, setOpen] = useState(false);
@@ -30,6 +31,7 @@ export function NewCompanyButton() {
       </button>
 
       {open && (
+        <Portal>
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-ps shadow-ps-lg p-6 w-full max-w-md">
             <h2 className="text-lg font-bold text-ps-ink mb-4">Nova empresa</h2>
@@ -80,6 +82,7 @@ export function NewCompanyButton() {
             </form>
           </div>
         </div>
+        </Portal>
       )}
     </>
   );

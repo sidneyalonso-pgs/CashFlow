@@ -1,5 +1,7 @@
 "use client";
 
+import { Portal } from "./Portal";
+
 export function Modal({
   open,
   onClose,
@@ -14,6 +16,7 @@ export function Modal({
   if (!open) return null;
 
   return (
+    <Portal>
     <div className="modal-backdrop fixed inset-0 bg-ps-navy-900/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
       <div className="modal-panel bg-white rounded-ps shadow-ps-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
@@ -25,5 +28,6 @@ export function Modal({
         {children}
       </div>
     </div>
+    </Portal>
   );
 }
