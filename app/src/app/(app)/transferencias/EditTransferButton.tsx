@@ -161,7 +161,7 @@ export function EditTransferButton({
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <div className="flex justify-end gap-2 pt-1">
+          <div className="flex justify-end gap-2 pt-3 pb-1 sticky bottom-0 bg-white">
             <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 text-sm text-ps-muted hover:text-ps-ink">Cancelar</button>
             <button type="submit" disabled={isPending}
               className="bg-ps-green text-ps-navy-900 font-semibold rounded-full px-4 py-2 text-sm disabled:opacity-60">
