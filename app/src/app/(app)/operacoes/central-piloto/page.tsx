@@ -136,9 +136,10 @@ export default async function CentralPilotoPage({
       />
 
       <p className="text-xs text-ps-muted mt-4">
-        A <strong>data de apuração</strong> (primeira coluna) é o dia em que o dinheiro cai na conta e aparece no extrato (normalmente o primeiro dia útil seguinte): é ela que vale para o Cash Flow, para Receitas e para a conciliação. A <strong>data de referência</strong> (última coluna) é o dia a que aquela receita se refere, usada na DRE.{" "}
-        é o dia em que o dinheiro cai na conta (normalmente o primeiro dia útil seguinte): é ela que vale para o Cash Flow, para Receitas e
-        para a conciliação. Ao salvar, o sistema soma as cinco colunas no <strong>Total apurado</strong> e mantém{" "}
+        A <strong>data de apuração</strong> (primeira coluna) é o dia em que o dinheiro cai na conta e aparece no extrato (normalmente o
+        primeiro dia útil seguinte): é ela que vale para o Cash Flow, para Receitas e para a conciliação. A{" "}
+        <strong>data de referência</strong> (última coluna) é o dia a que aquela receita se refere, usada na DRE. Ao salvar, o sistema soma
+        as cinco colunas no <strong>Total apurado</strong> e mantém{" "}
         <strong>uma receita única por data de apuração e banco</strong> (a soma de todas as referências que caíram juntas), que casa com o
         crédito do extrato. As linhas em cinza são a <strong>projeção</strong> do restante do mês: média por tipo das 5 últimas apurações
         (fees todos os dias; SPI e CCME só em dia útil), caindo no primeiro dia útil seguinte e recalculada a cada lançamento. A receita
