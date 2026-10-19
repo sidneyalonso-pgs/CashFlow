@@ -37,7 +37,7 @@ export default async function DreGerencialPage({
       .limit(10000),
     supabase
       .from("revenues")
-      .select(`${REV_BASE}, revenue_components(amount, categories(name, fpa_classification))`)
+      .select(`${REV_BASE}, revenue_components(amount, data_referencia, categories(name, fpa_classification))`)
       .eq("company_id", companyId)
       .in("status", ["recebida", "estimada"])
       .is("deleted_at", null)
@@ -61,15 +61,16 @@ export default async function DreGerencialPage({
   const { data: prof } = user ? await supabase.from("profiles").select("role").eq("id", user.id).single() : { data: null };
   const editaPdd = !semanal && ["administrador", "tesouraria"].includes(prof?.role ?? "");
 
-  // receita com composição (Central Piloto) entra pelas partes, cada uma na sua categoria
+  // receita com composição (Central Piloto) entra pelas partes, cada uma na sua categoria e no seu dia
+  // de REFERÊNCIA (competência); o caixa, no Cash Flow, é o dia de apuração da receita
   const expandidas = revenues.flatMap((r: any) =>
     Array.isArray(r.revenue_components) && r.revenue_components.length > 0
       ? r.revenue_components.map((c: any) => ({
           status: r.status,
           realized_amount: c.amount,
-          realized_date: r.realized_date,
+          realized_date: c.data_referencia ?? r.realized_date,
           expected_amount: c.amount,
-          expected_date: r.expected_date,
+          expected_date: c.data_referencia ?? r.expected_date,
           categories: c.categories,
         }))
       : [r]

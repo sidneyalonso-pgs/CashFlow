@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
-import { hojeBR, totalDe } from "@/lib/calculations/centralPiloto";
+import { hojeBR, proximoDiaUtil, totalDe } from "@/lib/calculations/centralPiloto";
 import { planejarProjecao, ultimasApuracoes } from "./projecao";
 import { ReceitaDiaTable, type ReceitaDiaRow } from "./ReceitaDiaTable";
 
@@ -52,6 +52,7 @@ export default async function CentralPilotoPage({
   // projeção do restante do mês (média por tipo das 5 últimas apurações), só do mês corrente
   const refProjecao = hoje >= dateFrom && hoje <= dateTo ? hoje : dateTo;
   const plano = await planejarProjecao(supabase, company.id, refProjecao, hoje);
+  const projecaoPorReferencia = new Map((plano?.dias ?? []).map((p) => [p.referencia, p]));
 
   const rows: ReceitaDiaRow[] = [];
   for (let d = new Date(dateFrom + "T00:00:00Z"); d.toISOString().slice(0, 10) <= dateTo; d.setUTCDate(d.getUTCDate() + 1)) {
@@ -60,17 +61,19 @@ export default async function CentralPilotoPage({
     const ex = existingByDate.get(day) as any;
 
     if (futuro) {
-      // futuro não se lança: aparece só a projeção, nos dias úteis que ela cobre
-      if (!plano || !plano.dias.includes(day)) continue;
+      // futuro não se lança: aparece só a projeção do dia de referência, com a data em que cai na conta
+      const p = projecaoPorReferencia.get(day);
+      if (!plano || !p) continue;
       rows.push({
         data: day,
-        feePix: plano.medias.fee_pix,
-        feeTed: plano.medias.fee_ted,
-        feeOnboarding: plano.medias.fee_onboarding,
-        remSpi: plano.medias.rem_spi,
-        remCcme: plano.medias.rem_ccme,
+        dataApuracao: p.apuracao,
+        feePix: p.valores.fee_pix,
+        feeTed: p.valores.fee_ted,
+        feeOnboarding: p.valores.fee_onboarding,
+        remSpi: p.valores.rem_spi,
+        remCcme: p.valores.rem_ccme,
         bankAccountId: plano.bankAccountId,
-        total: plano.total,
+        total: p.total,
         tipo: "projecao",
       });
       continue;
@@ -83,8 +86,12 @@ export default async function CentralPilotoPage({
     const remCcme = ex?.remuneracao_ccme != null ? Number(ex.remuneracao_ccme) : null;
     const lancado = !!ex && (feePix != null || feeTed != null || feeOnboarding != null || remSpi != null || remCcme != null);
 
+    // linha nova: sugere o primeiro dia útil seguinte à referência (no máximo hoje) como data de apuração
+    const sugestaoApuracao = proximoDiaUtil(day) > hoje ? hoje : proximoDiaUtil(day);
+
     rows.push({
       data: day,
+      dataApuracao: ex?.data_apuracao ?? (lancado ? day : sugestaoApuracao),
       feePix,
       feeTed,
       feeOnboarding,
@@ -126,11 +133,13 @@ export default async function CentralPilotoPage({
       />
 
       <p className="text-xs text-ps-muted mt-4">
-        Ao salvar, o sistema soma as cinco colunas no <strong>Total apurado</strong> e lança <strong>uma receita única</strong> já
-        recebida, no banco de recebimento escolhido — ela aparece em Receitas e no Cash Flow, e é esse total que casa com o crédito
-        do extrato. Cada tipo mantém a sua categoria para a DRE. As linhas em cinza são a <strong>projeção</strong> do restante do
-        mês: média por tipo das 5 últimas apurações, provisionada nos dias úteis e recalculada a cada lançamento. A receita lançada
-        por aqui só pode ser alterada aqui; datas futuras não podem ser lançadas.
+        Cada linha é um <strong>dia de referência</strong> (o dia a que a receita se refere — usado na DRE). A <strong>data de apuração</strong>{" "}
+        é o dia em que o dinheiro cai na conta (normalmente o primeiro dia útil seguinte): é ela que vale para o Cash Flow, para Receitas e
+        para a conciliação. Ao salvar, o sistema soma as cinco colunas no <strong>Total apurado</strong> e mantém{" "}
+        <strong>uma receita única por data de apuração e banco</strong> (a soma de todas as referências que caíram juntas), que casa com o
+        crédito do extrato. As linhas em cinza são a <strong>projeção</strong> do restante do mês: média por tipo das 5 últimas apurações
+        (fees todos os dias; SPI e CCME só em dia útil), caindo no primeiro dia útil seguinte e recalculada a cada lançamento. A receita
+        lançada por aqui só pode ser alterada aqui; datas futuras não podem ser lançadas.
       </p>
     </div>
   );

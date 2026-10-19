@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { saveReceitaDia } from "./actions";
 
 export type ReceitaDiaRow = {
+  /** data de REFERÊNCIA: o dia a que a receita se refere (competência da DRE) */
   data: string;
+  /** data de APURAÇÃO: o dia em que o dinheiro cai na conta (Cash Flow, Receitas, conciliação) */
+  dataApuracao: string | null;
   feePix: number | null;
   feeTed: number | null;
   feeOnboarding: number | null;
@@ -73,7 +76,7 @@ export function ReceitaDiaTable({
   const [isPending, startTransition] = useTransition();
   const bankById = new Map(bankAccounts.map((a) => [a.id, a.label]));
 
-  function update(data: string, campo: CampoKey | "bankAccountId", valor: number | string | null) {
+  function update(data: string, campo: CampoKey | "bankAccountId" | "dataApuracao", valor: number | string | null) {
     setState((prev) => {
       const row = { ...prev[data], [campo]: valor } as ReceitaDiaRow;
       row.total = somaLinha(row);
@@ -91,6 +94,7 @@ export function ReceitaDiaTable({
       const result = await saveReceitaDia({
         company_id: companyId,
         data,
+        data_apuracao: row.dataApuracao ?? data,
         fee_pix: row.feePix,
         fee_ted: row.feeTed,
         fee_onboarding: row.feeOnboarding,
@@ -116,11 +120,12 @@ export function ReceitaDiaTable({
       <table className="w-full text-xs border-collapse">
         <thead className="bg-ps-bg-2 sticky top-0 z-10">
           <tr>
-            <th className={thCls}>Data</th>
+            <th className={thCls}>Data de referência</th>
             {CAMPOS.map((c) => (
               <th key={c.key} className={thCls}>{c.label}</th>
             ))}
             <th className={thCls}>Total apurado</th>
+            <th className={thCls}>Data de apuração</th>
             <th className={thCls}>Banco de recebimento</th>
             <th className={thCls}></th>
           </tr>
@@ -164,6 +169,19 @@ export function ReceitaDiaTable({
                 ))}
                 <td className="px-3 py-2 tabular-nums whitespace-nowrap font-bold text-ps-ink">
                   {initial.tipo === "vazio" && !isEditing ? "—" : fmt(row.total)}
+                </td>
+                <td className="px-3 py-2">
+                  {isEditing ? (
+                    <input
+                      type="date"
+                      value={row.dataApuracao ?? ""}
+                      onChange={(e) => update(initial.data, "dataApuracao", e.target.value || null)}
+                      title="Dia em que o dinheiro cai na conta (normalmente o primeiro dia útil seguinte à referência)"
+                      className={`${inputCls} min-w-[132px]`}
+                    />
+                  ) : (
+                    <span className="font-medium tabular-nums whitespace-nowrap">{row.dataApuracao ? dataBR(row.dataApuracao) : "—"}</span>
+                  )}
                 </td>
                 <td className="px-3 py-2">
                   {isEditing ? (

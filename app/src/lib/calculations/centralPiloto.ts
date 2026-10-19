@@ -60,3 +60,40 @@ export function mediasPorTipo(apuracoes: Array<Partial<Record<CompKey, number | 
   }
   return out;
 }
+
+/** Primeiro dia útil depois de iso: é quando a receita de iso cai na conta. */
+export function proximoDiaUtil(iso: string): string {
+  let d = proximoDia(iso);
+  while (!ehDiaUtil(d)) d = proximoDia(d);
+  return d;
+}
+
+/** SPI e CCME só existem em dia útil; os fees (PIX, TED, Onboarding) existem todos os dias. */
+export const SO_DIA_UTIL: readonly CompKey[] = ["rem_spi", "rem_ccme"];
+
+/**
+ * Médias da projeção, por tipo. `apuracoes` vem da mais recente para a mais antiga.
+ * Fees: média das 5 últimas apurações. SPI e CCME: média das 5 últimas apurações de DIA ÚTIL
+ * (senão os fins de semana, que não rendem, puxariam a média para baixo).
+ */
+export function mediasDaProjecao(
+  apuracoes: Array<Partial<Record<CompKey, number | null | undefined>> & { data: string }>
+): Record<CompKey, number> {
+  const ultimas5 = apuracoes.slice(0, 5);
+  const uteis5 = apuracoes.filter((a) => ehDiaUtil(a.data)).slice(0, 5);
+  const out = {} as Record<CompKey, number>;
+  for (const c of COMPONENTES) {
+    const base = SO_DIA_UTIL.includes(c.key) ? uteis5 : ultimas5;
+    const soma = base.reduce((s, a) => s + (Number(a[c.key]) || 0), 0);
+    out[c.key] = base.length ? r2(soma / base.length) : 0;
+  }
+  return out;
+}
+
+/** Valor esperado de um dia de referência: SPI e CCME zeram em fim de semana. */
+export function valoresDoDia(medias: Record<CompKey, number>, referencia: string): Record<CompKey, number> {
+  const util = ehDiaUtil(referencia);
+  const out = {} as Record<CompKey, number>;
+  for (const c of COMPONENTES) out[c.key] = SO_DIA_UTIL.includes(c.key) && !util ? 0 : medias[c.key];
+  return out;
+}

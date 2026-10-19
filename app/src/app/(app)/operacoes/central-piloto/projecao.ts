@@ -1,10 +1,12 @@
 import {
   COMPONENTES,
-  diasUteisEntre,
-  mediasPorTipo,
+  mediasDaProjecao,
   proximoDia,
+  proximoDiaUtil,
+  r2,
   totalDe,
   ultimoDiaDoMes,
+  valoresDoDia,
   type CompKey,
 } from "@/lib/calculations/centralPiloto";
 
@@ -12,14 +14,24 @@ type Cliente = any;
 
 export type Apuracao = Record<CompKey, number | null> & { data: string; bankAccountId: string | null };
 
-export type PlanoProjecao = {
-  dias: string[];
-  medias: Record<CompKey, number>;
+export type ProjecaoDia = {
+  /** dia a que a receita se refere */
+  referencia: string;
+  /** dia em que o dinheiro cai na conta: primeiro dia útil seguinte à referência */
+  apuracao: string;
+  valores: Record<CompKey, number>;
   total: number;
+};
+
+export type PlanoProjecao = {
+  /** um item por dia de referência ainda não lançado, até o fim do mês */
+  dias: ProjecaoDia[];
+  /** o mesmo, somado por data de apuração (é o que vira receita estimada no Cash Flow) */
+  porApuracao: Array<{ apuracao: string; dias: ProjecaoDia[]; valores: Record<CompKey, number>; total: number }>;
   bankAccountId: string | null;
 };
 
-/** As 5 últimas apurações (dias com total > 0), da mais recente para a mais antiga. */
+/** Últimas apurações (dias de referência com total > 0), da mais recente para a mais antiga. */
 export async function ultimasApuracoes(supabase: Cliente, companyId: string, limite = 5): Promise<Apuracao[]> {
   const { data } = await supabase
     .from("salva_guarda_diario")
@@ -40,8 +52,11 @@ export async function ultimasApuracoes(supabase: Cliente, companyId: string, lim
 }
 
 /**
- * Projeção do restante do mês de refData: média por tipo das 5 últimas apurações, aplicada a
- * cada dia útil depois da última apuração do mês (ou desde o dia 1, se o mês ainda não tem).
+ * Projeção do restante do mês de refData, em duas etapas:
+ *  1. receita de cada dia de referência (média por tipo das 5 últimas apurações; fees todos os
+ *     dias, SPI e CCME só em dia útil), do dia seguinte à última referência lançada até o fim do mês;
+ *  2. data em que cada uma cai na conta: o primeiro dia útil seguinte à referência — sexta, sábado
+ *     e domingo caem juntas na segunda.
  * Devolve null quando não há o que projetar (sem histórico, valor zero ou mês já passado).
  */
 export async function planejarProjecao(
@@ -54,7 +69,8 @@ export async function planejarProjecao(
   const fimMes = ultimoDiaDoMes(refData);
   if (fimMes < hoje) return null; // mês já passou: nada a provisionar
 
-  const ultimas = await ultimasApuracoes(supabase, companyId, 5);
+  // 12 últimas: dão pelo menos 5 dias úteis mesmo com fins de semana no meio
+  const ultimas = await ultimasApuracoes(supabase, companyId, 12);
   if (ultimas.length === 0) return null;
 
   const { data: doMes } = await supabase
@@ -69,12 +85,24 @@ export async function planejarProjecao(
   const ultimaDoMes: string | null = doMes?.[0]?.data ?? null;
   const inicio = ultimaDoMes ? proximoDia(ultimaDoMes) : inicioMes;
 
-  const dias = diasUteisEntre(inicio, fimMes);
-  const medias = mediasPorTipo(ultimas);
-  const total = totalDe(medias);
-  if (dias.length === 0 || total <= 0) return null;
+  const medias = mediasDaProjecao(ultimas);
+  const dias: ProjecaoDia[] = [];
+  for (let d = inicio; d <= fimMes; d = proximoDia(d)) {
+    const valores = valoresDoDia(medias, d);
+    const total = totalDe(valores);
+    if (total > 0) dias.push({ referencia: d, apuracao: proximoDiaUtil(d), valores, total });
+  }
+  if (dias.length === 0) return null;
 
-  return { dias, medias, total, bankAccountId: ultimas[0].bankAccountId };
+  const grupos = new Map<string, ProjecaoDia[]>();
+  for (const dia of dias) grupos.set(dia.apuracao, [...(grupos.get(dia.apuracao) ?? []), dia]);
+  const porApuracao = Array.from(grupos.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([apuracao, itens]) => {
+      const valores = {} as Record<CompKey, number>;
+      for (const c of COMPONENTES) valores[c.key] = r2(itens.reduce((s, i) => s + i.valores[c.key], 0));
+      return { apuracao, dias: itens, valores, total: totalDe(valores) };
+    });
+
+  return { dias, porApuracao, bankAccountId: ultimas[0].bankAccountId };
 }
-
-export const NOMES_CATEGORIAS = [...COMPONENTES.map((c) => c.label)];
