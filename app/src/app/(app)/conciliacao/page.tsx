@@ -132,7 +132,7 @@ export default async function ReconciliationPage({
 
       let revenuesQuery = supabase
         .from("revenues")
-        .select("id, description, realized_amount, realized_date")
+        .select("id, description, realized_amount, realized_date, origem, receiving_bank_account_id, categories(name)")
         .eq("status", "recebida")
         .eq("reconciliation_status", "pendente")
         .gte("realized_date", minDate)
@@ -178,7 +178,20 @@ export default async function ReconciliationPage({
         date: p.effective_payment_date,
       }));
 
-      revenueCandidates = (revenuesData ?? []).map((r) => ({
+      // Receitas da Central Piloto que caíram juntas (mesma data de apuração e banco) aparecem numa
+      // linha só — categoria + soma — porque o extrato traz um crédito único. As demais, uma a uma.
+      const gruposCentral = new Map<string, any[]>();
+      const avulsas: any[] = [];
+      for (const r of (revenuesData ?? []) as any[]) {
+        if (r.origem === "central_piloto" && r.receiving_bank_account_id) {
+          const chave = `${r.realized_date}|${r.receiving_bank_account_id}`;
+          gruposCentral.set(chave, [...(gruposCentral.get(chave) ?? []), r]);
+        } else avulsas.push(r);
+      }
+      const dataBRConc = (iso: string) => iso.split("-").reverse().join("/");
+      const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+      revenueCandidates = avulsas.map((r) => ({
         key: `revenue:${r.id}`,
         entityType: "revenue" as const,
         entityId: r.id,
@@ -186,6 +199,24 @@ export default async function ReconciliationPage({
         amount: Number(r.realized_amount),
         date: r.realized_date,
       }));
+      for (const [chave, grupo] of Array.from(gruposCentral.entries())) {
+        const porCategoria = new Map<string, number>();
+        for (const r of grupo) {
+          const nome = r.categories?.name ?? "Sem categoria";
+          porCategoria.set(nome, (porCategoria.get(nome) ?? 0) + Number(r.realized_amount));
+        }
+        const soma = Math.round(grupo.reduce((s: number, r: any) => s + Number(r.realized_amount), 0) * 100) / 100;
+        const data = chave.split("|")[0];
+        revenueCandidates.push({
+          key: `grupo:${chave}`,
+          entityType: "revenue" as const,
+          entityId: grupo[0].id,
+          entityIds: grupo.map((r: any) => r.id),
+          label: `Salva-Guarda ${dataBRConc(data)}: ${Array.from(porCategoria.entries()).map(([n, v]) => `${n} ${brl(v)}`).join(" + ")}`,
+          amount: soma,
+          date: data,
+        });
+      }
 
       for (const inv of investmentsData ?? []) {
         if (!reconciledInvestmentIds.has(`app:${inv.id}`)) {
@@ -227,7 +258,19 @@ export default async function ReconciliationPage({
 
       // Montar mapa de conciliados
       for (const e of reconciledData ?? []) {
-        const rec = (e.reconciliations as any)?.[0];
+        const recs = (e.reconciliations as any[]) ?? [];
+        // linha conciliada com um grupo de receitas (Central Piloto): mostra a soma, não só a primeira
+        if (recs.length > 1 && recs.every((x: any) => x.entity_type === "revenue" && x.revenues)) {
+          const soma = Math.round(recs.reduce((s: number, x: any) => s + Number(x.revenues.realized_amount), 0) * 100) / 100;
+          reconciledMap[e.id] = {
+            key: `grupo:${e.id}`,
+            label: `${recs.length} receitas da Central Piloto`,
+            amount: soma,
+            date: recs[0].revenues.realized_date,
+          };
+          continue;
+        }
+        const rec = recs[0];
         if (!rec) continue;
         if (rec.entity_type === "payment" && rec.payments) {
           reconciledMap[e.id] = { key: `payment:${rec.entity_id}`, label: rec.payments.description, amount: Number(rec.payments.gross_amount), date: rec.payments.effective_payment_date };

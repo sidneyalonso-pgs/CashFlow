@@ -3,7 +3,7 @@
 import { useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { formatBRL } from "@/lib/calculations/money";
-import { reconcileEntry, ignoreEntry, unreconcileEntry } from "./actions";
+import { reconcileEntry, reconcileEntryGroup, ignoreEntry, unreconcileEntry } from "./actions";
 import { scoreCandidates, confidenceLabel, type Candidate } from "@/lib/reconciliation/score";
 
 const CONFIDENCE_STYLES = {
@@ -52,7 +52,9 @@ export function ReconcileRow({
   function handleReconcile() {
     if (!selectedCandidate) { setError("Selecione um lançamento para conciliar."); return; }
     startTransition(async () => {
-      const result = await reconcileEntry(entry.id, selectedCandidate.entityType, selectedCandidate.entityId);
+      const result = selectedCandidate.entityIds
+        ? await reconcileEntryGroup(entry.id, selectedCandidate.entityIds)
+        : await reconcileEntry(entry.id, selectedCandidate.entityType, selectedCandidate.entityId);
       if (result.error) {
         setError(result.error);
       } else {

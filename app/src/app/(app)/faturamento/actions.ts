@@ -49,8 +49,13 @@ async function criarLancamentosFatura(
   // e o valor faturado é repasse do cliente, então gerar receita aqui contaria em dobro.
   let revenueId: string | null = null;
   if ((fatura.modelo === "bets" || fatura.modelo === "mensalidade") && Number(fatura.total) > 0) {
+    // a categoria sai do modelo da fatura: bets recebem "Prestação de Serviços - Bets Federais" e
+    // mensalidade, "Tarifa Mensalidade". Sem a categoria cadastrada, a receita fica sem (como antes).
+    const nomeCategoria = fatura.modelo === "bets" ? "Prestação de Serviços - Bets Federais" : "Tarifa Mensalidade";
+    const { data: categoria } = await supabase.from("categories").select("id").eq("name", nomeCategoria).maybeSingle();
     const { data: rev, error: revErr } = await supabase.from("revenues").insert({
       company_id: fatura.company_id,
+      category_id: categoria?.id ?? null,
       description: `Faturamento — ${clientName} (${competenciaLabel})`,
       expected_amount: fatura.total,
       expected_date: fatura.data_vencimento ?? hoje,

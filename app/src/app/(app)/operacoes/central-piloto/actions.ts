@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/serviceRole";
 import {
-  CATEGORIA_CABECALHO,
   COMPONENTES,
   ORIGEM_APURADA,
   ORIGEM_PROJECAO,
@@ -38,164 +37,94 @@ function dataBR(iso: string) {
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Categorias de cada tipo + a da receita única, pelo nome. */
+/** Categoria de cada tipo, pelo nome (a categoria É o tipo: Fee Pix, Fee TED, Remuneração Conta PI...). */
 async function carregarCategorias(svc: Svc): Promise<{ porNome: Map<string, string>; faltando: string[] }> {
-  const nomes = [...COMPONENTES.map((c) => c.label), CATEGORIA_CABECALHO];
+  const nomes = COMPONENTES.map((c) => c.label);
   const { data } = await svc.from("categories").select("id, name").in("name", nomes);
   const porNome = new Map<string, string>((data ?? []).map((c: any) => [c.name, c.id]));
   return { porNome, faltando: nomes.filter((n) => !porNome.has(n)) };
 }
 
-/** Tira do ar uma receita ligada à Central (cancela e remove a baixa e a composição). */
+/** Tira do ar uma receita ligada à Central: remove a baixa e cancela. */
 async function cancelarReceita(svc: Svc, revenueId: string) {
   await svc.from("revenue_realizations").delete().eq("revenue_id", revenueId);
-  await svc.from("revenue_components").delete().eq("revenue_id", revenueId);
   await svc.from("revenues").update({ status: "cancelada" }).eq("id", revenueId);
 }
 
-function descricaoDaApuracao(apuracao: string, referencias: string[]) {
-  const ordenadas = [...referencias].sort();
-  const ref =
-    ordenadas.length === 0
-      ? ""
-      : ordenadas.length === 1
-      ? ` (ref. ${dataBR(ordenadas[0])})`
-      : ` (ref. ${dataBR(ordenadas[0])} a ${dataBR(ordenadas[ordenadas.length - 1])})`;
-  return `Receita Salva-Guarda — ${dataBR(apuracao)}${ref}`;
-}
-
 /**
- * Mantém UMA receita recebida por data de apuração + banco: a soma de todas as linhas (dias de
- * referência) que caíram juntas na conta. É essa receita que casa 1 a 1 com o crédito do extrato.
- * A composição guarda cada parte com o seu dia de referência (a DRE usa a competência).
- * Sem nenhuma linha com valor naquela apuração e banco, a receita é cancelada.
+ * Mantém UMA receita recebida por tipo e por dia de referência. Cada tipo tem a sua categoria; o
+ * caixa (expected_date/realized_date) é a data de APURAÇÃO e a competência é a de REFERÊNCIA.
+ * As receitas que caem juntas no banco (mesma apuração e banco) são agrupadas na conciliação.
  */
-async function sincronizarGrupo(
+async function sincronizarReceitasDoDia(
   svc: Svc,
   companyId: string,
+  referencia: string,
   apuracao: string,
   bankId: string | null,
+  valores: Record<CompKey, number>,
   categorias: Map<string, string>
 ): Promise<{ error?: string }> {
-  if (!bankId) return {};
-  const { data: linhas } = await svc
-    .from("salva_guarda_diario")
-    .select("id, data, fee_pix, fee_ted, fee_onboarding, remuneracao_spi, remuneracao_ccme, revenue_id")
+  const { data: existentes } = await svc
+    .from("revenues")
+    .select("id, componente")
     .eq("company_id", companyId)
-    .eq("data_apuracao", apuracao)
-    .eq("receipt_bank_account_id", bankId);
+    .eq("origem", ORIGEM_APURADA)
+    .eq("competence_date", referencia)
+    .is("deleted_at", null);
+  const porComponente = new Map<string, string>();
+  for (const r of (existentes ?? []) as any[]) if (r.componente && !porComponente.has(r.componente)) porComponente.set(r.componente, r.id);
 
-  const comValor = ((linhas ?? []) as any[]).filter(
-    (l) => totalDe({ fee_pix: l.fee_pix, fee_ted: l.fee_ted, fee_onboarding: l.fee_onboarding, rem_spi: l.remuneracao_spi, rem_ccme: l.remuneracao_ccme }) > 0
-  );
+  for (const c of COMPONENTES) {
+    const valor = valores[c.key];
+    const idExistente = porComponente.get(c.key) ?? null;
 
-  // a receita do grupo: a que alguma linha já aponta, ou a que existir para essa apuração e banco
-  let revenueId: string | null = ((linhas ?? []) as any[]).map((l) => l.revenue_id).find(Boolean) ?? null;
-  if (!revenueId) {
-    const { data: achada } = await svc
-      .from("revenues")
-      .select("id")
-      .eq("company_id", companyId)
-      .eq("origem", ORIGEM_APURADA)
-      .eq("expected_date", apuracao)
-      .eq("receiving_bank_account_id", bankId)
-      .neq("status", "cancelada")
-      .is("deleted_at", null)
-      .limit(1)
-      .maybeSingle();
-    revenueId = achada?.id ?? null;
-  }
+    if (valor <= 0 || !bankId) {
+      if (idExistente) await cancelarReceita(svc, idExistente);
+      continue;
+    }
 
-  const partes = comValor.flatMap((l) =>
-    COMPONENTES.map((c) => {
-      const campo = c.key === "rem_spi" ? l.remuneracao_spi : c.key === "rem_ccme" ? l.remuneracao_ccme : l[c.key];
-      return { referencia: l.data as string, componente: c.key as CompKey, label: c.label, amount: r2(Number(campo) || 0) };
-    }).filter((p) => p.amount > 0)
-  );
-  const total = r2(partes.reduce((s, p) => s + p.amount, 0));
+    const campos = {
+      description: `${c.label} — ${dataBR(apuracao)} (ref. ${dataBR(referencia)})`,
+      expected_amount: valor,
+      realized_amount: valor,
+      expected_date: apuracao,
+      realized_date: apuracao,
+      competence_date: referencia,
+      receiving_bank_account_id: bankId,
+      category_id: categorias.get(c.label) ?? null,
+      status: "recebida",
+      origem: ORIGEM_APURADA,
+      componente: c.key,
+    };
 
-  if (total <= 0) {
-    if (revenueId) await cancelarReceita(svc, revenueId);
-    await svc.from("salva_guarda_diario").update({ revenue_id: null }).eq("company_id", companyId).eq("data_apuracao", apuracao).eq("receipt_bank_account_id", bankId);
-    return {};
-  }
+    let revenueId = idExistente;
+    if (revenueId) {
+      const { error } = await svc.from("revenues").update({ ...campos, deleted_at: null }).eq("id", revenueId);
+      if (error) return { error: `${c.label}: ${error.message}` };
+    } else {
+      const { data: rev, error } = await svc
+        .from("revenues")
+        .insert({ company_id: companyId, probability_pct: 100, ...campos })
+        .select("id")
+        .single();
+      if (error || !rev) return { error: `${c.label}: ${error?.message ?? "não foi possível criar"}` };
+      revenueId = rev.id as string;
+    }
 
-  const catCab = categorias.get(CATEGORIA_CABECALHO)!;
-  const descricao = descricaoDaApuracao(apuracao, comValor.map((l) => l.data));
-
-  if (revenueId) {
-    const { error } = await svc
-      .from("revenues")
-      .update({
-        description: descricao,
-        expected_amount: total,
-        realized_amount: total,
-        expected_date: apuracao,
-        realized_date: apuracao,
-        receiving_bank_account_id: bankId,
-        category_id: catCab,
-        status: "recebida",
-        origem: ORIGEM_APURADA,
-        deleted_at: null,
-      })
-      .eq("id", revenueId);
-    if (error) return { error: `Receita: ${error.message}` };
     const { error: realErr } = await svc
       .from("revenue_realizations")
-      .upsert({ revenue_id: revenueId, amount: total, received_at: apuracao, bank_account_id: bankId }, { onConflict: "revenue_id" });
-    if (realErr) return { error: `Receita: ${realErr.message}` };
-  } else {
-    const { data: rev, error } = await svc
-      .from("revenues")
-      .insert({
-        company_id: companyId,
-        description: descricao,
-        expected_amount: total,
-        realized_amount: total,
-        expected_date: apuracao,
-        realized_date: apuracao,
-        receiving_bank_account_id: bankId,
-        category_id: catCab,
-        probability_pct: 100,
-        status: "recebida",
-        origem: ORIGEM_APURADA,
-      })
-      .select("id")
-      .single();
-    if (error || !rev) return { error: `Receita: ${error?.message ?? "não foi possível criar"}` };
-    revenueId = rev.id as string;
-    const { error: realErr } = await svc
-      .from("revenue_realizations")
-      .insert({ revenue_id: revenueId, amount: total, received_at: apuracao, bank_account_id: bankId });
-    if (realErr) return { error: `Receita: ${realErr.message}` };
+      .upsert({ revenue_id: revenueId, amount: valor, received_at: apuracao, bank_account_id: bankId }, { onConflict: "revenue_id" });
+    if (realErr) return { error: `${c.label}: ${realErr.message}` };
   }
-
-  await svc.from("revenue_components").delete().eq("revenue_id", revenueId);
-  const { error: compErr } = await svc.from("revenue_components").insert(
-    partes.map((p) => ({
-      revenue_id: revenueId,
-      componente: p.componente,
-      category_id: categorias.get(p.label) ?? null,
-      amount: p.amount,
-      data_referencia: p.referencia,
-    }))
-  );
-  if (compErr) return { error: `Composição: ${compErr.message}` };
-
-  await svc
-    .from("salva_guarda_diario")
-    .update({ revenue_id: revenueId })
-    .eq("company_id", companyId)
-    .eq("data_apuracao", apuracao)
-    .eq("receipt_bank_account_id", bankId)
-    .in("id", comValor.map((l) => l.id));
   return {};
 }
 
 /**
- * Recalcula a projeção do restante do mês de refData: apaga as projeções daquele mês de
- * referência e cria de novo UMA receita ESTIMADA por data de apuração (soma das referências que
- * vão cair juntas), no banco da última apuração. Nunca cria baixa: projeção é só previsão.
+ * Recalcula a projeção do restante do mês de refData: apaga as projeções daquele mês de referência
+ * e cria de novo uma receita ESTIMADA por tipo e por dia de referência (média das 5 últimas
+ * apurações), com o caixa no primeiro dia útil seguinte, no banco da última apuração.
+ * Nunca cria baixa: projeção é só previsão.
  */
 async function recalcularProjecao(
   svc: Svc,
@@ -212,47 +141,32 @@ async function recalcularProjecao(
   const plano = await planejarProjecao(supabase, companyId, refData, hojeBR());
   if (!plano) return;
 
-  const catCab = categorias.get(CATEGORIA_CABECALHO) ?? null;
-  const { data: criadas, error } = await svc
-    .from("revenues")
-    .insert(
-      plano.porApuracao.map((g) => ({
-        company_id: companyId,
-        description: `Projeção Salva-Guarda — ${dataBR(g.apuracao)}`,
-        expected_amount: g.total,
-        expected_date: g.apuracao,
-        receiving_bank_account_id: plano.bankAccountId,
-        category_id: catCab,
-        probability_pct: 100,
-        status: "estimada",
-        origem: ORIGEM_PROJECAO,
-        origem_ref: mesRef,
-        notes: "Média por tipo das 5 últimas apurações da Central Piloto, no primeiro dia útil seguinte à referência.",
-      }))
-    )
-    .select("id, expected_date");
-  if (error || !criadas) return;
-
-  const idPorApuracao = new Map<string, string>((criadas as any[]).map((r) => [r.expected_date, r.id]));
-  const linhas = plano.porApuracao.flatMap((g) =>
-    g.dias.flatMap((dia) =>
-      COMPONENTES.filter((c) => dia.valores[c.key] > 0).map((c) => ({
-        revenue_id: idPorApuracao.get(g.apuracao)!,
-        componente: c.key,
-        category_id: categorias.get(c.label) ?? null,
-        amount: dia.valores[c.key],
-        data_referencia: dia.referencia,
-      }))
-    )
+  const linhas = plano.dias.flatMap((dia) =>
+    COMPONENTES.filter((c) => dia.valores[c.key] > 0).map((c) => ({
+      company_id: companyId,
+      description: `Projeção ${c.label} — ${dataBR(dia.apuracao)} (ref. ${dataBR(dia.referencia)})`,
+      expected_amount: dia.valores[c.key],
+      expected_date: dia.apuracao,
+      competence_date: dia.referencia,
+      componente: c.key,
+      receiving_bank_account_id: plano.bankAccountId,
+      category_id: categorias.get(c.label) ?? null,
+      probability_pct: 100,
+      status: "estimada",
+      origem: ORIGEM_PROJECAO,
+      origem_ref: mesRef,
+      notes: "Média por tipo das 5 últimas apurações da Central Piloto, no primeiro dia útil seguinte à referência.",
+    }))
   );
-  if (linhas.length > 0) await svc.from("revenue_components").insert(linhas);
+  if (linhas.length > 0) await svc.from("revenues").insert(linhas);
 }
 
 /**
- * Salva a receita de um dia de REFERÊNCIA da Central Piloto: Fee PIX, Fee TED, Fee Onboarding,
- * Remuneração SPI, Remuneração CCME, data de APURAÇÃO e banco de recebimento. O sistema soma o
- * Total apurado, lança UMA receita recebida por data de apuração e banco (Cash Flow e Receitas,
- * no dia em que o dinheiro cai na conta) e recalcula a projeção do restante do mês.
+ * Salva a receita de um dia de REFERÊNCIA da Central Piloto: Fee Pix, Fee TED, Fee Onboarding,
+ * Remuneração Conta PI, Remuneração CCME, data de APURAÇÃO e banco de recebimento. Cada tipo vira
+ * uma receita recebida na sua categoria (Receitas e Cash Flow, no dia em que o dinheiro cai na
+ * conta), e o restante do mês é projetado. Na conciliação, as receitas que caíram juntas aparecem
+ * numa linha só, com a soma.
  *
  * A escrita em `revenues` usa o client de service role de propósito: o papel "piloto" só tem
  * permissão de escrita na tabela da Central Piloto (RLS), não em Receitas — é este server action,
@@ -294,28 +208,10 @@ export async function saveReceitaDia(input: ReceitaDiaInput) {
 
   const { data: existing } = await supabase
     .from("salva_guarda_diario")
-    .select("*")
+    .select("id")
     .eq("company_id", input.company_id)
     .eq("data", input.data)
     .maybeSingle();
-
-  // se a linha já existia, o grupo antigo (apuração e banco de antes) também precisa ser refeito
-  const grupoAntigo =
-    existing && (existing.data_apuracao || existing.data) && (existing.receipt_bank_account_id ?? existing.fee_bank_account_id)
-      ? { apuracao: (existing.data_apuracao ?? existing.data) as string, banco: (existing.receipt_bank_account_id ?? existing.fee_bank_account_id) as string }
-      : null;
-
-  // dia lançado no modelo antigo (três receitas separadas): vira parte da receita única. Se alguma
-  // já foi conciliada com o extrato, não mexe — desfazer a conciliação é decisão de quem concilia.
-  const idsAntigos = [existing?.fee_revenue_id, existing?.remuneracao_spi_revenue_id, existing?.remuneracao_ccme_revenue_id].filter(Boolean) as string[];
-  if (idsAntigos.length > 0) {
-    const { data: antigas } = await svc.from("revenues").select("id, reconciliation_status").in("id", idsAntigos);
-    if ((antigas ?? []).some((r: any) => r.reconciliation_status && r.reconciliation_status !== "pendente")) {
-      return { error: "Este dia tem receitas antigas já conciliadas com o extrato. Desfaça a conciliação em Conciliação antes de relançar." };
-    }
-    await svc.from("revenue_realizations").delete().in("revenue_id", idsAntigos);
-    await svc.from("revenues").update({ status: "cancelada", deleted_at: new Date().toISOString() }).in("id", idsAntigos);
-  }
 
   const linha = {
     company_id: input.company_id,
@@ -339,10 +235,6 @@ export async function saveReceitaDia(input: ReceitaDiaInput) {
     remuneracao_ccme_revenue_id: null,
     updated_by: user.id,
   };
-  // a receita do grupo é (re)ligada pela sincronização. Só mantém o vínculo antigo se a linha continua
-  // no mesmo grupo (apuração e banco); senão ele apontaria para a receita do grupo errado.
-  const mesmoGrupo = !!grupoAntigo && grupoAntigo.apuracao === input.data_apuracao && grupoAntigo.banco === input.bank_account_id;
-  if (existing?.revenue_id && mesmoGrupo) linha.revenue_id = existing.revenue_id;
 
   const { error } = existing
     ? await supabase.from("salva_guarda_diario").update(linha).eq("id", existing.id)
@@ -350,18 +242,13 @@ export async function saveReceitaDia(input: ReceitaDiaInput) {
   if (error) {
     return {
       error: /column|schema cache/i.test(error.message)
-        ? "As migrations 0030 e 0031 ainda não foram aplicadas no banco."
+        ? "As migrations 0030, 0031 e 0032 ainda não foram aplicadas no banco."
         : error.message,
     };
   }
 
-  // refaz a receita do grupo novo e, se a linha mudou de apuração ou banco, a do grupo antigo
-  const resultado = await sincronizarGrupo(svc, input.company_id, input.data_apuracao, input.bank_account_id, porNome);
+  const resultado = await sincronizarReceitasDoDia(svc, input.company_id, input.data, input.data_apuracao, input.bank_account_id, valores, porNome);
   if (resultado.error) return { error: resultado.error };
-  if (grupoAntigo && (grupoAntigo.apuracao !== input.data_apuracao || grupoAntigo.banco !== input.bank_account_id)) {
-    const r2g = await sincronizarGrupo(svc, input.company_id, grupoAntigo.apuracao, grupoAntigo.banco, porNome);
-    if (r2g.error) return { error: r2g.error };
-  }
 
   await recalcularProjecao(svc, supabase, input.company_id, input.data, porNome);
 
@@ -370,5 +257,6 @@ export async function saveReceitaDia(input: ReceitaDiaInput) {
   revalidatePath("/cash-flow");
   revalidatePath("/cash-flow/detalhado");
   revalidatePath("/fpa/dre");
+  revalidatePath("/conciliacao");
   return { error: null };
 }

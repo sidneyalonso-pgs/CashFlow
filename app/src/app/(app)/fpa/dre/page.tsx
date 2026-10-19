@@ -25,6 +25,8 @@ export default async function DreGerencialPage({
   const to = cols[cols.length - 1].to;
 
   const REV_BASE = "status, realized_amount, realized_date, expected_amount, expected_date, categories(name, fpa_classification)";
+  // competence_date (migration 0032): dia de REFERÊNCIA das receitas da Central Piloto, que a DRE usa no lugar do caixa
+  const REV_COMP = `${REV_BASE}, competence_date`;
   const [{ data: payments }, revComp, ajustes, auth] = await Promise.all([
     supabase
       .from("payments")
@@ -37,7 +39,7 @@ export default async function DreGerencialPage({
       .limit(10000),
     supabase
       .from("revenues")
-      .select(`${REV_BASE}, revenue_components(amount, data_referencia, categories(name, fpa_classification))`)
+      .select(REV_COMP)
       .eq("company_id", companyId)
       .in("status", ["recebida", "estimada"])
       .is("deleted_at", null)
@@ -45,7 +47,7 @@ export default async function DreGerencialPage({
     supabase.from("dre_ajustes_manuais").select("periodo, valor").eq("company_id", companyId).eq("linha", "pdd"),
     supabase.auth.getUser(),
   ]);
-  // antes da migration 0030 o embed de composição não existe: cai para a leitura simples
+  // antes da migration 0032 a coluna de competência não existe: cai para a leitura simples
   let revenues: any[] = (revComp.data ?? []) as any[];
   if (revComp.error) {
     const { data: simples } = await supabase
@@ -61,21 +63,12 @@ export default async function DreGerencialPage({
   const { data: prof } = user ? await supabase.from("profiles").select("role").eq("id", user.id).single() : { data: null };
   const editaPdd = !semanal && ["administrador", "tesouraria"].includes(prof?.role ?? "");
 
-  // receita com composição (Central Piloto) entra pelas partes, cada uma na sua categoria e no seu dia
-  // de REFERÊNCIA (competência); o caixa, no Cash Flow, é o dia de apuração da receita
-  const expandidas = revenues.flatMap((r: any) =>
-    Array.isArray(r.revenue_components) && r.revenue_components.length > 0
-      ? r.revenue_components.map((c: any) => ({
-          status: r.status,
-          realized_amount: c.amount,
-          realized_date: c.data_referencia ?? r.realized_date,
-          expected_amount: c.amount,
-          expected_date: c.data_referencia ?? r.expected_date,
-          categories: c.categories,
-        }))
-      : [r]
+  // a DRE é por competência: receita da Central Piloto entra no dia de REFERÊNCIA; o caixa (apuração)
+  // fica no Cash Flow. As demais receitas continuam pela data de recebimento ou de previsão.
+  const comCompetencia = revenues.map((r: any) =>
+    r.competence_date ? { ...r, realized_date: r.competence_date, expected_date: r.competence_date } : r
   );
-  const revs = expandidas.filter((r: any) => {
+  const revs = comCompetencia.filter((r: any) => {
     const d = r.status === "recebida" ? r.realized_date : r.expected_date;
     return d && d >= from && d <= to;
   });

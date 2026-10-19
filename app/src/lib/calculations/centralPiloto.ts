@@ -1,18 +1,15 @@
-// Central Piloto: receita do dia por tipo, total apurado e projeção do mês.
+// Central Piloto: receita do dia por tipo (cada tipo é uma receita, com a sua categoria), total apurado e projeção do mês.
 
 export const COMPONENTES = [
-  { key: "fee_pix", label: "Fee PIX" },
+  { key: "fee_pix", label: "Fee Pix" },
   { key: "fee_ted", label: "Fee TED" },
   { key: "fee_onboarding", label: "Fee Onboarding" },
-  { key: "rem_spi", label: "Remuneração SPI" },
+  { key: "rem_spi", label: "Remuneração Conta PI" },
   { key: "rem_ccme", label: "Remuneração CCME" },
 ] as const;
 
 export type CompKey = (typeof COMPONENTES)[number]["key"];
 export type Valores = Record<CompKey, number | null>;
-
-/** Categoria da receita única (o detalhe por tipo vive em revenue_components). */
-export const CATEGORIA_CABECALHO = "Receitas Financeiras";
 
 export const ORIGEM_APURADA = "central_piloto";
 export const ORIGEM_PROJECAO = "projecao_central_piloto";

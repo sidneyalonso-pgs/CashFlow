@@ -2,6 +2,8 @@ export type Candidate = {
   key: string;
   entityType: "payment" | "revenue" | "investment_application" | "investment_redemption" | "transfer";
   entityId: string;
+  /** grupo de receitas que caíram juntas num crédito só (ex.: Central Piloto): conciliadas de uma vez */
+  entityIds?: string[];
   label: string;
   amount: number;
   date: string;
