@@ -30,6 +30,16 @@ function SortLink({ label, field, currentSort, currentDir, searchParams }: any) 
   );
 }
 
+/** Soma a composição por tipo (a mesma receita pode trazer o mesmo tipo de vários dias de referência). */
+function resumoDaComposicao(comps: any[] | null | undefined): Array<{ nome: string; valor: number }> {
+  const por = new Map<string, number>();
+  for (const c of comps ?? []) {
+    const nome = c.categories?.name ?? c.componente;
+    por.set(nome, Math.round(((por.get(nome) ?? 0) + Number(c.amount)) * 100) / 100);
+  }
+  return Array.from(por.entries()).map(([nome, valor]) => ({ nome, valor }));
+}
+
 export default async function RevenuesPage({
   searchParams,
 }: {
@@ -52,12 +62,20 @@ export default async function RevenuesPage({
 
   let query = supabase
     .from("revenues")
-    .select("id, description, category_id, expected_amount, realized_amount, expected_date, realized_date, status, notes, receiving_bank_account_id, companies(legal_name, trade_name), categories(name), bank_accounts:receiving_bank_account_id(nickname, bank_name)")
+    .select("id, description, category_id, expected_amount, realized_amount, expected_date, realized_date, status, notes, origem, receiving_bank_account_id, companies(legal_name, trade_name), categories(name), bank_accounts:receiving_bank_account_id(nickname, bank_name), revenue_components(componente, amount, category_id, categories(name))")
     .is("deleted_at", null)
     .order(sortBy, { ascending: sortAsc });
 
   if (searchParams.company_id) query = query.eq("company_id", searchParams.company_id);
-  if (searchParams.category_id) query = query.eq("category_id", searchParams.category_id);
+  // a receita única da Central Piloto tem a categoria "Receita Salva-Guarda" e a composição por tipo
+  // (Fee PIX, SPI, CCME...): filtrar por um tipo também traz as receitas que o contêm
+  if (searchParams.category_id) {
+    const { data: comComposicao } = await supabase.from("revenue_components").select("revenue_id").eq("category_id", searchParams.category_id);
+    const idsComposicao = Array.from(new Set((comComposicao ?? []).map((c: any) => c.revenue_id)));
+    query = idsComposicao.length > 0
+      ? query.or(`category_id.eq.${searchParams.category_id},id.in.(${idsComposicao.join(",")})`)
+      : query.eq("category_id", searchParams.category_id);
+  }
   if (searchParams.status) query = query.eq("status", searchParams.status);
   if (searchParams.date_from) query = query.gte("expected_date", searchParams.date_from);
   if (searchParams.date_to) query = query.lte("expected_date", searchParams.date_to);
@@ -144,7 +162,22 @@ export default async function RevenuesPage({
             header: <SortLink label="Categoria" field="category" currentSort={sp.sort_by} currentDir={sp.sort_dir ?? "desc"} searchParams={sp} />,
             cell: (r: any) => r.categories?.name ?? "—",
           },
-          { header: "Descrição", cell: (r: any) => <span className="font-medium text-ps-ink">{r.description}</span> },
+          {
+            header: "Descrição",
+            cell: (r: any) => {
+              const partes = resumoDaComposicao(r.revenue_components);
+              return (
+                <div>
+                  <span className="font-medium text-ps-ink">{r.description}</span>
+                  {partes.length > 0 && (
+                    <p className="text-[11px] text-ps-muted mt-0.5">
+                      {partes.map((p) => `${p.nome} ${formatBRL(p.valor)}`).join(" · ")}
+                    </p>
+                  )}
+                </div>
+              );
+            },
+          },
           {
             header: <SortLink label="Data" field="expected_date" currentSort={sp.sort_by} currentDir={sp.sort_dir ?? "desc"} searchParams={sp} />,
             cell: (r: any) => r.expected_date,
@@ -170,6 +203,11 @@ export default async function RevenuesPage({
           {
             header: "Ações",
             cell: (r: any) => (
+              String(r.origem ?? "").includes("central_piloto") ? (
+                <Link href="/operacoes/central-piloto" className="text-xs text-ps-navy underline whitespace-nowrap" title="Esta receita é lançada pela Central Piloto e só é alterada por lá">
+                  Lançada pela Central Piloto
+                </Link>
+              ) : (
               <div className="flex flex-wrap items-center gap-2">
                 <EditRevenueButton revenue={r} categories={categories ?? []} />
                 {["estimada", "confirmada", "atrasada", "reprogramada"].includes(r.status) && (
@@ -177,6 +215,7 @@ export default async function RevenuesPage({
                 )}
                 <RevenueRowActions revenueId={r.id} status={r.status} description={r.description} />
               </div>
+              )
             ),
           },
         ]}
