@@ -104,6 +104,9 @@ export default async function CentralPilotoPage({
     });
   }
 
+  // ordem do extrato: pela data de apuração; dentro dela, pelos dias de referência que caíram juntos
+  rows.sort((a, b) => (a.dataApuracao ?? a.data).localeCompare(b.dataApuracao ?? b.data) || a.data.localeCompare(b.data));
+
   return (
     <div>
       <PageHeader
@@ -133,7 +136,7 @@ export default async function CentralPilotoPage({
       />
 
       <p className="text-xs text-ps-muted mt-4">
-        Cada linha é um <strong>dia de referência</strong> (o dia a que a receita se refere — usado na DRE). A <strong>data de apuração</strong>{" "}
+        A <strong>data de apuração</strong> (primeira coluna) é o dia em que o dinheiro cai na conta e aparece no extrato (normalmente o primeiro dia útil seguinte): é ela que vale para o Cash Flow, para Receitas e para a conciliação. A <strong>data de referência</strong> (última coluna) é o dia a que aquela receita se refere, usada na DRE.{" "}
         é o dia em que o dinheiro cai na conta (normalmente o primeiro dia útil seguinte): é ela que vale para o Cash Flow, para Receitas e
         para a conciliação. Ao salvar, o sistema soma as cinco colunas no <strong>Total apurado</strong> e mantém{" "}
         <strong>uma receita única por data de apuração e banco</strong> (a soma de todas as referências que caíram juntas), que casa com o

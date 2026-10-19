@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveReceitaDia } from "./actions";
 
@@ -113,115 +113,146 @@ export function ReceitaDiaTable({
     });
   }
 
+
   const thCls = "text-left px-3 py-3 text-[10px] font-semibold uppercase tracking-wide text-ps-muted whitespace-nowrap";
+
+  // soma por data de apuração (o que o extrato mostra de uma vez): usa os valores em tela
+  const somaPorApuracao = new Map<string, { total: number; linhas: number }>();
+  for (const r of rows) {
+    if (r.tipo === "vazio") continue;
+    const v = r.tipo === "projecao" ? r : state[r.data] ?? r;
+    if (!v.dataApuracao || !(v.total > 0)) continue;
+    const atual = somaPorApuracao.get(v.dataApuracao) ?? { total: 0, linhas: 0 };
+    somaPorApuracao.set(v.dataApuracao, { total: Math.round((atual.total + v.total) * 100) / 100, linhas: atual.linhas + 1 });
+  }
+  const apuracaoDe = (r: ReceitaDiaRow) => (r.tipo === "projecao" ? r : state[r.data] ?? r).dataApuracao;
 
   return (
     <div className="overflow-x-auto bg-white rounded-ps shadow-ps-sm border border-ps-navy/5">
       <table className="w-full text-xs border-collapse">
         <thead className="bg-ps-bg-2 sticky top-0 z-10">
           <tr>
-            <th className={thCls}>Data de referência</th>
+            <th className={thCls}>Data de apuração</th>
             {CAMPOS.map((c) => (
               <th key={c.key} className={thCls}>{c.label}</th>
             ))}
             <th className={thCls}>Total apurado</th>
-            <th className={thCls}>Data de apuração</th>
             <th className={thCls}>Banco de recebimento</th>
+            <th className={thCls}>Data de referência</th>
             <th className={thCls}></th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((initial) => {
+          {rows.map((initial, idx) => {
             const row = initial.tipo === "projecao" ? initial : state[initial.data] ?? initial;
             const projecao = initial.tipo === "projecao";
             const busy = savingDate === initial.data && isPending;
             const isEditing = !projecao && (editing[initial.data] ?? true);
             const fimDeSemana = [0, 6].includes(new Date(initial.data + "T00:00:00Z").getUTCDay());
+            const apuracaoAtual = row.dataApuracao;
+            const proxima = rows[idx + 1] ? apuracaoDe(rows[idx + 1]) : null;
+            const ehUltimaDoGrupo = apuracaoAtual !== proxima;
+            const grupo = apuracaoAtual ? somaPorApuracao.get(apuracaoAtual) : undefined;
             return (
-              <tr
-                key={initial.data}
-                className={`border-t border-ps-navy/5 transition-colors ${
-                  projecao ? "bg-ps-bg-2/50 text-ps-muted italic" : fimDeSemana ? "bg-ps-bg-2/40" : "hover:bg-ps-bg-2/20"
-                }`}
-              >
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <span className={`font-semibold ${projecao ? "text-ps-muted" : "text-ps-ink"}`}>{dataBR(initial.data)}</span>
-                  <span className="ml-1.5 text-[10px] text-ps-muted not-italic">{diaSemanaCurto(initial.data)}</span>
-                  {projecao && <span className="ml-2 rounded-full bg-ps-bg-2 border border-ps-navy/10 px-2 py-0.5 text-[10px] not-italic font-medium">projeção</span>}
-                  {initial.tipo === "legado" && <span className="ml-2 rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-[10px] not-italic font-medium">modelo antigo</span>}
-                </td>
-                {CAMPOS.map((c) => (
-                  <td key={c.key} className="px-3 py-2">
+              <Fragment key={initial.data}>
+                <tr
+                  className={`border-t border-ps-navy/5 transition-colors ${
+                    projecao ? "bg-ps-bg-2/50 text-ps-muted italic" : fimDeSemana ? "bg-ps-bg-2/40" : "hover:bg-ps-bg-2/20"
+                  }`}
+                >
+                  <td className="px-3 py-2 whitespace-nowrap">
                     {isEditing ? (
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={row[c.key] ?? ""}
-                        onChange={(e) => update(initial.data, c.key, e.target.value === "" ? null : Number(e.target.value))}
-                        placeholder="0,00"
-                        className={inputCls}
+                        type="date"
+                        value={row.dataApuracao ?? ""}
+                        onChange={(e) => update(initial.data, "dataApuracao", e.target.value || null)}
+                        title="Dia em que o dinheiro cai na conta e aparece no extrato (normalmente o primeiro dia útil seguinte à referência)"
+                        className={`${inputCls} min-w-[132px]`}
                       />
                     ) : (
-                      <span className="tabular-nums whitespace-nowrap font-medium">{fmt(row[c.key])}</span>
+                      <>
+                        <span className={`font-semibold tabular-nums ${projecao ? "text-ps-muted" : "text-ps-ink"}`}>
+                          {row.dataApuracao ? dataBR(row.dataApuracao) : "—"}
+                        </span>
+                        {row.dataApuracao && <span className="ml-1.5 text-[10px] text-ps-muted not-italic">{diaSemanaCurto(row.dataApuracao)}</span>}
+                      </>
+                    )}
+                    {projecao && <span className="ml-2 rounded-full bg-ps-bg-2 border border-ps-navy/10 px-2 py-0.5 text-[10px] not-italic font-medium">projeção</span>}
+                    {initial.tipo === "legado" && <span className="ml-2 rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-[10px] not-italic font-medium">modelo antigo</span>}
+                  </td>
+                  {CAMPOS.map((c) => (
+                    <td key={c.key} className="px-3 py-2">
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={row[c.key] ?? ""}
+                          onChange={(e) => update(initial.data, c.key, e.target.value === "" ? null : Number(e.target.value))}
+                          placeholder="0,00"
+                          className={inputCls}
+                        />
+                      ) : (
+                        <span className="tabular-nums whitespace-nowrap font-medium">{fmt(row[c.key])}</span>
+                      )}
+                    </td>
+                  ))}
+                  <td className="px-3 py-2 tabular-nums whitespace-nowrap font-bold text-ps-ink">
+                    {initial.tipo === "vazio" && !isEditing ? "—" : fmt(row.total)}
+                  </td>
+                  <td className="px-3 py-2">
+                    {isEditing ? (
+                      <select
+                        value={row.bankAccountId ?? bancoPadraoId ?? ""}
+                        onChange={(e) => update(initial.data, "bankAccountId", e.target.value || null)}
+                        className={`${inputCls} min-w-[160px]`}
+                      >
+                        <option value="">Selecione...</option>
+                        {bankAccounts.map((a) => (
+                          <option key={a.id} value={a.id}>{a.label}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="font-medium whitespace-nowrap">{bankById.get(row.bankAccountId ?? "") ?? "—"}</span>
                     )}
                   </td>
-                ))}
-                <td className="px-3 py-2 tabular-nums whitespace-nowrap font-bold text-ps-ink">
-                  {initial.tipo === "vazio" && !isEditing ? "—" : fmt(row.total)}
-                </td>
-                <td className="px-3 py-2">
-                  {isEditing ? (
-                    <input
-                      type="date"
-                      value={row.dataApuracao ?? ""}
-                      onChange={(e) => update(initial.data, "dataApuracao", e.target.value || null)}
-                      title="Dia em que o dinheiro cai na conta (normalmente o primeiro dia útil seguinte à referência)"
-                      className={`${inputCls} min-w-[132px]`}
-                    />
-                  ) : (
-                    <span className="font-medium tabular-nums whitespace-nowrap">{row.dataApuracao ? dataBR(row.dataApuracao) : "—"}</span>
-                  )}
-                </td>
-                <td className="px-3 py-2">
-                  {isEditing ? (
-                    <select
-                      value={row.bankAccountId ?? bancoPadraoId ?? ""}
-                      onChange={(e) => update(initial.data, "bankAccountId", e.target.value || null)}
-                      className={`${inputCls} min-w-[160px]`}
-                    >
-                      <option value="">Selecione...</option>
-                      {bankAccounts.map((a) => (
-                        <option key={a.id} value={a.id}>{a.label}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span className="font-medium whitespace-nowrap">{bankById.get(row.bankAccountId ?? "") ?? "—"}</span>
-                  )}
-                </td>
-                <td className="px-3 py-2 not-italic">
-                  {projecao ? null : isEditing ? (
-                    <button
-                      type="button"
-                      onClick={() => handleSave(initial.data)}
-                      disabled={busy}
-                      className="bg-ps-navy text-white font-medium rounded-full px-3 py-1.5 text-[11px] disabled:opacity-60 hover:bg-ps-navy-700 transition-colors whitespace-nowrap"
-                    >
-                      {busy ? "..." : "Salvar"}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setEditing((prev) => ({ ...prev, [initial.data]: true }))}
-                      className="bg-white border border-ps-navy/15 text-ps-ink font-medium rounded-full px-3 py-1.5 text-[11px] hover:bg-ps-bg-2 transition-colors whitespace-nowrap"
-                    >
-                      Editar
-                    </button>
-                  )}
-                  {savedDate === initial.data && <p className="text-[10px] text-ps-green-700 mt-1 font-medium">✓ Salvo</p>}
-                  {errorByDate[initial.data] && <p className="text-[10px] text-red-600 mt-1 max-w-[200px]">{errorByDate[initial.data]}</p>}
-                </td>
-              </tr>
+                  <td className="px-3 py-2 whitespace-nowrap" title="Dia a que esta receita se refere (competência da DRE)">
+                    <span className={`tabular-nums font-medium ${projecao ? "text-ps-muted" : "text-ps-ink-2"}`}>{dataBR(initial.data)}</span>
+                    <span className="ml-1.5 text-[10px] text-ps-muted not-italic">{diaSemanaCurto(initial.data)}</span>
+                  </td>
+                  <td className="px-3 py-2 not-italic">
+                    {projecao ? null : isEditing ? (
+                      <button
+                        type="button"
+                        onClick={() => handleSave(initial.data)}
+                        disabled={busy}
+                        className="bg-ps-navy text-white font-medium rounded-full px-3 py-1.5 text-[11px] disabled:opacity-60 hover:bg-ps-navy-700 transition-colors whitespace-nowrap"
+                      >
+                        {busy ? "..." : "Salvar"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setEditing((prev) => ({ ...prev, [initial.data]: true }))}
+                        className="bg-white border border-ps-navy/15 text-ps-ink font-medium rounded-full px-3 py-1.5 text-[11px] hover:bg-ps-bg-2 transition-colors whitespace-nowrap"
+                      >
+                        Editar
+                      </button>
+                    )}
+                    {savedDate === initial.data && <p className="text-[10px] text-ps-green-700 mt-1 font-medium">✓ Salvo</p>}
+                    {errorByDate[initial.data] && <p className="text-[10px] text-red-600 mt-1 max-w-[200px]">{errorByDate[initial.data]}</p>}
+                  </td>
+                </tr>
+                {/* vários dias de referência caem juntos na mesma data de apuração: mostra a soma, que é o que o extrato traz */}
+                {ehUltimaDoGrupo && grupo && grupo.linhas > 1 && apuracaoAtual && (
+                  <tr className="bg-ps-navy-50/60 border-t border-ps-navy/5 not-italic">
+                    <td colSpan={CAMPOS.length + 5} className="px-3 py-1.5 text-[11px] text-ps-navy font-semibold">
+                      Crédito de {dataBR(apuracaoAtual)} no extrato: {fmt(grupo.total)}{" "}
+                      <span className="font-normal text-ps-muted">(soma de {grupo.linhas} dias de referência)</span>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             );
           })}
         </tbody>
