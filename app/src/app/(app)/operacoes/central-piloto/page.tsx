@@ -2,13 +2,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
-import { getAccountBalanceAsOf, getAccountOutflowsOnDay } from "@/lib/calculations/accountBalance";
-import { SalvaGuardaTable, type SalvaGuardaRow } from "./SalvaGuardaTable";
-
-function isWeekend(iso: string) {
-  const day = new Date(iso + "T00:00:00Z").getUTCDay();
-  return day === 0 || day === 6;
-}
+import { hojeBR, totalDe } from "@/lib/calculations/centralPiloto";
+import { planejarProjecao, ultimasApuracoes } from "./projecao";
+import { ReceitaDiaTable, type ReceitaDiaRow } from "./ReceitaDiaTable";
 
 export default async function CentralPilotoPage({
   searchParams,
@@ -27,23 +23,19 @@ export default async function CentralPilotoPage({
   if (!company) {
     return (
       <div>
-        <PageHeader title="Central Piloto" subtitle="Tabelão da Salva-Guarda" />
+        <PageHeader title="Central Piloto" subtitle="Receita do dia da Salva-Guarda" />
         <p className="text-sm text-red-600">Empresa "Pagsmile IP" não encontrada no cadastro.</p>
       </div>
     );
   }
 
-  const today = new Date();
-  const defaultFrom = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
-  const defaultTo = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const hoje = hojeBR();
+  const defaultFrom = hoje.slice(0, 8) + "01";
+  const dataFim = new Date(Date.UTC(Number(hoje.slice(0, 4)), Number(hoje.slice(5, 7)), 0)).toISOString().slice(0, 10);
   const dateFrom = searchParams.date_from || defaultFrom;
-  const dateTo = searchParams.date_to || defaultTo;
+  const dateTo = searchParams.date_to || dataFim;
 
-  const diaAntesDoInicio = new Date(dateFrom + "T00:00:00Z");
-  diaAntesDoInicio.setUTCDate(diaAntesDoInicio.getUTCDate() - 1);
-  const dataSemente = diaAntesDoInicio.toISOString().slice(0, 10);
-
-  const [{ data: bankAccounts }, { data: existingRows }, { data: administrativoAccount }, { data: rowSemente }] = await Promise.all([
+  const [{ data: bankAccounts }, { data: existingRows }, ultimas] = await Promise.all([
     supabase.from("bank_accounts").select("id, nickname, bank_name").eq("company_id", company.id).order("nickname"),
     supabase
       .from("salva_guarda_diario")
@@ -51,102 +43,65 @@ export default async function CentralPilotoPage({
       .eq("company_id", company.id)
       .gte("data", dateFrom)
       .lte("data", dateTo),
-    supabase
-      .from("bank_accounts")
-      .select("id")
-      .eq("company_id", company.id)
-      .or("nickname.ilike.%administrativo%,nickname.ilike.%SPB%")
-      .limit(1)
-      .maybeSingle(),
-    // um dia antes do início do período: só pra ter de onde puxar o cálculo da Remuneração
-    // CCME do primeiro dia mostrado (ela depende do saldo custodiado no dia anterior)
-    supabase
-      .from("salva_guarda_diario")
-      .select("saldo_em_conta, deixar_na_ccme, taxa_ccme")
-      .eq("company_id", company.id)
-      .eq("data", dataSemente)
-      .maybeSingle(),
+    ultimasApuracoes(supabase, company.id, 5),
   ]);
 
   const existingByDate = new Map((existingRows ?? []).map((r: any) => [r.data, r]));
+  const bancoPadraoId = ultimas[0]?.bankAccountId ?? null;
 
-  // dia a dia, incluindo fim de semana — o piloto precisa continuar informando saldo em conta
-  // todo dia, não só nos dias úteis
-  const days: string[] = [];
+  // projeção do restante do mês (média por tipo das 5 últimas apurações), só do mês corrente
+  const refProjecao = hoje >= dateFrom && hoje <= dateTo ? hoje : dateTo;
+  const plano = await planejarProjecao(supabase, company.id, refProjecao, hoje);
+
+  const rows: ReceitaDiaRow[] = [];
   for (let d = new Date(dateFrom + "T00:00:00Z"); d.toISOString().slice(0, 10) <= dateTo; d.setUTCDate(d.getUTCDate() + 1)) {
-    days.push(d.toISOString().slice(0, 10));
-  }
+    const day = d.toISOString().slice(0, 10);
+    const futuro = day > hoje;
+    const ex = existingByDate.get(day) as any;
 
-  const saldosAdmin = administrativoAccount
-    ? await Promise.all(days.map((day) => getAccountBalanceAsOf(supabase, administrativoAccount.id, company.id, day)))
-    : days.map(() => null);
+    if (futuro) {
+      // futuro não se lança: aparece só a projeção, nos dias úteis que ela cobre
+      if (!plano || !plano.dias.includes(day)) continue;
+      rows.push({
+        data: day,
+        feePix: plano.medias.fee_pix,
+        feeTed: plano.medias.fee_ted,
+        feeOnboarding: plano.medias.fee_onboarding,
+        remSpi: plano.medias.rem_spi,
+        remCcme: plano.medias.rem_ccme,
+        bankAccountId: plano.bankAccountId,
+        total: plano.total,
+        tipo: "projecao",
+      });
+      continue;
+    }
 
-  // Retiradas = saídas reais da conta Administrativo/SPB naquele dia — lido ao vivo, não digitado
-  const retiradasPorDia = administrativoAccount
-    ? await Promise.all(days.map((day) => getAccountOutflowsOnDay(supabase, administrativoAccount.id, company.id, day)))
-    : days.map(() => null);
+    const feePix = ex?.fee_pix != null ? Number(ex.fee_pix) : ex?.fee != null && ex?.fee_ted == null && ex?.fee_onboarding == null ? Number(ex.fee) : null;
+    const feeTed = ex?.fee_ted != null ? Number(ex.fee_ted) : null;
+    const feeOnboarding = ex?.fee_onboarding != null ? Number(ex.fee_onboarding) : null;
+    const remSpi = ex?.remuneracao_spi != null ? Number(ex.remuneracao_spi) : null;
+    const remCcme = ex?.remuneracao_ccme != null ? Number(ex.remuneracao_ccme) : null;
+    const lancado = !!ex && (feePix != null || feeTed != null || feeOnboarding != null || remSpi != null || remCcme != null);
 
-  // Remuneração CCME não é digitada: acumula sobre o custodiado no dia ANTERIOR (Valor Aplicado
-  // Salva-Guarda + Deixar na CCME de ontem) × Taxa CCME de ontem. Quando já foi salva, usa o
-  // valor gravado (é o que realmente virou receita); senão calcula a partir do dia anterior.
-  let ontemSaldoEmConta = rowSemente?.saldo_em_conta != null ? Number(rowSemente.saldo_em_conta) : null;
-  let ontemDeixarNaCcme = rowSemente?.deixar_na_ccme != null ? Number(rowSemente.deixar_na_ccme) : null;
-  let ontemTaxaCcme = rowSemente?.taxa_ccme != null ? Number(rowSemente.taxa_ccme) : 0.0005166;
-
-  const rows: SalvaGuardaRow[] = days.map((day, i) => {
-    const existing = existingByDate.get(day) as any;
-    const saldoEmConta = existing?.saldo_em_conta != null ? Number(existing.saldo_em_conta) : null;
-    const deixarNaCcme = existing?.deixar_na_ccme != null ? Number(existing.deixar_na_ccme) : null;
-    const saldo4111 = existing?.saldo_4111 != null ? Number(existing.saldo_4111) : null;
-    const taxaCcme = existing?.taxa_ccme != null ? Number(existing.taxa_ccme) : 0.0005166;
-    // sem saldo em conta lançado (ex.: fim de semana) nada foi aplicado: R$0, não −R$80.000
-    const valorAplicado = saldoEmConta != null ? saldoEmConta - 80000 : saldo4111 != null || deixarNaCcme != null ? 0 : null;
-    const gap = saldo4111 && valorAplicado != null && deixarNaCcme != null ? (valorAplicado + deixarNaCcme) / saldo4111 : null;
-
-    // se o dia já foi salvo, usa o que está gravado (mesmo que seja null/zero — foi assim que
-    // o piloto lançou). Só calcula uma prévia ao vivo quando o dia NUNCA foi salvo, senão um
-    // dia com CCME zerado de propósito (ex.: fim de semana no histórico antigo) mostrava um
-    // valor calculado bem diferente do que realmente aconteceu
-    // não acumula CCME em fim de semana — só dias úteis rendem
-    const ontemValorAplicado = ontemSaldoEmConta != null ? ontemSaldoEmConta - 80000 : null;
-    const remuneracaoCcme = existing
-      ? existing.remuneracao_ccme != null
-        ? Number(existing.remuneracao_ccme)
-        : null
-      : isWeekend(day)
-      ? null
-      : ontemValorAplicado != null && ontemDeixarNaCcme != null
-      ? (ontemValorAplicado + ontemDeixarNaCcme) * ontemTaxaCcme
-      : null;
-
-    // prepara a semente pro próximo dia do loop
-    ontemSaldoEmConta = saldoEmConta;
-    ontemDeixarNaCcme = deixarNaCcme;
-    ontemTaxaCcme = taxaCcme;
-
-    return {
+    rows.push({
       data: day,
-      saldoEmConta,
-      fee: existing?.fee != null ? Number(existing.fee) : null,
-      remuneracaoSpi: existing?.remuneracao_spi != null ? Number(existing.remuneracao_spi) : null,
-      remuneracaoCcme,
-      bankAccountId: existing?.fee_bank_account_id ?? existing?.remuneracao_spi_bank_account_id ?? existing?.remuneracao_ccme_bank_account_id ?? null,
-      saldoAdmin: saldosAdmin[i],
-      valorAplicadoSalvaGuarda: valorAplicado,
-      saldo4111,
-      gap,
-      taxaCcme,
-      // valor gravado manda (pode ter sido ajustado à mão); sem gravação, mostra o calculado ao vivo
-      retiradas: existing?.retiradas != null ? Number(existing.retiradas) : retiradasPorDia[i],
-      deixarNaCcme,
-    };
-  });
+      feePix,
+      feeTed,
+      feeOnboarding,
+      remSpi,
+      remCcme,
+      bankAccountId: ex?.receipt_bank_account_id ?? ex?.fee_bank_account_id ?? ex?.remuneracao_spi_bank_account_id ?? ex?.remuneracao_ccme_bank_account_id ?? null,
+      total: lancado ? (ex?.total_apurado != null ? Number(ex.total_apurado) : totalDe({ fee_pix: feePix, fee_ted: feeTed, fee_onboarding: feeOnboarding, rem_spi: remSpi, rem_ccme: remCcme })) : 0,
+      // "modelo antigo": dia com três receitas separadas, ainda não convertido para a receita única
+      tipo: lancado ? (ex?.revenue_id ? "lancado" : "legado") : "vazio",
+    });
+  }
 
   return (
     <div>
       <PageHeader
         title="Central Piloto"
-        subtitle="Tabelão da Salva-Guarda — saldo da conta PI (próprio + todos os clientes)"
+        subtitle="Receita do dia da Salva-Guarda — informe cada tipo e o banco de recebimento"
         actions={
           <Link
             href="/operacoes/central-piloto/relatorio"
@@ -163,20 +118,19 @@ export default async function CentralPilotoPage({
         <button className="text-sm text-ps-navy underline" type="submit">Filtrar</button>
       </AutoSubmitForm>
 
-      <SalvaGuardaTable
+      <ReceitaDiaTable
         companyId={company.id}
         rows={rows}
+        bancoPadraoId={bancoPadraoId}
         bankAccounts={(bankAccounts ?? []).map((a: any) => ({ id: a.id, label: a.nickname ?? a.bank_name }))}
       />
 
       <p className="text-xs text-ps-muted mt-4">
-        Fee, Remuneração SPI e Remuneração CCME viram receita automaticamente (já recebida, no
-        banco escolhido na linha) assim que a linha é salva. Saldo Admin é lido ao vivo da conta
-        Administrativo/SPB — não precisa digitar. Valor Aplicado Salva-Guarda = Saldo em conta −
-        R$80.000. Remuneração CCME é calculada, não digitada: (Aplicado + Deixar na CCME do dia
-        anterior) × Taxa CCME do dia anterior. Retiradas também é lida ao vivo — soma das saídas
-        reais da conta Administrativo/SPB naquele dia. GAP 4111 - Salva-Guarda = (Valor Aplicado +
-        Deixar na CCME) ÷ Saldo 4111.
+        Ao salvar, o sistema soma as cinco colunas no <strong>Total apurado</strong> e lança <strong>uma receita única</strong> já
+        recebida, no banco de recebimento escolhido — ela aparece em Receitas e no Cash Flow, e é esse total que casa com o crédito
+        do extrato. Cada tipo mantém a sua categoria para a DRE. As linhas em cinza são a <strong>projeção</strong> do restante do
+        mês: média por tipo das 5 últimas apurações, provisionada nos dias úteis e recalculada a cada lançamento. A receita lançada
+        por aqui só pode ser alterada aqui; datas futuras não podem ser lançadas.
       </p>
     </div>
   );

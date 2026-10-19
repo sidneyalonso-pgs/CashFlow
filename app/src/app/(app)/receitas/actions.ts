@@ -5,6 +5,15 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { assertReasonableDate } from "@/lib/validators/dateSanity";
 
+// Receita lançada pela Central Piloto (apurada ou projeção) só é alterada por lá: o total e a
+// composição por tipo andam juntos, e editar aqui faria os dois divergirem.
+const MSG_CENTRAL = "Esta receita é lançada pela Central Piloto. Altere o valor por lá.";
+async function lancadaPelaCentral(supabase: ReturnType<typeof createClient>, revenueId: string): Promise<boolean> {
+  const { data } = await supabase.from("revenues").select("origem").eq("id", revenueId).maybeSingle();
+  const origem = (data as { origem?: string | null } | null)?.origem;
+  return !!origem && origem.includes("central_piloto");
+}
+
 export async function createReceivedRevenue(formData: FormData) {
   const companyId = String(formData.get("company_id") || "");
   const description = String(formData.get("description") || "");
@@ -119,6 +128,7 @@ export async function settleRevenue(revenueId: string, amount: number, receivedA
   if (dateError) return { error: dateError };
 
   const supabase = createClient();
+  if (await lancadaPelaCentral(supabase, revenueId)) return { error: MSG_CENTRAL };
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -170,6 +180,7 @@ export async function updateRevenue(revenueId: string, formData: FormData) {
   if (dateError) return { error: dateError };
 
   const supabase = createClient();
+  if (await lancadaPelaCentral(supabase, revenueId)) return { error: MSG_CENTRAL };
   const { data: revenue } = await supabase.from("revenues").select("status").eq("id", revenueId).single();
 
   const update: Record<string, unknown> = {
@@ -213,6 +224,7 @@ export async function updateRevenue(revenueId: string, formData: FormData) {
 
 export async function markRevenueAsPending(revenueId: string) {
   const supabase = createClient();
+  if (await lancadaPelaCentral(supabase, revenueId)) return { error: MSG_CENTRAL };
   await supabase.from("revenue_realizations").delete().eq("revenue_id", revenueId);
   const { error } = await supabase
     .from("revenues")
@@ -227,6 +239,7 @@ export async function markRevenueAsPending(revenueId: string) {
 
 export async function deleteRevenue(revenueId: string) {
   const supabase = createClient();
+  if (await lancadaPelaCentral(supabase, revenueId)) return { error: MSG_CENTRAL };
   await supabase.from("revenue_realizations").delete().eq("revenue_id", revenueId);
   const { error } = await supabase
     .from("revenues")
@@ -241,6 +254,7 @@ export async function deleteRevenue(revenueId: string) {
 
 export async function updateRevenueBankAccount(revenueId: string, bankAccountId: string | null) {
   const supabase = createClient();
+  if (await lancadaPelaCentral(supabase, revenueId)) return { error: MSG_CENTRAL };
   const { error } = await supabase
     .from("revenues")
     .update({ receiving_bank_account_id: bankAccountId })
@@ -254,6 +268,7 @@ export async function updateRevenueBankAccount(revenueId: string, bankAccountId:
 
 export async function cancelRevenue(revenueId: string) {
   const supabase = createClient();
+  if (await lancadaPelaCentral(supabase, revenueId)) return { error: MSG_CENTRAL };
   const { error } = await supabase.from("revenues").update({ status: "cancelada" }).eq("id", revenueId);
   if (error) return { error: error.message };
   revalidatePath("/receitas");

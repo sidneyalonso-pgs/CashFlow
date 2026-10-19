@@ -24,7 +24,8 @@ export default async function DreGerencialPage({
   const from = cols[0].from;
   const to = cols[cols.length - 1].to;
 
-  const [{ data: payments }, { data: revenues }, ajustes, auth] = await Promise.all([
+  const REV_BASE = "status, realized_amount, realized_date, expected_amount, expected_date, categories(name, fpa_classification)";
+  const [{ data: payments }, revComp, ajustes, auth] = await Promise.all([
     supabase
       .from("payments")
       .select("status, gross_amount, competence_date, categories(name, fpa_classification)")
@@ -36,7 +37,7 @@ export default async function DreGerencialPage({
       .limit(10000),
     supabase
       .from("revenues")
-      .select("status, realized_amount, realized_date, expected_amount, expected_date, categories(name, fpa_classification)")
+      .select(`${REV_BASE}, revenue_components(amount, categories(name, fpa_classification))`)
       .eq("company_id", companyId)
       .in("status", ["recebida", "estimada"])
       .is("deleted_at", null)
@@ -44,11 +45,36 @@ export default async function DreGerencialPage({
     supabase.from("dre_ajustes_manuais").select("periodo, valor").eq("company_id", companyId).eq("linha", "pdd"),
     supabase.auth.getUser(),
   ]);
+  // antes da migration 0030 o embed de composição não existe: cai para a leitura simples
+  let revenues: any[] = (revComp.data ?? []) as any[];
+  if (revComp.error) {
+    const { data: simples } = await supabase
+      .from("revenues")
+      .select(REV_BASE)
+      .eq("company_id", companyId)
+      .in("status", ["recebida", "estimada"])
+      .is("deleted_at", null)
+      .limit(10000);
+    revenues = (simples ?? []) as any[];
+  }
   const user = auth.data.user;
   const { data: prof } = user ? await supabase.from("profiles").select("role").eq("id", user.id).single() : { data: null };
   const editaPdd = !semanal && ["administrador", "tesouraria"].includes(prof?.role ?? "");
 
-  const revs = (revenues ?? []).filter((r: any) => {
+  // receita com composição (Central Piloto) entra pelas partes, cada uma na sua categoria
+  const expandidas = revenues.flatMap((r: any) =>
+    Array.isArray(r.revenue_components) && r.revenue_components.length > 0
+      ? r.revenue_components.map((c: any) => ({
+          status: r.status,
+          realized_amount: c.amount,
+          realized_date: r.realized_date,
+          expected_amount: c.amount,
+          expected_date: r.expected_date,
+          categories: c.categories,
+        }))
+      : [r]
+  );
+  const revs = expandidas.filter((r: any) => {
     const d = r.status === "recebida" ? r.realized_date : r.expected_date;
     return d && d >= from && d <= to;
   });
