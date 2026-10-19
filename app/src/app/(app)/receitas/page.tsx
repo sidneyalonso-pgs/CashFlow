@@ -67,7 +67,7 @@ export default async function RevenuesPage({
     .order(sortBy, { ascending: sortAsc });
 
   if (searchParams.company_id) query = query.eq("company_id", searchParams.company_id);
-  // a receita única da Central Piloto tem a categoria "Receita Salva-Guarda" e a composição por tipo
+  // a receita única da Central Piloto tem a categoria "Receitas Financeiras" e a composição por tipo
   // (Fee PIX, SPI, CCME...): filtrar por um tipo também traz as receitas que o contêm
   if (searchParams.category_id) {
     const { data: comComposicao } = await supabase.from("revenue_components").select("revenue_id").eq("category_id", searchParams.category_id);

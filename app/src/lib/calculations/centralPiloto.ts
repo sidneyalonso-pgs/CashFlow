@@ -12,7 +12,7 @@ export type CompKey = (typeof COMPONENTES)[number]["key"];
 export type Valores = Record<CompKey, number | null>;
 
 /** Categoria da receita única (o detalhe por tipo vive em revenue_components). */
-export const CATEGORIA_CABECALHO = "Receita Salva-Guarda";
+export const CATEGORIA_CABECALHO = "Receitas Financeiras";
 
 export const ORIGEM_APURADA = "central_piloto";
 export const ORIGEM_PROJECAO = "projecao_central_piloto";
