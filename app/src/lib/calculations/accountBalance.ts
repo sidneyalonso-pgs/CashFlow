@@ -20,13 +20,13 @@ export async function getAccountBalanceAsOf(
         .from("payment_realizations")
         .select("amount, paid_at, payments!inner(paying_bank_account_id, deleted_at)")
         .eq("payments.paying_bank_account_id", accountId)
-        .is("payments.deleted_at", null)
+        .is("payments.deleted_at", null).in("payments.status", ["pago", "pago_parcialmente"])
         .lte("paid_at", asOfDate),
       supabase
         .from("revenue_realizations")
         .select("amount, received_at, revenues!inner(receiving_bank_account_id, deleted_at)")
         .eq("revenues.receiving_bank_account_id", accountId)
-        .is("revenues.deleted_at", null)
+        .is("revenues.deleted_at", null).eq("revenues.status", "recebida")
         .lte("received_at", asOfDate),
       supabase
         .from("investments")
@@ -80,7 +80,7 @@ export async function getAccountOutflowsOnDay(
       .from("payment_realizations")
       .select("amount, payments!inner(paying_bank_account_id, deleted_at)")
       .eq("payments.paying_bank_account_id", accountId)
-      .is("payments.deleted_at", null)
+      .is("payments.deleted_at", null).in("payments.status", ["pago", "pago_parcialmente"])
       .eq("paid_at", date),
   ]);
 

@@ -90,7 +90,7 @@ export default async function CashFlowDetalhadoPage({
   let paymentRealizationsQuery = supabase
     .from("payment_realizations")
     .select("amount, paid_at, payments!inner(id, company_id, paying_bank_account_id, description, suppliers(legal_name))")
-    .is("payments.deleted_at", null)
+    .is("payments.deleted_at", null).in("payments.status", ["pago", "pago_parcialmente"])
     .gte("paid_at", dateFrom)
     .lte("paid_at", dateTo);
   let provisionedPaymentsQuery = supabase
@@ -103,7 +103,7 @@ export default async function CashFlowDetalhadoPage({
   let revenueRealizationsQuery = supabase
     .from("revenue_realizations")
     .select("amount, received_at, revenues!inner(id, company_id, receiving_bank_account_id, description, categories(name))")
-    .is("revenues.deleted_at", null)
+    .is("revenues.deleted_at", null).eq("revenues.status", "recebida")
     .gte("received_at", dateFrom)
     .lte("received_at", dateTo);
   let provisionedRevenuesQuery = supabase
@@ -183,12 +183,12 @@ export default async function CashFlowDetalhadoPage({
   let priorPaymentsQuery = supabase
     .from("payment_realizations")
     .select("amount, paid_at, payments!inner(company_id, paying_bank_account_id)")
-    .is("payments.deleted_at", null)
+    .is("payments.deleted_at", null).in("payments.status", ["pago", "pago_parcialmente"])
     .lt("paid_at", dateFrom);
   let priorRevenuesQuery = supabase
     .from("revenue_realizations")
     .select("amount, received_at, revenues!inner(company_id, receiving_bank_account_id)")
-    .is("revenues.deleted_at", null)
+    .is("revenues.deleted_at", null).eq("revenues.status", "recebida")
     .lt("received_at", dateFrom);
   let priorInvestmentsQuery = supabase
     .from("investments")

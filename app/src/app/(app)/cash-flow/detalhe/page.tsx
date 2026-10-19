@@ -39,7 +39,7 @@ export default async function CashFlowDetailPage({
   let paymentsQuery = supabase
     .from("payment_realizations")
     .select("id, amount, paid_at, payments!inner(id, description, company_id, companies(legal_name, trade_name), suppliers(legal_name))")
-    .is("payments.deleted_at", null)
+    .is("payments.deleted_at", null).in("payments.status", ["pago", "pago_parcialmente"])
     .gte("paid_at", start)
     .lte("paid_at", end)
     .order("paid_at");
@@ -47,7 +47,7 @@ export default async function CashFlowDetailPage({
   let revenuesQuery = supabase
     .from("revenue_realizations")
     .select("id, amount, received_at, revenues!inner(id, description, company_id, companies(legal_name, trade_name), categories(name))")
-    .is("revenues.deleted_at", null)
+    .is("revenues.deleted_at", null).eq("revenues.status", "recebida")
     .gte("received_at", start)
     .lte("received_at", end)
     .order("received_at");

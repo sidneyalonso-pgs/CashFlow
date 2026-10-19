@@ -71,7 +71,7 @@ export default async function CashFlowPage({
   let paymentRealizationsQuery = supabase
     .from("payment_realizations")
     .select("amount, paid_at, payments!inner(id, company_id, paying_bank_account_id)")
-    .is("payments.deleted_at", null);
+    .is("payments.deleted_at", null).in("payments.status", ["pago", "pago_parcialmente"]);
   let provisionedQuery = supabase
     .from("payments")
     .select("gross_amount, due_date, company_id, paying_bank_account_id")
@@ -86,7 +86,7 @@ export default async function CashFlowPage({
   let revenueRealizationsQuery = supabase
     .from("revenue_realizations")
     .select("amount, received_at, revenues!inner(id, company_id, receiving_bank_account_id)")
-    .is("revenues.deleted_at", null);
+    .is("revenues.deleted_at", null).eq("revenues.status", "recebida");
   let investmentsQuery = supabase
     .from("investments")
     .select("tipo, applied_amount, applied_date, company_id, bank_account_id, is_opening_balance");

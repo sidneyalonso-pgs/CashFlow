@@ -45,11 +45,11 @@ export default async function PosicaoExecutivaPage({
   let saidasQ = supabase
     .from("payment_realizations")
     .select("amount, paid_at, payments!inner(company_id, deleted_at)")
-    .is("payments.deleted_at", null);
+    .is("payments.deleted_at", null).in("payments.status", ["pago", "pago_parcialmente"]);
   let entradasQ = supabase
     .from("revenue_realizations")
     .select("amount, received_at, revenues!inner(company_id, deleted_at)")
-    .is("revenues.deleted_at", null);
+    .is("revenues.deleted_at", null).eq("revenues.status", "recebida");
   let compromissosQ = supabase
     .from("payments")
     .select("gross_amount, due_date, company_id")
