@@ -24,6 +24,13 @@ function formatShort(iso: string) {
   return `${d}/${m}/${y}`;
 }
 
+/** Receita da Central Piloto mostra o dia a que se refere: "Fee Pix (ref. 06/10/2026)". As demais, só o nome. */
+function rotuloReceita(nome: string, referencia?: string | null) {
+  if (!referencia) return nome;
+  const [a, m, d] = String(referencia).split("-");
+  return `${nome} (ref. ${d}/${m}/${a})`;
+}
+
 function groupSum(
   items: Array<{ label: string; amount: number; href?: string }>
 ): Array<{ label: string; value: number; href?: string }> {
@@ -102,13 +109,13 @@ export default async function CashFlowDetalhadoPage({
     .lte("due_date", dateTo);
   let revenueRealizationsQuery = supabase
     .from("revenue_realizations")
-    .select("amount, received_at, revenues!inner(id, company_id, receiving_bank_account_id, description, categories(name))")
+    .select("amount, received_at, revenues!inner(id, company_id, receiving_bank_account_id, description, competence_date, categories(name))")
     .is("revenues.deleted_at", null).eq("revenues.status", "recebida")
     .gte("received_at", dateFrom)
     .lte("received_at", dateTo);
   let provisionedRevenuesQuery = supabase
     .from("revenues")
-    .select("id, expected_amount, expected_date, company_id, receiving_bank_account_id, description, categories(name)")
+    .select("id, expected_amount, expected_date, company_id, receiving_bank_account_id, description, competence_date, categories(name)")
     .is("deleted_at", null)
     .not("status", "in", '("recebida","cancelada")')
     .gte("expected_date", dateFrom)
@@ -293,14 +300,14 @@ export default async function CashFlowDetalhadoPage({
     const entradasItems: Item[] = revenueRealizations
       .filter((r: any) => r.received_at === day)
       .map((r: any) => ({
-        label: r.revenues?.categories?.name ?? r.revenues?.description ?? "Outras",
+        label: rotuloReceita(r.revenues?.categories?.name ?? r.revenues?.description ?? "Outras", r.revenues?.competence_date),
         amount: Number(r.amount),
         href: r.revenues?.id ? `/receitas#${r.revenues.id}` : undefined,
       }));
     const provisaoEntradasItems: Item[] = provisionedRevenues
       .filter((r: any) => r.expected_date === day)
       .map((r: any) => ({
-        label: r.categories?.name ?? r.description ?? "Outras",
+        label: rotuloReceita(r.categories?.name ?? r.description ?? "Outras", r.competence_date),
         amount: Number(r.expected_amount),
         href: r.id ? `/receitas#${r.id}` : undefined,
       }));
