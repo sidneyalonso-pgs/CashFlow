@@ -7,7 +7,9 @@ import {
   COMPONENTES,
   ORIGEM_APURADA,
   ORIGEM_PROJECAO,
+  HORIZONTE_PROJECAO,
   hojeBR,
+  mesesEntre,
   r2,
   totalDe,
   type CompKey,
@@ -133,32 +135,58 @@ async function recalcularProjecao(
   refData: string,
   categorias: Map<string, string>
 ) {
-  const mesRef = refData.slice(0, 7);
+  const mesIni = refData.slice(0, 7);
+  // do mês de refData até o horizonte: todos os meses são refeitos com a média atual
+  for (const mesRef of mesesEntre(mesIni, HORIZONTE_PROJECAO)) {
+    // apaga pelo mês de REFERÊNCIA, não pela data do caixa: a referência do fim do mês cai no mês seguinte
+    await svc.from("revenues").delete().eq("company_id", companyId).eq("origem", ORIGEM_PROJECAO).eq("origem_ref", mesRef);
 
-  // apaga pelo mês de REFERÊNCIA, não pela data do caixa: a referência do fim do mês cai no mês seguinte
-  await svc.from("revenues").delete().eq("company_id", companyId).eq("origem", ORIGEM_PROJECAO).eq("origem_ref", mesRef);
+    const plano = await planejarProjecao(supabase, companyId, mesRef === mesIni ? refData : `${mesRef}-01`, hojeBR());
+    if (!plano) continue;
 
-  const plano = await planejarProjecao(supabase, companyId, refData, hojeBR());
-  if (!plano) return;
+    const linhas = plano.dias.flatMap((dia) =>
+      COMPONENTES.filter((c) => dia.valores[c.key] > 0).map((c) => ({
+        company_id: companyId,
+        description: `Projeção ${c.label} — ${dataBR(dia.apuracao)} (ref. ${dataBR(dia.referencia)})`,
+        expected_amount: dia.valores[c.key],
+        expected_date: dia.apuracao,
+        competence_date: dia.referencia,
+        componente: c.key,
+        receiving_bank_account_id: plano.bankAccountId,
+        category_id: categorias.get(c.label) ?? null,
+        probability_pct: 100,
+        status: "estimada",
+        origem: ORIGEM_PROJECAO,
+        origem_ref: mesRef,
+        notes: "Média por tipo das 5 últimas apurações da Central Piloto, no primeiro dia útil seguinte à referência.",
+      }))
+    );
+    if (linhas.length > 0) await svc.from("revenues").insert(linhas);
+  }
+}
 
-  const linhas = plano.dias.flatMap((dia) =>
-    COMPONENTES.filter((c) => dia.valores[c.key] > 0).map((c) => ({
-      company_id: companyId,
-      description: `Projeção ${c.label} — ${dataBR(dia.apuracao)} (ref. ${dataBR(dia.referencia)})`,
-      expected_amount: dia.valores[c.key],
-      expected_date: dia.apuracao,
-      competence_date: dia.referencia,
-      componente: c.key,
-      receiving_bank_account_id: plano.bankAccountId,
-      category_id: categorias.get(c.label) ?? null,
-      probability_pct: 100,
-      status: "estimada",
-      origem: ORIGEM_PROJECAO,
-      origem_ref: mesRef,
-      notes: "Média por tipo das 5 últimas apurações da Central Piloto, no primeiro dia útil seguinte à referência.",
-    }))
-  );
-  if (linhas.length > 0) await svc.from("revenues").insert(linhas);
+/** Refaz a projeção de hoje até o horizonte (dezembro), sem precisar lançar um dia novo. */
+export async function recalcularProjecaoCentral(companyId: string) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Não autenticado." };
+  const { data: perfil } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  if (!perfil || !["administrador", "tesouraria"].includes(perfil.role as string)) return { error: "Sem permissão." };
+  if (!companyId) return { error: "Empresa não informada." };
+
+  const svc = createServiceRoleClient();
+  const { porNome, faltando } = await carregarCategorias(svc);
+  if (faltando.length > 0) return { error: `Categorias não encontradas: ${faltando.join(", ")}.` };
+
+  await recalcularProjecao(svc, supabase, companyId, hojeBR(), porNome);
+  revalidatePath("/operacoes/central-piloto");
+  revalidatePath("/receitas");
+  revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
+  revalidatePath("/fpa/dre");
+  return { error: null };
 }
 
 /**

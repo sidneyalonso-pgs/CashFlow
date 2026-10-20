@@ -106,3 +106,20 @@ export function valoresDoDia(medias: Record<CompKey, number>, referencia: string
   for (const c of COMPONENTES) out[c.key] = SO_DIA_UTIL.includes(c.key) && !util ? 0 : medias[c.key];
   return out;
 }
+
+/** Último mês de referência que a projeção da Central cobre (a média é refeita a cada apuração lançada). */
+export const HORIZONTE_PROJECAO = "2026-12";
+
+/** Meses "AAAA-MM" de ini a fim, inclusive. */
+export function mesesEntre(ini: string, fim: string): string[] {
+  const out: string[] = [];
+  let [a, m] = ini.split("-").map(Number);
+  while (`${a}-${String(m).padStart(2, "0")}` <= fim) {
+    out.push(`${a}-${String(m).padStart(2, "0")}`);
+    if (++m > 12) {
+      m = 1;
+      a++;
+    }
+  }
+  return out;
+}

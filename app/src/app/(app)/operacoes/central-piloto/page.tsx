@@ -2,9 +2,10 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
-import { hojeBR, proximoDiaUtil, totalDe } from "@/lib/calculations/centralPiloto";
+import { HORIZONTE_PROJECAO, hojeBR, mesesEntre, proximoDiaUtil, totalDe } from "@/lib/calculations/centralPiloto";
 import { planejarProjecao, ultimasApuracoes } from "./projecao";
 import { ReceitaDiaTable, type ReceitaDiaRow } from "./ReceitaDiaTable";
+import { ProjecaoButton } from "./ProjecaoButton";
 
 export default async function CentralPilotoPage({
   searchParams,
@@ -49,10 +50,17 @@ export default async function CentralPilotoPage({
   const existingByDate = new Map((existingRows ?? []).map((r: any) => [r.data, r]));
   const bancoPadraoId = ultimas[0]?.bankAccountId ?? null;
 
-  // projeção do restante do mês (média por tipo das 5 últimas apurações), só do mês corrente
+  // projeção (média por tipo das 5 últimas apurações): do mês corrente até o horizonte, nos meses do filtro
   const refProjecao = hoje >= dateFrom && hoje <= dateTo ? hoje : dateTo;
   const plano = await planejarProjecao(supabase, company.id, refProjecao, hoje);
   const projecaoPorReferencia = new Map((plano?.dias ?? []).map((p) => [p.referencia, p]));
+  const mesAtual = hoje.slice(0, 7);
+  for (const mes of mesesEntre(dateFrom.slice(0, 7), dateTo.slice(0, 7))) {
+    if (mes <= mesAtual || mes > HORIZONTE_PROJECAO) continue;
+    const outro = await planejarProjecao(supabase, company.id, `${mes}-01`, hoje);
+    for (const p of outro?.dias ?? []) projecaoPorReferencia.set(p.referencia, p);
+  }
+  const bancoProjecao = plano?.bankAccountId ?? bancoPadraoId;
 
   const rows: ReceitaDiaRow[] = [];
   for (let d = new Date(dateFrom + "T00:00:00Z"); d.toISOString().slice(0, 10) <= dateTo; d.setUTCDate(d.getUTCDate() + 1)) {
@@ -63,7 +71,7 @@ export default async function CentralPilotoPage({
     if (futuro) {
       // futuro não se lança: aparece só a projeção do dia de referência, com a data em que cai na conta
       const p = projecaoPorReferencia.get(day);
-      if (!plano || !p) continue;
+      if (!p) continue;
       rows.push({
         data: day,
         dataApuracao: p.apuracao,
@@ -72,7 +80,7 @@ export default async function CentralPilotoPage({
         feeOnboarding: p.valores.fee_onboarding,
         remSpi: p.valores.rem_spi,
         remCcme: p.valores.rem_ccme,
-        bankAccountId: plano.bankAccountId,
+        bankAccountId: bancoProjecao,
         total: p.total,
         tipo: "projecao",
       });
@@ -113,12 +121,15 @@ export default async function CentralPilotoPage({
         title="Central Piloto"
         subtitle="Receita do dia da Salva-Guarda — informe cada tipo e o banco de recebimento"
         actions={
-          <Link
-            href="/operacoes/central-piloto/relatorio"
-            className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors"
-          >
-            Relatório diário
-          </Link>
+          <div className="flex items-center gap-3">
+            <ProjecaoButton companyId={company.id} />
+            <Link
+              href="/operacoes/central-piloto/relatorio"
+              className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors"
+            >
+              Relatório diário
+            </Link>
+          </div>
         }
       />
 
