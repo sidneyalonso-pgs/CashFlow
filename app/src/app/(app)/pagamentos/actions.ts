@@ -5,6 +5,12 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { assertReasonableDate } from "@/lib/validators/dateSanity";
 
+// Competência informada à mão (campo mês/ano "AAAA-MM"): vira o dia 1 do mês. Vazio = segue a data do pagamento.
+function competenciaDe(v: FormDataEntryValue | string | null | undefined): string | null {
+  const s = String(v ?? "");
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(s) ? `${s}-01` : null;
+}
+
 export async function createPaidPayment(formData: FormData) {
   const companyId = String(formData.get("company_id") || "");
   const supplierId = String(formData.get("supplier_id") || "");
@@ -52,7 +58,7 @@ export async function createPaidPayment(formData: FormData) {
       document_date: paidAt,
       due_date: paidAt,
       expected_payment_date: paidAt,
-      competence_date: paidAt,
+      competence_date: competenciaDe(formData.get("competence")) ?? paidAt,
       effective_payment_date: paidAt,
       paid_amount: grossAmount,
       recurring,
@@ -142,7 +148,7 @@ export async function createScheduledPayment(formData: FormData) {
     document_date: expectedDate,
     due_date: expectedDate,
     expected_payment_date: expectedDate,
-    competence_date: expectedDate,
+    competence_date: competenciaDe(formData.get("competence")) ?? expectedDate,
     recurring,
     notes,
     status: "agendado",
@@ -200,6 +206,10 @@ export async function settlePayment(paymentId: string, amount: number, paidAt: s
   );
   if (realizationError) return { error: realizationError.message };
 
+  // competência lançada à mão (diferente do vencimento) não é sobrescrita pela data da baixa
+  const { data: atual } = await supabase.from("payments").select("due_date, competence_date").eq("id", paymentId).single();
+  const competenciaManual = !!atual?.competence_date && atual.competence_date !== atual.due_date;
+
   const { error } = await supabase
     .from("payments")
     .update({
@@ -209,7 +219,7 @@ export async function settlePayment(paymentId: string, amount: number, paidAt: s
       effective_payment_date: paidAt,
       due_date: paidAt,
       expected_payment_date: paidAt,
-      competence_date: paidAt,
+      ...(competenciaManual ? {} : { competence_date: paidAt }),
       document_date: paidAt,
     })
     .eq("id", paymentId);
@@ -267,6 +277,7 @@ export async function updatePayment(paymentId: string, formData: FormData) {
   const costCenterId = String(formData.get("cost_center_id") || "") || null;
   const notes = String(formData.get("notes") || "") || null;
   const dueDate = String(formData.get("due_date") || "") || null;
+  const competencia = competenciaDe(formData.get("competence"));
 
   if (!grossAmount || grossAmount <= 0) {
     return { error: "Preencha o valor." };
@@ -280,7 +291,7 @@ export async function updatePayment(paymentId: string, formData: FormData) {
 
   const { data: payment } = await supabase
     .from("payments")
-    .select("status, suppliers(legal_name, default_description)")
+    .select("status, due_date, competence_date, suppliers(legal_name, default_description)")
     .eq("id", paymentId)
     .single();
 
@@ -303,11 +314,16 @@ export async function updatePayment(paymentId: string, formData: FormData) {
     update.expected_payment_date = dueDate;
   }
 
+  // competência: a informada no formulário; sem ela, mantém a lançada à mão (diferente do vencimento) e,
+  // se estava seguindo a data, acompanha a nova data nos pagamentos já pagos (comportamento de sempre)
+  const competenciaManual = !!payment?.competence_date && payment.competence_date !== payment.due_date;
+  if (competencia) update.competence_date = competencia;
+
   if (payment?.status === "pago") {
     update.paid_amount = grossAmount;
     if (dueDate) {
       update.effective_payment_date = dueDate;
-      update.competence_date = dueDate;
+      if (!competencia && !competenciaManual) update.competence_date = dueDate;
       update.document_date = dueDate;
     }
 
@@ -360,7 +376,7 @@ export async function updatePaymentDueDate(paymentId: string, dueDate: string) {
 
   const supabase = createClient();
 
-  const { data: payment } = await supabase.from("payments").select("status").eq("id", paymentId).single();
+  const { data: payment } = await supabase.from("payments").select("status, due_date, competence_date").eq("id", paymentId).single();
 
   const update: Record<string, unknown> = {
     due_date: dueDate,
@@ -369,7 +385,8 @@ export async function updatePaymentDueDate(paymentId: string, dueDate: string) {
 
   if (payment?.status === "pago") {
     update.effective_payment_date = dueDate;
-    update.competence_date = dueDate;
+    // competência lançada à mão (diferente do vencimento) fica como está
+    if (!payment.competence_date || payment.competence_date === payment.due_date) update.competence_date = dueDate;
     update.document_date = dueDate;
 
     const { data: realizations } = await supabase
@@ -481,6 +498,7 @@ export async function createBulkPayments(rows: Array<{
   cost_center_id?: string | null;
   bank_account_id?: string | null;
   recurring?: boolean;
+  competence?: string | null;
 }>) {
   const supabase = createClient();
   const {
@@ -523,7 +541,7 @@ export async function createBulkPayments(rows: Array<{
         document_date: row.date,
         due_date: row.date,
         expected_payment_date: row.date,
-        competence_date: row.date,
+        competence_date: competenciaDe(row.competence) ?? row.date,
         ...(isPaid ? { effective_payment_date: row.date, paid_amount: row.gross_amount, status: "pago" } : { status: "agendado" }),
         recurring: row.recurring ?? false,
         created_by: user?.id,

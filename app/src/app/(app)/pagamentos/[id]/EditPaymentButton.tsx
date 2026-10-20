@@ -15,6 +15,7 @@ type Payment = {
   notes: string | null;
   status: string;
   due_date: string | null;
+  competence_date?: string | null;
 };
 
 export function EditPaymentButton({
@@ -81,6 +82,12 @@ export function EditPaymentButton({
             name="due_date"
             type="date"
             defaultValue={payment.due_date ?? ""}
+          />
+          <TextField
+            label="Competência (mês/ano na DRE)"
+            name="competence"
+            type="month"
+            defaultValue={payment.competence_date ? payment.competence_date.slice(0, 7) : ""}
           />
           <div>
             <label className="block text-sm text-ps-ink-2 mb-1">Observações</label>

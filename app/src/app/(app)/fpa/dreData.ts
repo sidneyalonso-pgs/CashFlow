@@ -7,15 +7,15 @@ export type DreRow = {
   label: string;
   kind: "grupo" | "total" | "manual";
   vals: number[][]; // [coluna][0=real,1=projetado]
-  filhos?: { label: string; vals: number[][] }[];
+  filhos?: { label: string; vals: number[][]; netos?: { label: string; vals: number[][] }[] }[];
 };
 
 const MESES = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const dm = (s: string) => `${s.slice(8, 10)}/${s.slice(5, 7)}`;
 
-// DRE gerencial começa em set/26: meses anteriores ficam fora das colunas
-const INICIO_DRE = "2026-09";
+// DRE gerencial começa em out/26: meses anteriores ficam fora das colunas
+const INICIO_DRE = "2026-10";
 
 export function colunasMensais(ano: number): Col[] {
   return MESES.map((m, i) => {
@@ -76,7 +76,9 @@ function classificaReceita(fpa: string | null, categoria: string): string {
 export function montaDre(cols: Col[], payments: any[], revenues: any[], pdd: Record<string, number>): DreRow[] {
   const n = cols.length;
   const acc: Record<string, Map<string, Decimal[][]>> = {};
-  const add = (grupo: string, cat: string, date: string, amount: number, real: boolean) => {
+  // abertura por fornecedor (3º nível): grupo|linha -> fornecedor -> valores
+  const porForn: Record<string, Map<string, Decimal[][]>> = {};
+  const add = (grupo: string, cat: string, date: string, amount: number, real: boolean, fornecedor?: string) => {
     const ci = cols.findIndex((c) => date >= c.from && date <= c.to);
     if (ci < 0) return;
     const g = (acc[grupo] ??= new Map());
@@ -84,6 +86,12 @@ export function montaDre(cols: Col[], payments: any[], revenues: any[], pdd: Rec
     const k = real ? 0 : 1;
     arr[ci][k] = arr[ci][k].plus(amount);
     g.set(cat, arr);
+    if (fornecedor) {
+      const m = (porForn[`${grupo}|${cat}`] ??= new Map());
+      const f = m.get(fornecedor) ?? zeros(n);
+      f[ci][k] = f[ci][k].plus(amount);
+      m.set(fornecedor, f);
+    }
   };
 
   for (const p of payments) {
@@ -91,7 +99,7 @@ export function montaDre(cols: Col[], payments: any[], revenues: any[], pdd: Rec
     const cat = p.categories?.name ?? "Sem categoria";
     const destino = classificaDespesa(p.categories?.fpa_classification ?? null, cat, p.suppliers?.dre_classification ?? null);
     if (!destino) continue;
-    add(destino.grupo, destino.filho, p.competence_date, -Number(p.gross_amount), p.status === "pago");
+    add(destino.grupo, destino.filho, p.competence_date, -Number(p.gross_amount), p.status === "pago", p.suppliers?.legal_name ?? "Sem fornecedor");
   }
   for (const r of revenues) {
     if (r.status !== "recebida" && r.status !== "estimada") continue;
@@ -110,7 +118,12 @@ export function montaDre(cols: Col[], payments: any[], revenues: any[], pdd: Rec
   const peso = (vals: number[][]) => vals.flat().reduce((s, x) => s + Math.abs(x), 0);
   const filhos = (g: string) =>
     Array.from((acc[g] ?? new Map<string, Decimal[][]>()).entries())
-      .map(([label, arr]) => ({ label, vals: arr.map((c) => c.map((x) => x.toNumber())) }))
+      .map(([label, arr]) => {
+        const netos = Array.from(porForn[`${g}|${label}`]?.entries() ?? [])
+          .map(([nome, fa]) => ({ label: nome, vals: fa.map((c) => c.map((x) => x.toNumber())) }))
+          .sort((a, b) => peso(b.vals) - peso(a.vals));
+        return { label, vals: arr.map((c) => c.map((x) => x.toNumber())), ...(netos.length ? { netos } : {}) };
+      })
       .sort((a, b) => peso(b.vals) - peso(a.vals));
   const num = (t: Decimal[][]) => t.map((c) => c.map((x) => x.toNumber()));
   const soma = (...ts: Decimal[][][]) => {

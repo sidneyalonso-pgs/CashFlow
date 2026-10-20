@@ -26,10 +26,11 @@ type Row = {
   cost_center_id: string;
   bank_account_id: string;
   recurring: boolean;
+  competence: string;
 };
 
 function makeRow(id: number, today: string): Row {
-  return { id, company_id: "", supplier_id: "", description: "", gross_amount: "", date: today, mode: "pago", category_id: "", cost_center_id: "", bank_account_id: "", recurring: false };
+  return { id, company_id: "", supplier_id: "", description: "", gross_amount: "", date: today, mode: "pago", category_id: "", cost_center_id: "", bank_account_id: "", recurring: false, competence: "" };
 }
 
 export function BulkPaymentForm({
@@ -101,6 +102,7 @@ export function BulkPaymentForm({
           cost_center_id: r.cost_center_id || null,
           bank_account_id: r.bank_account_id || null,
           recurring: r.recurring,
+          competence: r.competence || null,
         }))
       );
       if (result.errors.length > 0) {
@@ -125,6 +127,7 @@ export function BulkPaymentForm({
               <th className={thCls}>Descrição</th>
               <th className={thCls}>Valor *</th>
               <th className={thCls}>Data *</th>
+              <th className={thCls} title="Mês/ano em que a despesa pertence (DRE). Vazio = mês da data.">Competência</th>
               <th className={thCls}>Modo</th>
               <th className={thCls}>Categoria</th>
               <th className={thCls}>Centro de custo</th>
@@ -176,6 +179,14 @@ export function BulkPaymentForm({
                     type="date"
                     value={row.date}
                     onChange={(e) => updateRow(row.id, "date", e.target.value)}
+                    className={inputCls}
+                  />
+                </td>
+                <td className="px-3 py-2 min-w-[130px]">
+                  <input
+                    type="month"
+                    value={row.competence}
+                    onChange={(e) => updateRow(row.id, "competence", e.target.value)}
                     className={inputCls}
                   />
                 </td>

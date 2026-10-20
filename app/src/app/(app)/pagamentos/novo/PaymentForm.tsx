@@ -148,6 +148,17 @@ export function PaymentForm({
         </div>
       </div>
 
+      <div>
+        <label className="block text-sm text-ps-ink-2 mb-1">
+          Competência <span className="text-xs text-ps-muted">(mês/ano da despesa na DRE — se deixar em branco, usa o mês da data)</span>
+        </label>
+        <input
+          name="competence"
+          type="month"
+          className="w-48 rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm"
+        />
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm text-ps-ink-2 mb-1">

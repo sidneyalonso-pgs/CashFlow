@@ -118,12 +118,36 @@ export function DreTable({ cols, rows, companyId, editaPdd }: { cols: Col[]; row
                 </tr>
                 {pode &&
                   aberta &&
-                  r.filhos!.map((f) => (
-                    <tr key={r.key + f.label} className="text-ps-muted bg-[#fafbfc]">
-                      <td className="sticky left-0 z-10 bg-[#fafbfc] px-3 py-1 pl-10">{f.label}</td>
-                      {celulas(f.vals, "py-1")}
-                    </tr>
-                  ))}
+                  r.filhos!.map((f) => {
+                    const fk = `${r.key}|${f.label}`;
+                    const fAberta = abertas[fk];
+                    const temNetos = (f.netos?.length ?? 0) > 0;
+                    return (
+                      <Fragment key={fk}>
+                        <tr className="text-ps-muted bg-[#fafbfc]">
+                          <td className="sticky left-0 z-10 bg-[#fafbfc] px-3 py-1 pl-8">
+                            {temNetos ? (
+                              <button type="button" onClick={() => setAbertas({ ...abertas, [fk]: !fAberta })} className="flex items-center gap-2 text-left">
+                                <span className="text-xs w-3">{fAberta ? "▾" : "▸"}</span>
+                                {f.label}
+                              </button>
+                            ) : (
+                              <span className="pl-5">{f.label}</span>
+                            )}
+                          </td>
+                          {celulas(f.vals, "py-1")}
+                        </tr>
+                        {temNetos &&
+                          fAberta &&
+                          f.netos!.map((x) => (
+                            <tr key={fk + x.label} className="text-ps-muted/80 bg-[#f4f6f8] text-xs">
+                              <td className="sticky left-0 z-10 bg-[#f4f6f8] px-3 py-1 pl-16">{x.label}</td>
+                              {celulas(x.vals, "py-1")}
+                            </tr>
+                          ))}
+                      </Fragment>
+                    );
+                  })}
               </Fragment>
             );
           })}

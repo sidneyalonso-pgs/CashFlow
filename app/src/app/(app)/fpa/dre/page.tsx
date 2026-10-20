@@ -30,7 +30,7 @@ export default async function DreGerencialPage({
   const [payRes, revComp, ajustes, auth] = await Promise.all([
     supabase
       .from("payments")
-      .select("status, gross_amount, competence_date, categories(name, fpa_classification), suppliers(dre_classification)")
+      .select("status, gross_amount, competence_date, categories(name, fpa_classification), suppliers(dre_classification, legal_name)")
       .eq("company_id", companyId)
       .in("status", ["pago", "agendado"])
       .is("deleted_at", null)
@@ -52,7 +52,7 @@ export default async function DreGerencialPage({
   if (payRes.error) {
     const { data: semClasse } = await supabase
       .from("payments")
-      .select("status, gross_amount, competence_date, categories(name, fpa_classification)")
+      .select("status, gross_amount, competence_date, categories(name, fpa_classification), suppliers(legal_name)")
       .eq("company_id", companyId)
       .in("status", ["pago", "agendado"])
       .is("deleted_at", null)
