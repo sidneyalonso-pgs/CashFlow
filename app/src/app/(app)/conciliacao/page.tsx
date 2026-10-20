@@ -212,7 +212,7 @@ export default async function ReconciliationPage({
           entityType: "revenue" as const,
           entityId: grupo[0].id,
           entityIds: grupo.map((r: any) => r.id),
-          label: `Salva-Guarda ${dataBRConc(data)}: ${Array.from(porCategoria.entries()).map(([n, v]) => `${n} ${brl(v)}`).join(" + ")}`,
+          label: `Central Piloto ${dataBRConc(data)}: ${Array.from(porCategoria.entries()).map(([n, v]) => `${n} ${brl(v)}`).join(" + ")}`,
           amount: soma,
           date: data,
         });

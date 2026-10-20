@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getAccountBalanceAsOf } from "@/lib/calculations/accountBalance";
+import { COMPONENTES, r2, totalDe, type CompKey } from "@/lib/calculations/centralPiloto";
 import type { ReportData } from "./ReportCard";
 
 /** Empresa "Pagsmile IP" — a Central Piloto só existe para ela. */
@@ -13,51 +13,50 @@ export async function getPagsmileIpCompany(supabase: ReturnType<typeof createCli
   return data;
 }
 
+const num = (v: any) => (v != null ? Number(v) : 0);
+
+/**
+ * Apuração de receitas de uma DATA DE APURAÇÃO (o dia em que o dinheiro caiu na conta): uma linha por
+ * data de referência apurada junto (sexta, sábado e domingo caem juntos na segunda), com os cinco tipos.
+ */
 export async function getReportData(
   supabase: ReturnType<typeof createClient>,
   companyId: string,
   date: string
 ): Promise<ReportData> {
-  const [{ data: row }, { data: administrativoAccount }] = await Promise.all([
-    supabase
-      .from("salva_guarda_diario")
-      .select("*, bank_accounts:fee_bank_account_id(nickname, bank_name)")
-      .eq("company_id", companyId)
-      .eq("data", date)
-      .maybeSingle(),
-    supabase
-      .from("bank_accounts")
-      .select("id")
-      .eq("company_id", companyId)
-      .or("nickname.ilike.%administrativo%,nickname.ilike.%SPB%")
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  const { data: rows } = await supabase
+    .from("salva_guarda_diario")
+    .select("data, data_apuracao, fee, fee_pix, fee_ted, fee_onboarding, remuneracao_spi, remuneracao_ccme, receipt_bank_account_id, fee_bank_account_id")
+    .eq("company_id", companyId)
+    .or(`data_apuracao.eq.${date},and(data_apuracao.is.null,data.eq.${date})`)
+    .order("data");
 
-  const saldoAdmin = administrativoAccount ? await getAccountBalanceAsOf(supabase, administrativoAccount.id, companyId, date) : null;
+  const lista = (rows ?? []) as any[];
+  const bancoIds = Array.from(new Set(lista.map((r) => r.receipt_bank_account_id ?? r.fee_bank_account_id).filter(Boolean)));
+  const { data: bancos } = bancoIds.length
+    ? await supabase.from("bank_accounts").select("id, nickname, bank_name").in("id", bancoIds)
+    : { data: [] as any[] };
+  const nomeBanco = new Map((bancos ?? []).map((b: any) => [b.id, b.nickname ?? b.bank_name]));
 
-  const saldoEmConta = row?.saldo_em_conta != null ? Number(row.saldo_em_conta) : null;
-  const saldo4111 = row?.saldo_4111 != null ? Number(row.saldo_4111) : null;
-  const deixarNaCcme = row?.deixar_na_ccme != null ? Number(row.deixar_na_ccme) : null;
-  // sem saldo em conta lançado (ex.: fim de semana) nada foi aplicado: R$0, não −R$80.000
-  const valorAplicado = saldoEmConta != null ? saldoEmConta - 80000 : saldo4111 != null || deixarNaCcme != null ? 0 : null;
-  const gap = saldo4111 && valorAplicado != null && deixarNaCcme != null ? (valorAplicado + deixarNaCcme) / saldo4111 : null;
+  const linhas = lista.map((r) => {
+    const valores = {
+      fee_pix: r2(r.fee_pix != null ? num(r.fee_pix) : r.fee_ted == null && r.fee_onboarding == null ? num(r.fee) : 0),
+      fee_ted: r2(num(r.fee_ted)),
+      fee_onboarding: r2(num(r.fee_onboarding)),
+      rem_spi: r2(num(r.remuneracao_spi)),
+      rem_ccme: r2(num(r.remuneracao_ccme)),
+    } as Record<CompKey, number>;
+    return { referencia: r.data as string, valores, total: totalDe(valores) };
+  });
 
-  const bank = (row as any)?.bank_accounts;
+  const totais = {} as Record<CompKey, number>;
+  for (const c of COMPONENTES) totais[c.key] = r2(linhas.reduce((s, l) => s + l.valores[c.key], 0));
 
   return {
-    data: date,
-    saldoEmConta,
-    fee: row?.fee != null ? Number(row.fee) : null,
-    remuneracaoSpi: row?.remuneracao_spi != null ? Number(row.remuneracao_spi) : null,
-    remuneracaoCcme: row?.remuneracao_ccme != null ? Number(row.remuneracao_ccme) : null,
-    bankLabel: bank?.nickname ?? bank?.bank_name ?? null,
-    saldoAdmin,
-    valorAplicadoSalvaGuarda: valorAplicado,
-    saldo4111,
-    gap,
-    taxaCcme: row?.taxa_ccme != null ? Number(row.taxa_ccme) : 0.0005166,
-    retiradas: row?.retiradas != null ? Number(row.retiradas) : null,
-    deixarNaCcme,
+    apuracao: date,
+    linhas,
+    totais,
+    total: totalDe(totais),
+    bankLabel: bancoIds.length ? bancoIds.map((id) => nomeBanco.get(id)).filter(Boolean).join(" / ") : null,
   };
 }

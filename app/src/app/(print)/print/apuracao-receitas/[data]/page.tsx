@@ -4,7 +4,7 @@ import { ReportCard } from "@/app/(app)/operacoes/central-piloto/ReportCard";
 import { getPagsmileIpCompany, getReportData } from "@/app/(app)/operacoes/central-piloto/reportData";
 import { AutoPrint } from "../../faturamento/[id]/AutoPrint";
 
-export default async function SalvaGuardaPrintPage({ params }: { params: { data: string } }) {
+export default async function ApuracaoReceitasPrintPage({ params }: { params: { data: string } }) {
   const supabase = createClient();
   const company = await getPagsmileIpCompany(supabase);
   if (!company) notFound();

@@ -19,7 +19,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const LIBERADAS_DIRETORIA = ["/", "/configuracoes/senha", "/configuracoes/2fa"];
 
 /** Rotas liberadas para quem só pode lançar na Central Piloto (prefixo — cobre sub-rotas). */
-const PREFIXOS_PILOTO = ["/operacoes/central-piloto", "/print/salva-guarda"];
+const PREFIXOS_PILOTO = ["/operacoes/central-piloto", "/print/apuracao-receitas"];
 const LIBERADAS_PILOTO = ["/configuracoes/senha", "/configuracoes/2fa"];
 
 /** Único lugar acessível pra quem ainda não configurou o segundo fator — precisa dar pra

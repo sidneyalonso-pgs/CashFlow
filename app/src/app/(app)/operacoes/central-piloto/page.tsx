@@ -24,7 +24,7 @@ export default async function CentralPilotoPage({
   if (!company) {
     return (
       <div>
-        <PageHeader title="Central Piloto" subtitle="Receita do dia da Salva-Guarda" />
+        <PageHeader title="Central Piloto" subtitle="Apuração de receitas" />
         <p className="text-sm text-red-600">Empresa "Pagsmile IP" não encontrada no cadastro.</p>
       </div>
     );
@@ -119,7 +119,7 @@ export default async function CentralPilotoPage({
     <div>
       <PageHeader
         title="Central Piloto"
-        subtitle="Receita do dia da Salva-Guarda — informe cada tipo e o banco de recebimento"
+        subtitle="Apuração de receitas — informe cada tipo e o banco de recebimento"
         actions={
           <div className="flex items-center gap-3">
             <ProjecaoButton companyId={company.id} />
@@ -127,7 +127,7 @@ export default async function CentralPilotoPage({
               href="/operacoes/central-piloto/relatorio"
               className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors"
             >
-              Relatório diário
+              Apuração de receitas
             </Link>
           </div>
         }

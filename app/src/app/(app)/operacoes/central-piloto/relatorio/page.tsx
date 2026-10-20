@@ -18,7 +18,7 @@ export default async function RelatorioDiarioPage({ searchParams }: { searchPara
   if (!company) {
     return (
       <div>
-        <PageHeader title="Relatório diário" subtitle="Central Piloto" />
+        <PageHeader title="Apuração de Receitas" subtitle="Central Piloto" />
         <p className="text-sm text-red-600">Empresa "Pagsmile IP" não encontrada no cadastro.</p>
       </div>
     );
@@ -30,15 +30,15 @@ export default async function RelatorioDiarioPage({ searchParams }: { searchPara
   return (
     <div>
       <PageHeader
-        title="Relatório diário"
-        subtitle="Pronto pra enviar — mesma visão em tela ou em PDF"
+        title="Apuração de Receitas"
+        subtitle="Por data de apuração e data de referência — pronto pra enviar, em tela ou PDF"
         actions={
           <div className="flex gap-2">
             <Link href="/operacoes/central-piloto" className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors">
               Voltar ao tabelão
             </Link>
             <a
-              href={`/print/salva-guarda/${data}`}
+              href={`/print/apuracao-receitas/${data}`}
               target="_blank"
               rel="noopener noreferrer"
               className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors"
