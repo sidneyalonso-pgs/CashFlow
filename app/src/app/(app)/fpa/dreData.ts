@@ -52,7 +52,9 @@ type Destino = { grupo: string; filho: string } | null;
  * linha "Sem classificação do fornecedor" para ninguém achar que ficou de fora.
  * Fornecedor "não classificável" (aporte, mútuo, rentabilidade) não é despesa e sai da DRE.
  */
-function classificaDespesa(fpa: string | null, categoria: string, dreFornecedor: string | null): Destino {
+function classificaDespesa(fpa: string | null, categoria: string, dreFornecedor: string | null, descricao = ""): Destino {
+  // repasse a parceiro (ex.: Viditech) abate a receita: entra nas Deduções, aberto por parceiro
+  if (/^\s*repasse/i.test(descricao)) return { grupo: "ded", filho: "Repasses a parceiros" };
   if (categoria === "Depreciação") return { grupo: "dep", filho: categoria };
   const n = fpa?.trim().charAt(0);
   if (n === "2") return { grupo: "ded", filho: categoria };
@@ -97,7 +99,7 @@ export function montaDre(cols: Col[], payments: any[], revenues: any[], pdd: Rec
   for (const p of payments) {
     if (p.status !== "pago" && p.status !== "agendado") continue;
     const cat = p.categories?.name ?? "Sem categoria";
-    const destino = classificaDespesa(p.categories?.fpa_classification ?? null, cat, p.suppliers?.dre_classification ?? null);
+    const destino = classificaDespesa(p.categories?.fpa_classification ?? null, cat, p.suppliers?.dre_classification ?? null, p.description ?? "");
     if (!destino) continue;
     add(destino.grupo, destino.filho, p.competence_date, -Number(p.gross_amount), p.status === "pago", p.suppliers?.legal_name ?? "Sem fornecedor");
   }
