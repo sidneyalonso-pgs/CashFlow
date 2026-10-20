@@ -10,7 +10,7 @@ export default async function SuppliersPage() {
     supabase
       .from("suppliers")
       .select(
-        "id, legal_name, cost_type, cost_structure, default_category_id, default_cost_center_id, default_description, status, is_recurring, chart_account_id, categories(name), cost_centers(code, name)"
+        "id, legal_name, cost_type, cost_structure, default_category_id, default_cost_center_id, default_description, status, is_recurring, chart_account_id, dre_classification, categories(name), cost_centers(code, name)"
       )
       .order("legal_name"),
     supabase.from("categories").select("id, name").order("name"),

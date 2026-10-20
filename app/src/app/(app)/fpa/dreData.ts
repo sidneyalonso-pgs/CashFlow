@@ -1,4 +1,5 @@
 import Decimal from "decimal.js";
+import { GRUPO_POR_LINHA } from "@/lib/calculations/dreClassificacao";
 
 export type Col = { key: string; label: string; from: string; to: string };
 export type DreRow = {
@@ -42,15 +43,28 @@ export function colunasSemanais(mes: string): Col[] {
 
 const zeros = (n: number) => Array.from({ length: n }, () => [new Decimal(0), new Decimal(0)]);
 
-function classificaDespesa(fpa: string | null, categoria: string): string {
-  if (categoria === "Depreciação") return "dep";
+type Destino = { grupo: string; filho: string } | null;
+
+/**
+ * Em qual linha da DRE cai uma despesa. A classificação DRE do FORNECEDOR manda (é a "segunda
+ * categoria" do cadastro); só ficam por categoria as linhas que a lista de classificações do
+ * fornecedor não tem: deduções da receita, depreciação e IRPJ/CSLL. Sem classificação, cai numa
+ * linha "Sem classificação do fornecedor" para ninguém achar que ficou de fora.
+ * Fornecedor "não classificável" (aporte, mútuo, rentabilidade) não é despesa e sai da DRE.
+ */
+function classificaDespesa(fpa: string | null, categoria: string, dreFornecedor: string | null): Destino {
+  if (categoria === "Depreciação") return { grupo: "dep", filho: categoria };
   const n = fpa?.trim().charAt(0);
-  if (n === "2") return "ded";
-  if (n === "3") return "custos";
-  if (n === "4") return "ga";
-  if (n === "5") return "desp_fin";
-  if (n === "6") return "ir";
-  return "nao_class";
+  if (n === "2") return { grupo: "ded", filho: categoria };
+  if (n === "6") return { grupo: "ir", filho: categoria };
+  if (dreFornecedor) {
+    const g = GRUPO_POR_LINHA[dreFornecedor];
+    if (g === "nenhum") return null;
+    if (g) return { grupo: g === "financeiras" ? "desp_fin" : g, filho: dreFornecedor };
+  }
+  if (n === "5") return { grupo: "desp_fin", filho: categoria };
+  if (n === "3" || n === "4") return { grupo: "operacionais", filho: "Sem classificação do fornecedor" };
+  return { grupo: "nao_class", filho: categoria };
 }
 
 function classificaReceita(fpa: string | null, categoria: string): string {
@@ -75,8 +89,9 @@ export function montaDre(cols: Col[], payments: any[], revenues: any[], pdd: Rec
   for (const p of payments) {
     if (p.status !== "pago" && p.status !== "agendado") continue;
     const cat = p.categories?.name ?? "Sem categoria";
-    const grupo = classificaDespesa(p.categories?.fpa_classification ?? null, cat);
-    add(grupo, cat, p.competence_date, -Number(p.gross_amount), p.status === "pago");
+    const destino = classificaDespesa(p.categories?.fpa_classification ?? null, cat, p.suppliers?.dre_classification ?? null);
+    if (!destino) continue;
+    add(destino.grupo, destino.filho, p.competence_date, -Number(p.gross_amount), p.status === "pago");
   }
   for (const r of revenues) {
     if (r.status !== "recebida" && r.status !== "estimada") continue;
@@ -112,9 +127,12 @@ export function montaDre(cols: Col[], payments: any[], revenues: any[], pdd: Rec
   const ded = totalGrupo("ded");
   const recLiq = soma(rec, pddT, ded);
   const custos = totalGrupo("custos");
-  const ga = totalGrupo("ga");
+  const margem = soma(recLiq, custos);
+  const pessoal = totalGrupo("pessoal");
+  const operacionais = totalGrupo("operacionais");
   const naoClass = totalGrupo("nao_class");
-  const ebitda = soma(recLiq, custos, ga, naoClass);
+  const totalDesp = soma(pessoal, operacionais, naoClass);
+  const ebitda = soma(margem, totalDesp);
   const dep = totalGrupo("dep");
   const ebit = soma(ebitda, dep);
   const recFin = totalGrupo("rec_fin");
@@ -128,12 +146,15 @@ export function montaDre(cols: Col[], payments: any[], revenues: any[], pdd: Rec
     { key: "pdd", label: "(-) PDD (lançamento manual)", kind: "manual", vals: num(pddT) },
     { key: "ded", label: "(-) Deduções da Receita", kind: "grupo", vals: num(ded), filhos: filhos("ded") },
     { key: "recliq", label: "(=) Receita Líquida", kind: "total", vals: num(recLiq) },
-    { key: "custos", label: "(-) Custos e Despesas Operacionais", kind: "grupo", vals: num(custos), filhos: filhos("custos") },
-    { key: "ga", label: "(-) Despesas Gerais e Administrativas", kind: "grupo", vals: num(ga), filhos: filhos("ga") },
+    { key: "custos", label: "(-) Custos dos Serviços Prestados", kind: "grupo", vals: num(custos), filhos: filhos("custos") },
+    { key: "margem", label: "(=) Margem de Contribuição", kind: "total", vals: num(margem) },
+    { key: "pessoal", label: "(-) Despesas com Pessoal", kind: "grupo", vals: num(pessoal), filhos: filhos("pessoal") },
+    { key: "operacionais", label: "(-) Despesas Operacionais", kind: "grupo", vals: num(operacionais), filhos: filhos("operacionais") },
   ];
   if (naoClass.some((c) => c.some((x) => !x.isZero())))
-    rows.push({ key: "nao", label: "(-) Sem classificação FP&A", kind: "grupo", vals: num(naoClass), filhos: filhos("nao_class") });
+    rows.push({ key: "nao", label: "(-) Sem classificação", kind: "grupo", vals: num(naoClass), filhos: filhos("nao_class") });
   rows.push(
+    { key: "totaldesp", label: "(=) Total de Despesas", kind: "total", vals: num(totalDesp) },
     { key: "ebitda", label: "(=) EBITDA", kind: "total", vals: num(ebitda) },
     { key: "dep", label: "(-) Depreciação e Amortização", kind: "grupo", vals: num(dep), filhos: filhos("dep") },
     { key: "ebit", label: "(=) EBIT", kind: "total", vals: num(ebit) },

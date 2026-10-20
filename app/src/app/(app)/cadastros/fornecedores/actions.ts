@@ -40,6 +40,7 @@ export async function createSupplier(formData: FormData) {
     default_cost_center_id: String(formData.get("default_cost_center_id") || "") || null,
     default_description: String(formData.get("default_description") || "") || null,
     chart_account_id: String(formData.get("chart_account_id") || "") || null,
+    dre_classification: String(formData.get("dre_classification") || "") || null,
   });
 
   if (error) return { error: error.message };
@@ -79,6 +80,7 @@ export async function updateSupplier(supplierId: string, formData: FormData) {
       is_recurring: isRecurring,
       cost_structure: costStructure,
       chart_account_id: String(formData.get("chart_account_id") || "") || null,
+      ...(formData.has("dre_classification") ? { dre_classification: String(formData.get("dre_classification") || "") || null } : {}),
     })
     .eq("id", supplierId);
 

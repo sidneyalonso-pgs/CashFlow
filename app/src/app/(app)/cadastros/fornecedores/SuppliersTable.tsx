@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { updateSupplier } from "./actions";
+import { LINHAS_DRE } from "@/lib/calculations/dreClassificacao";
 
 type Supplier = {
   id: string;
@@ -14,6 +15,7 @@ type Supplier = {
   status: string;
   is_recurring: boolean | null;
   chart_account_id: string | null;
+  dre_classification: string | null;
   categories: { name: string } | null;
   cost_centers: { code: string; name: string } | null;
 };
@@ -53,6 +55,7 @@ function SupplierRow({
   const [status, setStatus] = useState(supplier.status);
   const [isRecurring, setIsRecurring] = useState(supplier.is_recurring ?? false);
   const [chartAccountId, setChartAccountId] = useState(supplier.chart_account_id ?? "");
+  const [dreClassification, setDreClassification] = useState(supplier.dre_classification ?? "");
 
   function mark(setter: (v: any) => void, value: any) {
     setter(value);
@@ -70,6 +73,7 @@ function SupplierRow({
     fd.set("default_description", description);
     fd.set("status", status);
     fd.set("chart_account_id", chartAccountId);
+    fd.set("dre_classification", dreClassification);
     fd.set("tax_id", "");
     if (isRecurring) fd.set("is_recurring", "on");
     if (description) fd.set("propagate_description", "on");
@@ -140,6 +144,16 @@ function SupplierRow({
           <option value="">—</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      </td>
+
+      {/* Classificação DRE: a linha da DRE gerencial em que as despesas deste fornecedor entram */}
+      <td className="px-3 py-2 min-w-[220px]">
+        <select value={dreClassification} onChange={(e) => mark(setDreClassification, e.target.value)} className={cellCls}>
+          <option value="">— sem classificação —</option>
+          {LINHAS_DRE.map((l) => (
+            <option key={l.nome} value={l.nome}>{l.nome}</option>
           ))}
         </select>
       </td>
@@ -224,6 +238,7 @@ export function SuppliersTable({
             <th className={thCls}>Fixo/Variável</th>
             <th className={thCls}>Recorrente</th>
             <th className={thCls}>Categoria</th>
+            <th className={thCls}>Classificação DRE</th>
             <th className={thCls}>Departamento</th>
             <th className={thCls}>Descrição padrão</th>
             <th className={thCls}>Conta contábil</th>
@@ -237,7 +252,7 @@ export function SuppliersTable({
           ))}
           {suppliers.length === 0 && (
             <tr>
-              <td colSpan={10} className="px-4 py-8 text-center text-ps-muted text-sm">
+              <td colSpan={11} className="px-4 py-8 text-center text-ps-muted text-sm">
                 Nenhum fornecedor cadastrado.
               </td>
             </tr>

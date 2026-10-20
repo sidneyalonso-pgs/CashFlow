@@ -27,10 +27,10 @@ export default async function DreGerencialPage({
   const REV_BASE = "status, realized_amount, realized_date, expected_amount, expected_date, categories(name, fpa_classification)";
   // competence_date (migration 0032): dia de REFERÊNCIA das receitas da Central Piloto, que a DRE usa no lugar do caixa
   const REV_COMP = `${REV_BASE}, competence_date`;
-  const [{ data: payments }, revComp, ajustes, auth] = await Promise.all([
+  const [payRes, revComp, ajustes, auth] = await Promise.all([
     supabase
       .from("payments")
-      .select("status, gross_amount, competence_date, categories(name, fpa_classification)")
+      .select("status, gross_amount, competence_date, categories(name, fpa_classification), suppliers(dre_classification)")
       .eq("company_id", companyId)
       .in("status", ["pago", "agendado"])
       .is("deleted_at", null)
@@ -47,6 +47,20 @@ export default async function DreGerencialPage({
     supabase.from("dre_ajustes_manuais").select("periodo, valor").eq("company_id", companyId).eq("linha", "pdd"),
     supabase.auth.getUser(),
   ]);
+  // antes da migration 0033 a classificação DRE do fornecedor não existe: cai para a leitura sem ela
+  let payments: any[] = (payRes.data ?? []) as any[];
+  if (payRes.error) {
+    const { data: semClasse } = await supabase
+      .from("payments")
+      .select("status, gross_amount, competence_date, categories(name, fpa_classification)")
+      .eq("company_id", companyId)
+      .in("status", ["pago", "agendado"])
+      .is("deleted_at", null)
+      .gte("competence_date", from)
+      .lte("competence_date", to)
+      .limit(10000);
+    payments = (semClasse ?? []) as any[];
+  }
   // antes da migration 0032 a coluna de competência não existe: cai para a leitura simples
   let revenues: any[] = (revComp.data ?? []) as any[];
   if (revComp.error) {
@@ -75,7 +89,7 @@ export default async function DreGerencialPage({
   const pdd: Record<string, number> = {};
   for (const a of (ajustes.data ?? []) as any[]) pdd[String(a.periodo).slice(0, 7)] = Number(a.valor);
 
-  const rows = montaDre(cols, payments ?? [], revs, pdd);
+  const rows = montaDre(cols, payments, revs, pdd);
 
   const link = (p: Record<string, string>) => {
     const q = new URLSearchParams({ visao: semanal ? "semanal" : "mensal", ano: String(ano), mes, company_id: companyId, ...p });

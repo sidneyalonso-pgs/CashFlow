@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Modal } from "@/components/Modal";
 import { TextField, SelectField } from "@/components/FormField";
+import { LINHAS_DRE } from "@/lib/calculations/dreClassificacao";
 import { createSupplier } from "./actions";
 
 const COST_TYPES = [
@@ -67,6 +68,11 @@ export function NewSupplierButton({
             label="Categoria padrão"
             name="default_category_id"
             options={categories.map((c) => ({ value: c.id, label: c.name }))}
+          />
+          <SelectField
+            label="Classificação DRE"
+            name="dre_classification"
+            options={LINHAS_DRE.map((l) => ({ value: l.nome, label: l.nome }))}
           />
           <SelectField
             label="Departamento (centro de custo)"
