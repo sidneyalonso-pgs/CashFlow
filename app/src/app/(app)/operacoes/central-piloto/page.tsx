@@ -108,7 +108,7 @@ export default async function CentralPilotoPage({
       bankAccountId: ex?.receipt_bank_account_id ?? ex?.fee_bank_account_id ?? ex?.remuneracao_spi_bank_account_id ?? ex?.remuneracao_ccme_bank_account_id ?? null,
       total: lancado ? (ex?.total_apurado != null ? Number(ex.total_apurado) : totalDe({ fee_pix: feePix, fee_ted: feeTed, fee_onboarding: feeOnboarding, rem_spi: remSpi, rem_ccme: remCcme })) : 0,
       // "modelo antigo": dia com três receitas separadas, ainda não convertido para a receita única
-      tipo: lancado ? (ex?.revenue_id ? "lancado" : "legado") : "vazio",
+      tipo: lancado ? (ex?.revenue_id || ex?.fee_revenue_id || ex?.remuneracao_spi_revenue_id || ex?.remuneracao_ccme_revenue_id ? "legado" : "lancado") : "vazio",
     });
   }
 
