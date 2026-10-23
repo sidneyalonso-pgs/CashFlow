@@ -1,9 +1,9 @@
 "use client";
 
-export function NDPrintButton() {
+export function NDPrintButton({ ndId }: { ndId: string }) {
   return (
     <button
-      onClick={() => window.print()}
+      onClick={() => window.open(`/print/notas-debito/${ndId}`, "_blank")}
       className="w-full bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors print:hidden"
     >
       🖨️ Imprimir / PDF
