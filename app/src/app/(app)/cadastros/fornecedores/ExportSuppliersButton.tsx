@@ -1,5 +1,6 @@
 "use client";
 
+import { csvBlob } from "@/lib/csv";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -32,7 +33,7 @@ export function ExportSuppliersButton() {
       ),
     ];
 
-    const blob = new Blob(["﻿" + csvLines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const blob = csvBlob(csvLines.join("\n"));
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;

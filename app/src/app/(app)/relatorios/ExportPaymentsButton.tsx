@@ -1,5 +1,6 @@
 "use client";
 
+import { csvBlob } from "@/lib/csv";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { companyLabel } from "@/lib/format";
@@ -42,7 +43,7 @@ export function ExportPaymentsButton({
     let query = supabase
       .from("payments")
       .select(
-        "description, gross_amount, paid_amount, due_date, effective_payment_date, status, cost_type, fixed_variable, recurring, companies(legal_name, trade_name), suppliers(legal_name), categories(name), cost_centers(name), bank_accounts:paying_bank_account_id(nickname, bank_name)"
+        "description, gross_amount, paid_amount, due_date, effective_payment_date, status, cost_type, fixed_variable, recurring, companies(legal_name, trade_name), suppliers(legal_name, dre_classification), categories(name), cost_centers(name), bank_accounts:paying_bank_account_id(nickname, bank_name)"
       )
       .is("deleted_at", null)
       .neq("status", "cancelado")
@@ -65,6 +66,7 @@ export function ExportPaymentsButton({
       "Descrição",
       "Valor",
       "Categoria",
+      "Classificação DRE",
       "Centro de custos",
       "Tipo de custo",
       "Fixo/Variável",
@@ -87,6 +89,7 @@ export function ExportPaymentsButton({
           r.description ?? "",
           formatNumberBR(valor),
           r.categories?.name ?? "",
+          r.suppliers?.dre_classification ?? "",
           r.cost_centers?.name ?? "",
           COST_TYPE_LABELS[r.cost_type] ?? r.cost_type ?? "",
           fixoVar,
@@ -98,7 +101,7 @@ export function ExportPaymentsButton({
     ];
 
     // BOM para o Excel reconhecer UTF-8 e não quebrar os acentos
-    const blob = new Blob(["﻿" + csvLines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+    const blob = csvBlob(csvLines.join("\r\n"));
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
