@@ -35,7 +35,7 @@ export type PlanoProjecao = {
 export async function ultimasApuracoes(supabase: Cliente, companyId: string, limite = 5): Promise<Apuracao[]> {
   const { data } = await supabase
     .from("salva_guarda_diario")
-    .select("data, fee_pix, fee_ted, fee_onboarding, remuneracao_spi, remuneracao_ccme, total_apurado, receipt_bank_account_id, fee_bank_account_id")
+    .select("*")
     .eq("company_id", companyId)
     .gt("total_apurado", 0)
     .order("data", { ascending: false })
@@ -44,6 +44,7 @@ export async function ultimasApuracoes(supabase: Cliente, companyId: string, lim
     data: r.data,
     fee_pix: r.fee_pix != null ? Number(r.fee_pix) : null,
     fee_ted: r.fee_ted != null ? Number(r.fee_ted) : null,
+    fee_tef: r.fee_tef != null ? Number(r.fee_tef) : null,
     fee_onboarding: r.fee_onboarding != null ? Number(r.fee_onboarding) : null,
     rem_spi: r.remuneracao_spi != null ? Number(r.remuneracao_spi) : null,
     rem_ccme: r.remuneracao_ccme != null ? Number(r.remuneracao_ccme) : null,

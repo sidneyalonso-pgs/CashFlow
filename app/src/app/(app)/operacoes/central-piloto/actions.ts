@@ -24,6 +24,7 @@ type ReceitaDiaInput = {
   data_apuracao: string;
   fee_pix: number | null;
   fee_ted: number | null;
+  fee_tef: number | null;
   fee_onboarding: number | null;
   rem_spi: number | null;
   rem_ccme: number | null;
@@ -247,11 +248,12 @@ export async function saveReceitaDia(input: ReceitaDiaInput) {
     data_apuracao: input.data_apuracao,
     fee_pix: valores.fee_pix || null,
     fee_ted: valores.fee_ted || null,
+    fee_tef: valores.fee_tef || null,
     fee_onboarding: valores.fee_onboarding || null,
     remuneracao_spi: valores.rem_spi || null,
     remuneracao_ccme: valores.rem_ccme || null,
     // campos antigos mantidos em dia: o relatório diário e o histórico continuam lendo deles
-    fee: r2(valores.fee_pix + valores.fee_ted + valores.fee_onboarding) || null,
+    fee: r2(valores.fee_pix + valores.fee_ted + valores.fee_tef + valores.fee_onboarding) || null,
     total_apurado: total,
     receipt_bank_account_id: input.bank_account_id,
     fee_bank_account_id: input.bank_account_id,
@@ -270,7 +272,7 @@ export async function saveReceitaDia(input: ReceitaDiaInput) {
   if (error) {
     return {
       error: /column|schema cache/i.test(error.message)
-        ? "As migrations 0030, 0031 e 0032 ainda não foram aplicadas no banco."
+        ? "As migrations 0030 a 0034 ainda não foram aplicadas no banco."
         : error.message,
     };
   }

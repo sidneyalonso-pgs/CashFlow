@@ -77,6 +77,7 @@ export default async function CentralPilotoPage({
         dataApuracao: p.apuracao,
         feePix: p.valores.fee_pix,
         feeTed: p.valores.fee_ted,
+        feeTef: p.valores.fee_tef,
         feeOnboarding: p.valores.fee_onboarding,
         remSpi: p.valores.rem_spi,
         remCcme: p.valores.rem_ccme,
@@ -89,10 +90,11 @@ export default async function CentralPilotoPage({
 
     const feePix = ex?.fee_pix != null ? Number(ex.fee_pix) : ex?.fee != null && ex?.fee_ted == null && ex?.fee_onboarding == null ? Number(ex.fee) : null;
     const feeTed = ex?.fee_ted != null ? Number(ex.fee_ted) : null;
+    const feeTef = ex?.fee_tef != null ? Number(ex.fee_tef) : null;
     const feeOnboarding = ex?.fee_onboarding != null ? Number(ex.fee_onboarding) : null;
     const remSpi = ex?.remuneracao_spi != null ? Number(ex.remuneracao_spi) : null;
     const remCcme = ex?.remuneracao_ccme != null ? Number(ex.remuneracao_ccme) : null;
-    const lancado = !!ex && (feePix != null || feeTed != null || feeOnboarding != null || remSpi != null || remCcme != null);
+    const lancado = !!ex && (feePix != null || feeTed != null || feeTef != null || feeOnboarding != null || remSpi != null || remCcme != null);
 
     // linha nova: sugere o primeiro dia útil seguinte à referência (no máximo hoje) como data de apuração
     const sugestaoApuracao = proximoDiaUtil(day) > hoje ? hoje : proximoDiaUtil(day);
@@ -102,11 +104,12 @@ export default async function CentralPilotoPage({
       dataApuracao: ex?.data_apuracao ?? (lancado ? day : sugestaoApuracao),
       feePix,
       feeTed,
+      feeTef,
       feeOnboarding,
       remSpi,
       remCcme,
       bankAccountId: ex?.receipt_bank_account_id ?? ex?.fee_bank_account_id ?? ex?.remuneracao_spi_bank_account_id ?? ex?.remuneracao_ccme_bank_account_id ?? null,
-      total: lancado ? (ex?.total_apurado != null ? Number(ex.total_apurado) : totalDe({ fee_pix: feePix, fee_ted: feeTed, fee_onboarding: feeOnboarding, rem_spi: remSpi, rem_ccme: remCcme })) : 0,
+      total: lancado ? (ex?.total_apurado != null ? Number(ex.total_apurado) : totalDe({ fee_pix: feePix, fee_ted: feeTed, fee_tef: feeTef, fee_onboarding: feeOnboarding, rem_spi: remSpi, rem_ccme: remCcme })) : 0,
       // "modelo antigo": dia sem data de apuração (nunca convertido para o modelo por tipo e por referência)
       tipo: lancado ? (ex?.data_apuracao ? "lancado" : "legado") : "vazio",
     });
@@ -150,7 +153,7 @@ export default async function CentralPilotoPage({
         A <strong>data de apuração</strong> (primeira coluna) é o dia em que o dinheiro cai na conta e aparece no extrato (normalmente o
         primeiro dia útil seguinte): é ela que vale para o Cash Flow, para Receitas e para a conciliação. A{" "}
         <strong>data de referência</strong> (última coluna) é o dia a que aquela receita se refere, usada na DRE. Ao salvar, o sistema soma
-        as cinco colunas no <strong>Total apurado</strong> e mantém{" "}
+        as seis colunas no <strong>Total apurado</strong> e mantém{" "}
         <strong>uma receita única por data de apuração e banco</strong> (a soma de todas as referências que caíram juntas), que casa com o
         crédito do extrato. As linhas em cinza são a <strong>projeção</strong> do restante do mês: média por tipo das 5 últimas apurações
         (fees todos os dias; SPI e CCME só em dia útil), caindo no primeiro dia útil seguinte e recalculada a cada lançamento. A receita

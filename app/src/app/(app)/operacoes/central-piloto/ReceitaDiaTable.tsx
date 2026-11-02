@@ -11,6 +11,7 @@ export type ReceitaDiaRow = {
   dataApuracao: string | null;
   feePix: number | null;
   feeTed: number | null;
+  feeTef: number | null;
   feeOnboarding: number | null;
   remSpi: number | null;
   remCcme: number | null;
@@ -25,6 +26,7 @@ type BankAccount = { id: string; label: string | null };
 const CAMPOS = [
   { key: "feePix", label: "Fee PIX" },
   { key: "feeTed", label: "Fee TED" },
+  { key: "feeTef", label: "Fee TEF" },
   { key: "feeOnboarding", label: "Fee Onboarding" },
   { key: "remSpi", label: "Remuneração SPI" },
   { key: "remCcme", label: "Remuneração CCME" },
@@ -97,6 +99,7 @@ export function ReceitaDiaTable({
         data_apuracao: row.dataApuracao ?? data,
         fee_pix: row.feePix,
         fee_ted: row.feeTed,
+        fee_tef: row.feeTef,
         fee_onboarding: row.feeOnboarding,
         rem_spi: row.remSpi,
         rem_ccme: row.remCcme,

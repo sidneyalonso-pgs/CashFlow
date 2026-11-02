@@ -26,7 +26,7 @@ export async function getReportData(
 ): Promise<ReportData> {
   const { data: rows } = await supabase
     .from("salva_guarda_diario")
-    .select("data, data_apuracao, fee, fee_pix, fee_ted, fee_onboarding, remuneracao_spi, remuneracao_ccme, receipt_bank_account_id, fee_bank_account_id")
+    .select("*")
     .eq("company_id", companyId)
     .or(`data_apuracao.eq.${date},and(data_apuracao.is.null,data.eq.${date})`)
     .order("data");
@@ -42,6 +42,7 @@ export async function getReportData(
     const valores = {
       fee_pix: r2(r.fee_pix != null ? num(r.fee_pix) : r.fee_ted == null && r.fee_onboarding == null ? num(r.fee) : 0),
       fee_ted: r2(num(r.fee_ted)),
+      fee_tef: r2(num(r.fee_tef)),
       fee_onboarding: r2(num(r.fee_onboarding)),
       rem_spi: r2(num(r.remuneracao_spi)),
       rem_ccme: r2(num(r.remuneracao_ccme)),

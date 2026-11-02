@@ -3,6 +3,7 @@
 export const COMPONENTES = [
   { key: "fee_pix", label: "Fee Pix" },
   { key: "fee_ted", label: "Fee TED" },
+  { key: "fee_tef", label: "Fee TEF" },
   { key: "fee_onboarding", label: "Fee Onboarding" },
   { key: "rem_spi", label: "Remuneração Conta PI" },
   { key: "rem_ccme", label: "Remuneração CCME" },
