@@ -266,9 +266,16 @@ export async function saveReceitaDia(input: ReceitaDiaInput) {
     updated_by: user.id,
   };
 
-  const { error } = existing
-    ? await supabase.from("salva_guarda_diario").update(linha).eq("id", existing.id)
-    : await supabase.from("salva_guarda_diario").insert({ ...linha, created_by: user.id });
+  const gravar = (l: Record<string, unknown>) =>
+    existing
+      ? supabase.from("salva_guarda_diario").update(l).eq("id", existing.id)
+      : supabase.from("salva_guarda_diario").insert({ ...l, created_by: user.id });
+  let { error } = await gravar(linha);
+  // migration 0034 (coluna fee_tef) ainda não aplicada: sem TEF no dia, grava sem a coluna em vez de travar o lançamento
+  if (error && /fee_tef/i.test(error.message) && !valores.fee_tef) {
+    const { fee_tef: _semTef, ...semTef } = linha;
+    ({ error } = await gravar(semTef));
+  }
   if (error) {
     return {
       error: /column|schema cache/i.test(error.message)
