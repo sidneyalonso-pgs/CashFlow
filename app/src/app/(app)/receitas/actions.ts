@@ -159,7 +159,15 @@ export async function settleRevenue(revenueId: string, amount: number, receivedA
 
   if (error) return { error: error.message };
 
+  // baixa feita aqui também fecha a fatura ligada a esta receita (senão ela fica "pendente" no faturamento)
+  await supabase
+    .from("billing_invoices")
+    .update({ status: "pago", data_pgto: receivedAt })
+    .eq("revenue_id", revenueId)
+    .eq("status", "pendente");
+
   revalidatePath("/receitas");
+  revalidatePath("/faturamento");
   revalidatePath("/cash-flow");
   revalidatePath("/cash-flow/detalhado");
   return { error: null };

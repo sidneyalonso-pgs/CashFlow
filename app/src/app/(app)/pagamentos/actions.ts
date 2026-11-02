@@ -226,7 +226,15 @@ export async function settlePayment(paymentId: string, amount: number, paidAt: s
 
   if (error) return { error: error.message };
 
+  // baixa feita aqui também fecha a fatura ligada a este repasse (senão ela fica "pendente" no faturamento)
+  await supabase
+    .from("billing_invoices")
+    .update({ status: "pago", data_pgto: paidAt })
+    .eq("payment_id", paymentId)
+    .eq("status", "pendente");
+
   revalidatePath("/pagamentos");
+  revalidatePath("/faturamento");
   revalidatePath("/cash-flow");
   revalidatePath("/cash-flow/detalhado");
   return { error: null };
