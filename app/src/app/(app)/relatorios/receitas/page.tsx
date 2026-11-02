@@ -28,7 +28,7 @@ export default async function RelatorioReceitasPage({ searchParams }: { searchPa
     );
   }
 
-  const REV_BASE = "id, status, description, realized_amount, realized_date, expected_amount, expected_date, categories(name)";
+  const REV_BASE = "id, created_at, status, description, realized_amount, realized_date, expected_amount, expected_date, categories(name)";
   const [revComp, payRes] = await Promise.all([
     supabase
       .from("revenues")
@@ -39,7 +39,7 @@ export default async function RelatorioReceitasPage({ searchParams }: { searchPa
       .limit(10000),
     supabase
       .from("payments")
-      .select("status, gross_amount, description, competence_date, suppliers(legal_name)")
+      .select("id, status, gross_amount, description, competence_date, due_date, expected_payment_date, effective_payment_date, suppliers(legal_name)")
       .eq("company_id", company.id)
       .in("status", ["pago", "agendado"])
       .is("deleted_at", null)
@@ -63,15 +63,19 @@ export default async function RelatorioReceitasPage({ searchParams }: { searchPa
   // receita que vem de fatura (Bets, mensalidade, China) entra na competência da FATURA, não no mês do recebimento
   const { data: faturas } = await supabase
     .from("billing_invoices")
-    .select("revenue_id, competencia")
+    .select("revenue_id, payment_id, competencia, inicio, fim")
     .eq("company_id", company.id)
-    .not("revenue_id", "is", null)
     .neq("status", "cancelado")
     .limit(10000);
   const competenciaFatura = new Map<string, string>();
-  for (const f of (faturas ?? []) as any[]) if (f.revenue_id && /^\d{4}-\d{2}$/.test(f.competencia ?? "")) competenciaFatura.set(f.revenue_id, f.competencia);
+  const periodoPorPagamento = new Map<string, string>();
+  const dm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+  for (const f of (faturas ?? []) as any[]) {
+    if (f.revenue_id && /^\d{4}-\d{2}$/.test(f.competencia ?? "")) competenciaFatura.set(f.revenue_id, f.competencia);
+    if (f.payment_id && f.inicio && f.fim) periodoPorPagamento.set(f.payment_id, `${dm(f.inicio)} a ${dm(f.fim)}`);
+  }
 
-  const rel = montaRelatorioReceitas(mes, revenues, (payRes.data ?? []) as any[], competenciaFatura);
+  const rel = montaRelatorioReceitas(mes, revenues, (payRes.data ?? []) as any[], competenciaFatura, periodoPorPagamento);
 
   const th = "text-right px-4 py-3 text-[10px] font-semibold uppercase tracking-wide text-ps-muted whitespace-nowrap";
   const td = "px-4 py-2.5 text-right tabular-nums whitespace-nowrap";
@@ -124,29 +128,42 @@ export default async function RelatorioReceitasPage({ searchParams }: { searchPa
               </tr>
             ) : (
               <>
-                <tr className="text-[10px] font-semibold uppercase tracking-wide text-ps-muted">
-                  <td className="px-4 py-1">Empresa</td>
-                  <td className={`${th} py-1`}>Valor do repasse</td>
-                  <td className={`${th} py-1`} colSpan={2}>
-                    Status
+                <tr>
+                  <td colSpan={4} className="px-4 pb-3">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-[10px] font-semibold uppercase tracking-wide text-ps-muted">
+                            <th className="text-left py-1 pr-4">Empresa</th>
+                            <th className="text-right py-1 pr-4">Valor do repasse</th>
+                            <th className="text-left py-1 pr-4">Período</th>
+                            <th className="text-left py-1 pr-4">Data do repasse ou recebimento</th>
+                            <th className="text-left py-1">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rel.repasses.map((r, i) => (
+                            <tr key={i} className="border-t border-ps-navy/5">
+                              <td className="py-2 pr-4 font-medium text-ps-ink">{r.empresa}</td>
+                              <td className="py-2 pr-4 text-right tabular-nums whitespace-nowrap">{brl(-r.valor)}</td>
+                              <td className="py-2 pr-4 tabular-nums whitespace-nowrap">{r.periodo ?? "—"}</td>
+                              <td className="py-2 pr-4 tabular-nums whitespace-nowrap">{r.data ? dm(r.data) : "—"}</td>
+                              <td className="py-2">
+                                <span
+                                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
+                                    r.status === "Pago" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                                  }`}
+                                >
+                                  {r.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </td>
                 </tr>
-                {rel.repasses.map((r) => (
-                  <tr key={r.empresa} className="border-t border-ps-navy/5">
-                    <td className="px-4 py-2.5 font-medium text-ps-ink">{r.empresa}</td>
-                    <td className={td}>{brl(-r.total)}</td>
-                    <td className={td} colSpan={2}>
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
-                          r.status === "Pago" ? "bg-green-100 text-green-700" : r.status === "Agendado" ? "bg-amber-100 text-amber-700" : "bg-sky-100 text-sky-700"
-                        }`}
-                      >
-                        {r.status}
-                        {r.status === "Parcial" ? ` · pago ${brl(r.pago)}` : ""}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
                 <tr className="border-t border-ps-navy/10 font-semibold">
                   <td className="px-4 py-2.5 text-ps-ink">Total de repasses</td>
                   <td className={td}>{brl(-rel.totalRepasses)}</td>
@@ -172,7 +189,7 @@ export default async function RelatorioReceitasPage({ searchParams }: { searchPa
       </div>
 
       <p className="text-xs text-ps-muted mt-4">
-        Só Pagsmile IP. Cada linha abre os lançamentos que a compõem, com a competência usada e a data de caixa. Competência: receitas da
+        Só Pagsmile IP. Cada linha abre os lançamentos que a compõem, em ordem de dia, com a competência usada (que decide o mês), a data de caixa (recebimento ou previsão) e o dia em que foi lançado no sistema. Competência: receitas da
         Central Piloto pelo dia de referência; as demais, pela data de recebimento (realizado) ou de previsão (projetado). Receitas faturadas (Bets, mensalidade, China) entram na competência da fatura, mesmo que o dinheiro seja recebido em outro
         mês (a DRE ainda usa o mês do recebimento para elas). O <strong>Fee China</strong> é separado do Fee Pix pela descrição. Categorias fora da lista aparecem em linhas
         próprias abaixo de Prestação de serviços. Repasses são os pagamentos “Repasse…” pagos ou agendados, pela competência do

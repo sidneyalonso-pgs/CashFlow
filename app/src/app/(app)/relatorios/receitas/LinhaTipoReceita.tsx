@@ -42,7 +42,8 @@ export function LinhaTipoReceita({ linha }: { linha: LinhaTipo }) {
                   <tr className="text-[10px] uppercase tracking-wide text-ps-muted">
                     <th className="text-left py-1 pr-4">Descrição</th>
                     <th className="text-left py-1 pr-4">Competência</th>
-                    <th className="text-left py-1 pr-4">Caixa</th>
+                    <th className="text-left py-1 pr-4">Caixa (recebimento ou previsão)</th>
+                    <th className="text-left py-1 pr-4">Lançado em</th>
                     <th className="text-left py-1 pr-4">Status</th>
                     <th className="text-right py-1">Valor</th>
                   </tr>
@@ -53,6 +54,7 @@ export function LinhaTipoReceita({ linha }: { linha: LinhaTipo }) {
                       <td className="py-1.5 pr-4 text-ps-ink">{i.descricao}</td>
                       <td className="py-1.5 pr-4 tabular-nums whitespace-nowrap">{dataBR(i.competencia)}</td>
                       <td className="py-1.5 pr-4 tabular-nums whitespace-nowrap">{dataBR(i.caixa)}</td>
+                      <td className="py-1.5 pr-4 tabular-nums whitespace-nowrap">{dataBR(i.lancadoEm)}</td>
                       <td className="py-1.5 pr-4 whitespace-nowrap">{i.status === "recebida" ? "Recebida" : "Projetada"}</td>
                       <td className="py-1.5 text-right tabular-nums whitespace-nowrap">{brl(i.valor)}</td>
                     </tr>

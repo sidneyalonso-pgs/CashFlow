@@ -42,10 +42,19 @@ export type ItemReceita = {
   competencia: string;
   /** dia do caixa: recebimento (recebida) ou previsão (estimada) */
   caixa: string | null;
+  /** dia em que o lançamento foi criado no sistema */
+  lancadoEm: string | null;
   valor: number;
 };
 export type LinhaTipo = { label: string; real: number; projetado: number; total: number; itens: ItemReceita[] };
-export type LinhaRepasse = { empresa: string; pago: number; agendado: number; total: number; status: "Pago" | "Agendado" | "Parcial" };
+/** Um repasse (pagamento "Repasse…"): período da fatura, data em que saiu (ou está prevista) e status. */
+export type LinhaRepasse = {
+  empresa: string;
+  valor: number;
+  periodo: string | null;
+  data: string | null;
+  status: "Pago" | "Agendado";
+};
 
 export type RelatorioReceitas = {
   tipos: LinhaTipo[];
@@ -71,7 +80,8 @@ export function montaRelatorioReceitas(
   mes: string,
   revenues: any[],
   payments: any[],
-  competenciaFatura: Map<string, string> = new Map()
+  competenciaFatura: Map<string, string> = new Map(),
+  periodoPorPagamento: Map<string, string> = new Map()
 ): RelatorioReceitas {
   const acc = new Map<string, { real: number; projetado: number; itens: ItemReceita[] }>(
     TIPOS_FIXOS.map((t) => [t, { real: 0, projetado: 0, itens: [] }])
@@ -91,6 +101,7 @@ export function montaRelatorioReceitas(
       status: r.status,
       competencia: d,
       caixa: (r.status === "recebida" ? r.realized_date : r.expected_date) ?? null,
+      lancadoEm: r.created_at ? String(r.created_at).slice(0, 10) : null,
       valor: r2(valor),
     });
     acc.set(tipo, a);
@@ -103,7 +114,13 @@ export function montaRelatorioReceitas(
       real: r2(a.real),
       projetado: r2(a.projetado),
       total: r2(a.real + a.projetado),
-      itens: a.itens.sort((x, y) => y.valor - x.valor),
+      // em ordem de dia: competência, depois caixa, depois maior valor
+      itens: a.itens.sort(
+        (x, y) =>
+          (x.competencia.length === 7 ? `${x.competencia}-01` : x.competencia).localeCompare(y.competencia.length === 7 ? `${y.competencia}-01` : y.competencia) ||
+          (x.caixa ?? "").localeCompare(y.caixa ?? "") ||
+          y.valor - x.valor
+      ),
     };
   };
   const fixas = TIPOS_FIXOS.map((t) => montaLinha(t));
@@ -120,28 +137,23 @@ export function montaRelatorioReceitas(
     total: r2(tipos.reduce((s, t) => s + t.total, 0)),
   };
 
-  const porEmpresa = new Map<string, { pago: number; agendado: number }>();
+  const repasses: LinhaRepasse[] = [];
   for (const p of payments) {
     if (p.status !== "pago" && p.status !== "agendado") continue;
     if (!/^\s*repasse/i.test(p.description ?? "")) continue;
     if (!p.competence_date || String(p.competence_date).slice(0, 7) !== mes) continue;
-    const empresa = p.suppliers?.legal_name ?? "Sem fornecedor";
-    const a = porEmpresa.get(empresa) ?? { pago: 0, agendado: 0 };
-    const valor = Number(p.gross_amount) || 0;
-    if (p.status === "pago") a.pago += valor;
-    else a.agendado += valor;
-    porEmpresa.set(empresa, a);
+    const fatura = p.id ? periodoPorPagamento.get(p.id) : null;
+    repasses.push({
+      empresa: p.suppliers?.legal_name ?? "Sem fornecedor",
+      valor: r2(Number(p.gross_amount) || 0),
+      periodo: fatura ?? null,
+      // pago: dia em que saiu; agendado: dia previsto
+      data: (p.status === "pago" ? p.effective_payment_date : null) ?? p.expected_payment_date ?? p.due_date ?? null,
+      status: p.status === "pago" ? "Pago" : "Agendado",
+    });
   }
-  const repasses: LinhaRepasse[] = Array.from(porEmpresa.entries())
-    .map(([empresa, a]) => ({
-      empresa,
-      pago: r2(a.pago),
-      agendado: r2(a.agendado),
-      total: r2(a.pago + a.agendado),
-      status: (a.agendado === 0 ? "Pago" : a.pago === 0 ? "Agendado" : "Parcial") as LinhaRepasse["status"],
-    }))
-    .sort((a, b) => b.total - a.total);
-  const totalRepasses = r2(repasses.reduce((s, x) => s + x.total, 0));
+  repasses.sort((a, b) => (a.data ?? "").localeCompare(b.data ?? "") || a.empresa.localeCompare(b.empresa));
+  const totalRepasses = r2(repasses.reduce((s, x) => s + x.valor, 0));
 
   const feePix = tipos.find((t) => t.label === "Fee Pix")?.total ?? 0;
   return {
