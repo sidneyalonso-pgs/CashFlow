@@ -1,42 +1,50 @@
-// Relatório de receitas do mês (competência): receita por tipo, repasses por empresa e receita líquida.
+// Relatório de receitas do mês (competência) da Pagsmile IP: receita por tipo, repasses por empresa e receita líquida.
+// Serve para o fechamento: cada tipo traz os lançamentos que o compõem.
 
-export const TIPOS_RECEITA = [
-  { key: "fee_pix", label: "Fee Pix" },
-  { key: "fee_ted", label: "Fee TED" },
-  { key: "fee_tef", label: "Fee TEF" },
-  { key: "fee_onboarding", label: "Fee Onboarding" },
-  { key: "rem_spi", label: "Remuneração SPI" },
-  { key: "rem_ccme", label: "Remuneração CCME" },
-  { key: "bets", label: "Receita de faturamento (Bets)" },
-  { key: "china", label: "Fee China" },
-  { key: "mensalidade", label: "Tarifa de mensalidade" },
-  { key: "servicos", label: "Prestação de serviços" },
-  { key: "outras", label: "Outras receitas" },
+/** Linhas fixas do relatório, na ordem de exibição. Qualquer outra categoria com valor ganha a sua própria linha depois delas. */
+const TIPOS_FIXOS = [
+  "Fee Pix",
+  "Fee TED",
+  "Fee TEF",
+  "Fee Onboarding",
+  "Remuneração SPI",
+  "Remuneração CCME",
+  "Receita de faturamento (Bets)",
+  "Fee China",
+  "Tarifa de mensalidade",
+  "Prestação de serviços",
 ] as const;
 
-export type TipoKey = (typeof TIPOS_RECEITA)[number]["key"];
-
-const TIPO_POR_CATEGORIA: Record<string, TipoKey> = {
-  "Fee Pix": "fee_pix",
-  "Fee TED": "fee_ted",
-  "Fee TEF": "fee_tef",
-  "Fee Onboarding": "fee_onboarding",
-  "Remuneração Conta PI": "rem_spi",
-  "Remuneração CCME": "rem_ccme",
-  "Prestação de Serviços - Bets Federais": "bets",
-  "Tarifa Mensalidade": "mensalidade",
-  "Prestação de Serviço": "servicos",
+const TIPO_POR_CATEGORIA: Record<string, string> = {
+  "Fee Pix": "Fee Pix",
+  "Fee TED": "Fee TED",
+  "Fee TEF": "Fee TEF",
+  "Fee Onboarding": "Fee Onboarding",
+  "Remuneração Conta PI": "Remuneração SPI",
+  "Remuneração CCME": "Remuneração CCME",
+  "Prestação de Serviços - Bets Federais": "Receita de faturamento (Bets)",
+  "Tarifa Mensalidade": "Tarifa de mensalidade",
+  "Prestação de Serviço": "Prestação de serviços",
 };
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 /** O Fee China é lançado na categoria Fee Pix: o que separa é a descrição ("Faturamento — Grupo Pagsmile - CH"). */
-export function tipoDaReceita(categoria: string | null, descricao: string | null): TipoKey {
-  if (/pagsmile\s*-\s*ch\b|china/i.test(descricao ?? "")) return "china";
-  return TIPO_POR_CATEGORIA[categoria ?? ""] ?? "outras";
+export function tipoDaReceita(categoria: string | null, descricao: string | null): string {
+  if (/pagsmile\s*-\s*ch\b|china/i.test(descricao ?? "")) return "Fee China";
+  return TIPO_POR_CATEGORIA[categoria ?? ""] ?? categoria ?? "Sem categoria";
 }
 
-export type LinhaTipo = { key: TipoKey; label: string; real: number; projetado: number; total: number };
+export type ItemReceita = {
+  descricao: string;
+  status: "recebida" | "estimada";
+  /** dia da competência usado no relatório */
+  competencia: string;
+  /** dia do caixa: recebimento (recebida) ou previsão (estimada) */
+  caixa: string | null;
+  valor: number;
+};
+export type LinhaTipo = { label: string; real: number; projetado: number; total: number; itens: ItemReceita[] };
 export type LinhaRepasse = { empresa: string; pago: number; agendado: number; total: number; status: "Pago" | "Agendado" | "Parcial" };
 
 export type RelatorioReceitas = {
@@ -55,22 +63,47 @@ function dataDaReceita(r: any): string | null {
 }
 
 export function montaRelatorioReceitas(mes: string, revenues: any[], payments: any[]): RelatorioReceitas {
-  const acc = new Map<TipoKey, { real: number; projetado: number }>(TIPOS_RECEITA.map((t) => [t.key, { real: 0, projetado: 0 }]));
+  const acc = new Map<string, { real: number; projetado: number; itens: ItemReceita[] }>(
+    TIPOS_FIXOS.map((t) => [t, { real: 0, projetado: 0, itens: [] }])
+  );
 
   for (const r of revenues) {
     if (r.status !== "recebida" && r.status !== "estimada") continue;
     const d = dataDaReceita(r);
     if (!d || d.slice(0, 7) !== mes) continue;
     const valor = Number(r.status === "recebida" ? r.realized_amount : r.expected_amount) || 0;
-    const a = acc.get(tipoDaReceita(r.categories?.name ?? null, r.description ?? null))!;
+    const tipo = tipoDaReceita(r.categories?.name ?? null, r.description ?? null);
+    const a = acc.get(tipo) ?? { real: 0, projetado: 0, itens: [] };
     if (r.status === "recebida") a.real += valor;
     else a.projetado += valor;
+    a.itens.push({
+      descricao: String(r.description ?? "").trim() || "(sem descrição)",
+      status: r.status,
+      competencia: d,
+      caixa: (r.status === "recebida" ? r.realized_date : r.expected_date) ?? null,
+      valor: r2(valor),
+    });
+    acc.set(tipo, a);
   }
 
-  const tipos: LinhaTipo[] = TIPOS_RECEITA.map((t) => {
-    const a = acc.get(t.key)!;
-    return { key: t.key, label: t.label, real: r2(a.real), projetado: r2(a.projetado), total: r2(a.real + a.projetado) };
-  });
+  const montaLinha = (label: string): LinhaTipo => {
+    const a = acc.get(label)!;
+    return {
+      label,
+      real: r2(a.real),
+      projetado: r2(a.projetado),
+      total: r2(a.real + a.projetado),
+      itens: a.itens.sort((x, y) => y.valor - x.valor),
+    };
+  };
+  const fixas = TIPOS_FIXOS.map((t) => montaLinha(t));
+  const extras = Array.from(acc.keys())
+    .filter((k) => !(TIPOS_FIXOS as readonly string[]).includes(k))
+    .map(montaLinha)
+    .filter((l) => l.total !== 0)
+    .sort((a, b) => b.total - a.total);
+  const tipos = [...fixas, ...extras];
+
   const receitaBruta = {
     real: r2(tipos.reduce((s, t) => s + t.real, 0)),
     projetado: r2(tipos.reduce((s, t) => s + t.projetado, 0)),
@@ -100,7 +133,7 @@ export function montaRelatorioReceitas(mes: string, revenues: any[], payments: a
     .sort((a, b) => b.total - a.total);
   const totalRepasses = r2(repasses.reduce((s, x) => s + x.total, 0));
 
-  const feePix = tipos.find((t) => t.key === "fee_pix")!.total;
+  const feePix = tipos.find((t) => t.label === "Fee Pix")?.total ?? 0;
   return {
     tipos,
     receitaBruta,
