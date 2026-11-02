@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { ExportPaymentsButton } from "./ExportPaymentsButton";
@@ -13,6 +14,20 @@ export default async function ReportsPage() {
   return (
     <div>
       <PageHeader title="Relatórios" subtitle="Exportações gerenciais" />
+
+      <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5 mb-6">
+        <h3 className="font-semibold text-ps-ink mb-1">Receitas do mês</h3>
+        <p className="text-sm text-ps-muted mb-4">
+          Receita por tipo (Fee Pix, TED, TEF, Onboarding, SPI, CCME, Bets, China, mensalidade e serviços), repasses por empresa com
+          status e receita líquida, por competência mensal.
+        </p>
+        <Link
+          href="/relatorios/receitas"
+          className="inline-block bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors"
+        >
+          Abrir relatório
+        </Link>
+      </div>
 
       <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5">
         <h3 className="font-semibold text-ps-ink mb-1">Pagamentos</h3>
