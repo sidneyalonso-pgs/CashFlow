@@ -5,7 +5,8 @@ import type { LinhaTipo } from "./dados";
 
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const celula = (n: number) => (n === 0 ? "—" : brl(n));
-const dataBR = (iso: string | null) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "—");
+const dataBR = (iso: string | null) =>
+  !iso ? "—" : iso.length === 7 ? `${iso.slice(5, 7)}/${iso.slice(0, 4)}` : `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
 
 const td = "px-4 py-2.5 text-right tabular-nums whitespace-nowrap";
 

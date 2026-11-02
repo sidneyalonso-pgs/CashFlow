@@ -28,7 +28,7 @@ export default async function RelatorioReceitasPage({ searchParams }: { searchPa
     );
   }
 
-  const REV_BASE = "status, description, realized_amount, realized_date, expected_amount, expected_date, categories(name)";
+  const REV_BASE = "id, status, description, realized_amount, realized_date, expected_amount, expected_date, categories(name)";
   const [revComp, payRes] = await Promise.all([
     supabase
       .from("revenues")
@@ -60,7 +60,18 @@ export default async function RelatorioReceitasPage({ searchParams }: { searchPa
     revenues = (simples ?? []) as any[];
   }
 
-  const rel = montaRelatorioReceitas(mes, revenues, (payRes.data ?? []) as any[]);
+  // receita que vem de fatura (Bets, mensalidade, China) entra na competência da FATURA, não no mês do recebimento
+  const { data: faturas } = await supabase
+    .from("billing_invoices")
+    .select("revenue_id, competencia")
+    .eq("company_id", company.id)
+    .not("revenue_id", "is", null)
+    .neq("status", "cancelado")
+    .limit(10000);
+  const competenciaFatura = new Map<string, string>();
+  for (const f of (faturas ?? []) as any[]) if (f.revenue_id && /^\d{4}-\d{2}$/.test(f.competencia ?? "")) competenciaFatura.set(f.revenue_id, f.competencia);
+
+  const rel = montaRelatorioReceitas(mes, revenues, (payRes.data ?? []) as any[], competenciaFatura);
 
   const th = "text-right px-4 py-3 text-[10px] font-semibold uppercase tracking-wide text-ps-muted whitespace-nowrap";
   const td = "px-4 py-2.5 text-right tabular-nums whitespace-nowrap";
@@ -162,9 +173,8 @@ export default async function RelatorioReceitasPage({ searchParams }: { searchPa
 
       <p className="text-xs text-ps-muted mt-4">
         Só Pagsmile IP. Cada linha abre os lançamentos que a compõem, com a competência usada e a data de caixa. Competência: receitas da
-        Central Piloto pelo dia de referência; as demais, pela data de recebimento (realizado) ou de previsão (projetado) — a mesma regra
-        da DRE. Receitas faturadas (Bets, mensalidade, China) entram no mês em que o dinheiro foi recebido, que pode ser posterior ao mês
-        do faturamento. O <strong>Fee China</strong> é separado do Fee Pix pela descrição. Categorias fora da lista aparecem em linhas
+        Central Piloto pelo dia de referência; as demais, pela data de recebimento (realizado) ou de previsão (projetado). Receitas faturadas (Bets, mensalidade, China) entram na competência da fatura, mesmo que o dinheiro seja recebido em outro
+        mês (a DRE ainda usa o mês do recebimento para elas). O <strong>Fee China</strong> é separado do Fee Pix pela descrição. Categorias fora da lista aparecem em linhas
         próprias abaixo de Prestação de serviços. Repasses são os pagamentos “Repasse…” pagos ou agendados, pela competência do
         pagamento, e a receita líquida é a receita bruta menos todos eles.
       </p>

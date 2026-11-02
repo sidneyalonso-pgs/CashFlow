@@ -38,7 +38,7 @@ export function tipoDaReceita(categoria: string | null, descricao: string | null
 export type ItemReceita = {
   descricao: string;
   status: "recebida" | "estimada";
-  /** dia da competência usado no relatório */
+  /** competência usada no relatório: "AAAA-MM" (da fatura) ou o dia de referência "AAAA-MM-DD" */
   competencia: string;
   /** dia do caixa: recebimento (recebida) ou previsão (estimada) */
   caixa: string | null;
@@ -56,20 +56,30 @@ export type RelatorioReceitas = {
   receitaLiquida: number;
 };
 
-/** Receita da Central entra pelo dia de referência (competence_date); as demais, pela data de recebimento ou previsão. */
-function dataDaReceita(r: any): string | null {
+/**
+ * Competência da receita: a da FATURA quando a receita vem de uma fatura (Bets, mensalidade, China: "AAAA-MM"),
+ * o dia de referência nas da Central (competence_date); as demais, a data de recebimento ou previsão.
+ */
+function dataDaReceita(r: any, competenciaFatura: Map<string, string>): string | null {
+  const daFatura = r.id ? competenciaFatura.get(r.id) : null;
+  if (daFatura) return daFatura;
   if (r.competence_date) return r.competence_date;
   return r.status === "recebida" ? r.realized_date : r.expected_date;
 }
 
-export function montaRelatorioReceitas(mes: string, revenues: any[], payments: any[]): RelatorioReceitas {
+export function montaRelatorioReceitas(
+  mes: string,
+  revenues: any[],
+  payments: any[],
+  competenciaFatura: Map<string, string> = new Map()
+): RelatorioReceitas {
   const acc = new Map<string, { real: number; projetado: number; itens: ItemReceita[] }>(
     TIPOS_FIXOS.map((t) => [t, { real: 0, projetado: 0, itens: [] }])
   );
 
   for (const r of revenues) {
     if (r.status !== "recebida" && r.status !== "estimada") continue;
-    const d = dataDaReceita(r);
+    const d = dataDaReceita(r, competenciaFatura);
     if (!d || d.slice(0, 7) !== mes) continue;
     const valor = Number(r.status === "recebida" ? r.realized_amount : r.expected_amount) || 0;
     const tipo = tipoDaReceita(r.categories?.name ?? null, r.description ?? null);
