@@ -10,7 +10,6 @@ export default async function RelatorioReceitasPage({ searchParams }: { searchPa
   const supabase = createClient();
   const hoje = new Date().toISOString().slice(0, 10);
   const mes = /^\d{4}-\d{2}$/.test(searchParams.mes ?? "") ? searchParams.mes! : hoje.slice(0, 7);
-  const fimDoMes = new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)), 0)).toISOString().slice(0, 10);
 
   // o relatório é só da Pagsmile IP (outras empresas do grupo, como a Select Credit, ficam de fora)
   const { data: company } = await supabase
@@ -43,8 +42,7 @@ export default async function RelatorioReceitasPage({ searchParams }: { searchPa
       .eq("company_id", company.id)
       .in("status", ["pago", "agendado"])
       .is("deleted_at", null)
-      .gte("competence_date", `${mes}-01`)
-      .lte("competence_date", fimDoMes)
+      .ilike("description", "Repasse%")
       .limit(10000),
   ]);
   // antes da migration 0032 a coluna de competência não existe: cai para a leitura sem ela
@@ -69,13 +67,15 @@ export default async function RelatorioReceitasPage({ searchParams }: { searchPa
     .limit(10000);
   const competenciaFatura = new Map<string, string>();
   const periodoPorPagamento = new Map<string, string>();
+  const competenciaPorPagamento = new Map<string, string>();
   const dm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
   for (const f of (faturas ?? []) as any[]) {
     if (f.revenue_id && /^\d{4}-\d{2}$/.test(f.competencia ?? "")) competenciaFatura.set(f.revenue_id, f.competencia);
     if (f.payment_id && f.inicio && f.fim) periodoPorPagamento.set(f.payment_id, `${dm(f.inicio)} a ${dm(f.fim)}`);
+    if (f.payment_id && /^\d{4}-\d{2}$/.test(f.competencia ?? "")) competenciaPorPagamento.set(f.payment_id, f.competencia);
   }
 
-  const rel = montaRelatorioReceitas(mes, revenues, (payRes.data ?? []) as any[], competenciaFatura, periodoPorPagamento);
+  const rel = montaRelatorioReceitas(mes, revenues, (payRes.data ?? []) as any[], competenciaFatura, periodoPorPagamento, competenciaPorPagamento);
 
   const th = "text-right px-4 py-3 text-[10px] font-semibold uppercase tracking-wide text-ps-muted whitespace-nowrap";
   const td = "px-4 py-2.5 text-right tabular-nums whitespace-nowrap";

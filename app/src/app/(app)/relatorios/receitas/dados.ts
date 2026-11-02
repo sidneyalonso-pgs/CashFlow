@@ -9,7 +9,7 @@ const TIPOS_FIXOS = [
   "Fee Onboarding",
   "Remuneração SPI",
   "Remuneração CCME",
-  "Receita de faturamento (Bets)",
+  "Prestação de Serviços Bets Federais",
   "Fee China",
   "Tarifa de mensalidade",
   "Prestação de serviços",
@@ -22,7 +22,7 @@ const TIPO_POR_CATEGORIA: Record<string, string> = {
   "Fee Onboarding": "Fee Onboarding",
   "Remuneração Conta PI": "Remuneração SPI",
   "Remuneração CCME": "Remuneração CCME",
-  "Prestação de Serviços - Bets Federais": "Receita de faturamento (Bets)",
+  "Prestação de Serviços - Bets Federais": "Prestação de Serviços Bets Federais",
   "Tarifa Mensalidade": "Tarifa de mensalidade",
   "Prestação de Serviço": "Prestação de serviços",
 };
@@ -81,7 +81,8 @@ export function montaRelatorioReceitas(
   revenues: any[],
   payments: any[],
   competenciaFatura: Map<string, string> = new Map(),
-  periodoPorPagamento: Map<string, string> = new Map()
+  periodoPorPagamento: Map<string, string> = new Map(),
+  competenciaPorPagamento: Map<string, string> = new Map()
 ): RelatorioReceitas {
   const acc = new Map<string, { real: number; projetado: number; itens: ItemReceita[] }>(
     TIPOS_FIXOS.map((t) => [t, { real: 0, projetado: 0, itens: [] }])
@@ -141,7 +142,9 @@ export function montaRelatorioReceitas(
   for (const p of payments) {
     if (p.status !== "pago" && p.status !== "agendado") continue;
     if (!/^\s*repasse/i.test(p.description ?? "")) continue;
-    if (!p.competence_date || String(p.competence_date).slice(0, 7) !== mes) continue;
+    // repasse de fatura entra na competência da FATURA (o vencimento pode cair no mês seguinte); os demais, na do pagamento
+    const compRepasse = (p.id ? competenciaPorPagamento.get(p.id) : null) ?? (p.competence_date ? String(p.competence_date).slice(0, 7) : null);
+    if (compRepasse !== mes) continue;
     const fatura = p.id ? periodoPorPagamento.get(p.id) : null;
     repasses.push({
       empresa: p.suppliers?.legal_name ?? "Sem fornecedor",
