@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { montaRelatorioReceitas } from "./dados";
 import { LinhaTipoReceita } from "./LinhaTipoReceita";
+import { ExportReceitasExcelButton } from "./ExportReceitasExcelButton";
 
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -93,6 +94,10 @@ export default async function RelatorioReceitasPage({ searchParams }: { searchPa
           Voltar aos relatórios
         </Link>
       </form>
+
+      <div className="flex justify-end mb-4">
+        <ExportReceitasExcelButton mes={mes} empresa={String(company.trade_name || company.legal_name)} rel={rel} />
+      </div>
 
       <div className="overflow-x-auto bg-white rounded-ps shadow-ps-sm border border-ps-navy/5">
         <table className="w-full text-sm border-collapse">
