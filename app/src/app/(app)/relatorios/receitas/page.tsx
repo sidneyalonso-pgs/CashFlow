@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
-import { montaRelatorioReceitas } from "./dados";
+import { carregaReceitasDoMes } from "./carrega";
 import { LinhaTipoReceita } from "./LinhaTipoReceita";
 import { ExportReceitasExcelButton } from "./ExportReceitasExcelButton";
 
@@ -12,14 +12,8 @@ export default async function RelatorioReceitasPage({ searchParams }: { searchPa
   const hoje = new Date().toISOString().slice(0, 10);
   const mes = /^\d{4}-\d{2}$/.test(searchParams.mes ?? "") ? searchParams.mes! : hoje.slice(0, 7);
 
-  // o relatório é só da Pagsmile IP (outras empresas do grupo, como a Select Credit, ficam de fora)
-  const { data: company } = await supabase
-    .from("companies")
-    .select("id, legal_name, trade_name")
-    .or("trade_name.ilike.%Pagsmile IP%,legal_name.ilike.%Pagsmile IP%")
-    .limit(1)
-    .maybeSingle();
-  if (!company) {
+  const { company, rel: relOuNull } = await carregaReceitasDoMes(supabase, mes);
+  if (!company || !relOuNull) {
     return (
       <div>
         <PageHeader title="Receitas do mês" subtitle="Fechamento" />
@@ -27,57 +21,8 @@ export default async function RelatorioReceitasPage({ searchParams }: { searchPa
       </div>
     );
   }
-
-  const REV_BASE = "id, created_at, status, description, realized_amount, realized_date, expected_amount, expected_date, categories(name)";
-  const [revComp, payRes] = await Promise.all([
-    supabase
-      .from("revenues")
-      .select(`${REV_BASE}, competence_date`)
-      .eq("company_id", company.id)
-      .in("status", ["recebida", "estimada"])
-      .is("deleted_at", null)
-      .limit(10000),
-    supabase
-      .from("payments")
-      .select("id, status, gross_amount, description, competence_date, due_date, expected_payment_date, effective_payment_date, suppliers(legal_name)")
-      .eq("company_id", company.id)
-      .in("status", ["pago", "agendado"])
-      .is("deleted_at", null)
-      .ilike("description", "Repasse%")
-      .limit(10000),
-  ]);
-  // antes da migration 0032 a coluna de competência não existe: cai para a leitura sem ela
-  let revenues: any[] = (revComp.data ?? []) as any[];
-  if (revComp.error) {
-    const { data: simples } = await supabase
-      .from("revenues")
-      .select(REV_BASE)
-      .eq("company_id", company.id)
-      .in("status", ["recebida", "estimada"])
-      .is("deleted_at", null)
-      .limit(10000);
-    revenues = (simples ?? []) as any[];
-  }
-
-  // receita que vem de fatura (Bets, mensalidade, China) entra na competência da FATURA, não no mês do recebimento
-  const { data: faturas } = await supabase
-    .from("billing_invoices")
-    .select("revenue_id, payment_id, competencia, inicio, fim")
-    .eq("company_id", company.id)
-    .neq("status", "cancelado")
-    .limit(10000);
-  const competenciaFatura = new Map<string, string>();
-  const periodoPorPagamento = new Map<string, string>();
-  const competenciaPorPagamento = new Map<string, string>();
+  const rel = relOuNull;
   const dm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
-  for (const f of (faturas ?? []) as any[]) {
-    if (f.revenue_id && /^\d{4}-\d{2}$/.test(f.competencia ?? "")) competenciaFatura.set(f.revenue_id, f.competencia);
-    if (f.payment_id && f.inicio && f.fim) periodoPorPagamento.set(f.payment_id, `${dm(f.inicio)} a ${dm(f.fim)}`);
-    if (f.payment_id && /^\d{4}-\d{2}$/.test(f.competencia ?? "")) competenciaPorPagamento.set(f.payment_id, f.competencia);
-  }
-
-  const rel = montaRelatorioReceitas(mes, revenues, (payRes.data ?? []) as any[], competenciaFatura, periodoPorPagamento, competenciaPorPagamento);
-
   const th = "text-right px-4 py-3 text-[10px] font-semibold uppercase tracking-wide text-ps-muted whitespace-nowrap";
   const td = "px-4 py-2.5 text-right tabular-nums whitespace-nowrap";
 

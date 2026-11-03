@@ -168,3 +168,34 @@ export function montaRelatorioReceitas(
     receitaLiquida: r2(receitaBruta.total - totalRepasses),
   };
 }
+
+export type CelulaGrade = { real: number; proj: number };
+export type GradeReceitas = {
+  /** tipos de receita com lançamento no mês (uma coluna cada) */
+  colunas: string[];
+  /** todos os dias do mês (AAAA-MM-DD) */
+  dias: string[];
+  /** dia -> coluna -> realizado e projetado */
+  celulas: Record<string, Record<string, CelulaGrade>>;
+};
+
+/**
+ * Grade da provisão: um dia de competência por linha e um tipo de receita por coluna, com o realizado (recebida)
+ * e o projetado (estimada) lado a lado. Receita faturada (competência só com mês e ano) cai no último dia do mês.
+ */
+export function montaGrade(mes: string, rel: RelatorioReceitas): GradeReceitas {
+  const [a, m] = mes.split("-").map(Number);
+  const ultimo = new Date(Date.UTC(a, m, 0)).getUTCDate();
+  const dias = Array.from({ length: ultimo }, (_, i) => `${mes}-${String(i + 1).padStart(2, "0")}`);
+  const colunas = rel.tipos.filter((t) => t.itens.length > 0).map((t) => t.label);
+  const celulas: Record<string, Record<string, CelulaGrade>> = {};
+  for (const t of rel.tipos) {
+    for (const i of t.itens) {
+      const dia = i.competencia.length === 7 ? dias[dias.length - 1] : i.competencia;
+      const c = ((celulas[dia] ??= {})[t.label] ??= { real: 0, proj: 0 });
+      if (i.status === "recebida") c.real = r2(c.real + i.valor);
+      else c.proj = r2(c.proj + i.valor);
+    }
+  }
+  return { colunas, dias, celulas };
+}
