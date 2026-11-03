@@ -87,9 +87,12 @@ async function criarLancamentosFatura(
     // provisiona na data de vencimento (a data de repasse é só a expectativa de quando o
     // dinheiro sai de fato — a baixa real acontece depois, com a data efetiva do pagamento)
     const repasseDate = fatura.data_vencimento ?? fatura.data_repasse ?? hoje;
+    // categoria "Repasse de Receita": mostra quanto sai em repasse (sem a categoria cadastrada, o repasse fica sem, como antes)
+    const { data: categoriaRepasse } = await supabase.from("categories").select("id").eq("name", "Repasse de Receita").maybeSingle();
     const { data: pay, error: payErr } = await supabase.from("payments").insert({
       company_id: fatura.company_id,
       supplier_id: supplierId,
+      category_id: categoriaRepasse?.id ?? null,
       description: `Repasse — ${clientName} (${competenciaLabel})`,
       gross_amount: fatura.total_repasse,
       document_date: repasseDate,
