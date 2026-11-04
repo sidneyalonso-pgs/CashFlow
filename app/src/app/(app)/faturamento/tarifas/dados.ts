@@ -112,7 +112,7 @@ export function montaBaseTarifas(clients: any[], ultimoPeriodo: Record<string, {
       };
     };
 
-    if (c.modelo === "fee_perc" || !subs.length) {
+    if (!subs.length) {
       linhas.push(montar(null));
     } else {
       for (const s of subs) linhas.push(montar(s));
