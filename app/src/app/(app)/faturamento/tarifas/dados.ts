@@ -20,6 +20,15 @@ export type LinhaTarifa = {
   frequenciaInferida: boolean;
   atualizadoEm: string | null;
   status: string;
+  /** como a linha é editada: subconta, cliente sem subcontas, ou configuração do cliente (combo / fee + %) */
+  edit: "subconta" | "cliente" | "fee_perc" | "combo" | "nenhum";
+  subId: string | null;
+  raw: { inTipo: string; inVal: number; repIn: number; outTipo: string; outVal: number; repOut: number };
+  cfg: any;
+  /** valores guardados no cadastro do merchant (sem o preenchimento automático da tela) */
+  introducerNome: string;
+  introducerCnpjRaw: string;
+  frequenciaRaw: string;
 };
 
 const brl = (n: number) => `R$ ${Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
@@ -100,8 +109,23 @@ export function montaBaseTarifas(clients: any[], ultimoPeriodo: Record<string, {
 
     const montar = (s: any | null): LinhaTarifa => {
       const f = campos(s);
+      const origem = s ?? c;
+      const edit: LinhaTarifa["edit"] =
+        c.modelo === "combo" ? "combo" : c.modelo === "fee_perc" ? "fee_perc"
+        : c.modelo === "mensalidade" || c.modelo === "mensalidade_intro" ? "nenhum"
+        : s ? "subconta" : "cliente";
       return {
         ...base,
+        edit,
+        subId: s ? s.id : null,
+        raw: {
+          inTipo: origem.in_tipo ?? "fixo", inVal: Number(origem.in_val ?? 0), repIn: Number(origem.rep_in ?? 0),
+          outTipo: origem.out_tipo ?? "fixo", outVal: Number(origem.out_val ?? 0), repOut: Number(origem.rep_out ?? 0),
+        },
+        cfg,
+        introducerNome: c.introducer_nome ?? "",
+        introducerCnpjRaw: c.introducer_cnpj ?? "",
+        frequenciaRaw: c.frequencia ?? "",
         empresa: s ? s.razao : c.razao,
         empresaCnpj: (s ? s.cnpj : c.cnpj) ?? "",
         numConta: (s ? s.num_conta : c.num_conta) ?? "",
