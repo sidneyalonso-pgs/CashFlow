@@ -607,10 +607,16 @@ export function FeePercDoc({ inv, client }: { inv: any; client: any }) {
 
 // Combo de contas, via do introducer: mostra o débito do valor de repasse ao parceiro.
 export function ComboIntroducerDoc({ inv, client }: { inv: any; client: any }) {
-  const itens: any[] = Array.isArray(inv.subcontas_detalhe?.itens) ? inv.subcontas_detalhe.itens : [];
-  const bruto = Number(inv.total_faturado ?? 0);
+  // só as tarifas transacionais (PIX e TED) entram na base do repasse; mensalidade e contas ficam de fora
+  const todos: any[] = Array.isArray(inv.subcontas_detalhe?.itens) ? inv.subcontas_detalhe.itens : [];
+  const cfg = client?.faixas_mens ?? {};
+  const itens = ["PIX IN", "PIX OUT", "TED IN", "TED OUT"].map((descricao) => {
+    const it = todos.find((x: any) => x.descricao === descricao);
+    const valUnit = Number(it?.valUnit ?? (descricao.startsWith("PIX") ? cfg.pix : cfg.ted) ?? 0);
+    return { descricao, qtd: Number(it?.qtd ?? 0), valUnit, total: Number(it?.total ?? 0) };
+  });
   const repasse = Number(inv.total_repasse ?? 0);
-  const base = Number(inv.subcontas_detalhe?.base_repasse ?? bruto);
+  const base = Number(inv.subcontas_detalhe?.base_repasse ?? itens.reduce((s, i) => s + i.total, 0));
   const perc = Number(inv.subcontas_detalhe?.repasse_perc ?? (base > 0 ? (repasse / base) * 100 : 0));
   const parceiro = inv.subcontas_detalhe?.parceiro ?? client?.faixas_mens?.parceiro ?? "—";
   return (
@@ -648,7 +654,7 @@ export function ComboIntroducerDoc({ inv, client }: { inv: any; client: any }) {
             <th className="text-left px-4 py-2.5 font-semibold">Descrição</th>
             <th className="text-right px-4 py-2.5 font-semibold">Qtd</th>
             <th className="text-right px-4 py-2.5 font-semibold">Valor unit.</th>
-            <th className="text-right px-4 py-2.5 font-semibold">Tarifa apurada</th>
+            <th className="text-right px-4 py-2.5 font-semibold">Tarifa transacional</th>
           </tr>
         </thead>
         <tbody>
@@ -665,11 +671,7 @@ export function ComboIntroducerDoc({ inv, client }: { inv: any; client: any }) {
       <div className="mt-5 flex justify-end">
         <div className="min-w-[320px] space-y-2">
           <div className="flex justify-between text-sm text-ps-muted">
-            <span>Total de tarifas</span>
-            <span className="tabular-nums">{N(bruto)}</span>
-          </div>
-          <div className="flex justify-between text-sm text-ps-muted">
-            <span>Base do repasse (tarifas PIX e TED)</span>
+            <span>Total de tarifas transacionais</span>
             <span className="tabular-nums">{N(base)}</span>
           </div>
           <div className="flex justify-between text-sm text-ps-muted">
