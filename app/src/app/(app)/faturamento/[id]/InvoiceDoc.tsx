@@ -610,7 +610,8 @@ export function ComboIntroducerDoc({ inv, client }: { inv: any; client: any }) {
   const itens: any[] = Array.isArray(inv.subcontas_detalhe?.itens) ? inv.subcontas_detalhe.itens : [];
   const bruto = Number(inv.total_faturado ?? 0);
   const repasse = Number(inv.total_repasse ?? 0);
-  const perc = Number(inv.subcontas_detalhe?.repasse_perc ?? (bruto > 0 ? (repasse / bruto) * 100 : 0));
+  const base = Number(inv.subcontas_detalhe?.base_repasse ?? bruto);
+  const perc = Number(inv.subcontas_detalhe?.repasse_perc ?? (base > 0 ? (repasse / base) * 100 : 0));
   const parceiro = inv.subcontas_detalhe?.parceiro ?? client?.faixas_mens?.parceiro ?? "—";
   return (
     <div className="doc-navy bg-white p-10">
@@ -666,6 +667,10 @@ export function ComboIntroducerDoc({ inv, client }: { inv: any; client: any }) {
           <div className="flex justify-between text-sm text-ps-muted">
             <span>Total de tarifas</span>
             <span className="tabular-nums">{N(bruto)}</span>
+          </div>
+          <div className="flex justify-between text-sm text-ps-muted">
+            <span>Base do repasse (tarifas PIX e TED)</span>
+            <span className="tabular-nums">{N(base)}</span>
           </div>
           <div className="flex justify-between text-sm text-ps-muted">
             <span>Percentual de repasse</span>

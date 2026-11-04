@@ -117,7 +117,9 @@ export function EmitirFaturaForm({
     { descricao: "TED OUT", qtd: cTedOut, valUnit: Number(cfg.ted ?? 0) },
   ].map(i => ({ ...i, total: round2(i.qtd * i.valUnit) })) : [];
   const comboBruto = round2(comboItens.reduce((s, i) => s + i.total, 0));
-  const comboRepasse = round2(comboBruto * (Number(cfg.repasse_perc ?? 0) / 100));
+  // o repasse incide só sobre as tarifas transacionais (PIX e TED), não sobre mensalidade nem criação/manutenção de contas
+  const comboBaseRepasse = round2(comboItens.filter(i => /^(PIX|TED)\b/.test(i.descricao)).reduce((s, i) => s + i.total, 0));
+  const comboRepasse = round2(comboBaseRepasse * (Number(cfg.repasse_perc ?? 0) / 100));
   // a mensalidade vence todo dia X (padrão 10) do mês seguinte à competência; a fatura é emitida no começo do mês
   const vencPadrao = (() => {
     if (!isCombo || !/^\d{4}-\d{2}$/.test(competencia)) return "";
@@ -241,6 +243,7 @@ export function EmitirFaturaForm({
     const comboDetalhe = isCombo ? {
       itens: comboItens.filter(i => i.qtd > 0),
       repasse_perc: Number(cfg.repasse_perc ?? 0),
+      base_repasse: comboBaseRepasse,
       parceiro: cfg.parceiro ?? null,
       subcontas: clientSubcontas
         .filter(s => (s as any).status === "ativa")
@@ -593,7 +596,7 @@ export function EmitirFaturaForm({
               <h3 className="font-semibold text-ps-ink text-sm border-b border-ps-navy/5 pb-3">Combo de contas</h3>
               <p className="text-xs text-ps-muted">
                 A mensalidade da conta Master ({fmt(Number(cfg.master ?? 0))}) entra em toda fatura. Informe o que foi criado e movimentado no período apurado.
-                Repasse ao parceiro{cfg.parceiro ? ` (${cfg.parceiro})` : ""}: {Number(cfg.repasse_perc ?? 0)}% de toda a tarifa.
+                Repasse ao parceiro{cfg.parceiro ? ` (${cfg.parceiro})` : ""}: {Number(cfg.repasse_perc ?? 0)}% das tarifas transacionais (PIX e TED), sem incidir sobre mensalidade e contas.
               </p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div><label className={labelCls}>Subcontas PJ criadas ({fmt(Number(cfg.sub_pj ?? 0))})</label>
