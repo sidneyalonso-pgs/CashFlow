@@ -453,8 +453,162 @@ export function BetsDoc({ inv, client, det }: { inv: any; client: any; det: any 
   );
 }
 
+// Combo de contas: mensalidade da conta Master + criação/manutenção de subcontas + PIX/TED por transação.
+// O repasse ao parceiro é interno e não aparece no documento do cliente.
+export function ComboDoc({ inv, client, subcontas }: { inv: any; client: any; subcontas: any[] }) {
+  const itens: any[] = Array.isArray(inv.subcontas_detalhe?.itens) ? inv.subcontas_detalhe.itens : [];
+  const dadosBanc = "Banco Inter | Ag. 1 | CC 35635543-8 | CNPJ: 37.753.531/0001-65 | PIX: Pagsmile Instituição de Pagamento LTDA";
+  return (
+    <div className="doc-navy bg-white p-10">
+      <div className="flex justify-between items-start mb-6">
+        <Logo />
+        <div className="text-right">
+          <h1 className="text-xl font-black text-ps-navy tracking-tight uppercase">Fatura</h1>
+          <p className="text-xs text-ps-muted mt-1">Emissão: <strong className="text-ps-ink">{fmtDate(inv.data_emissao)}</strong></p>
+          <p className="text-xs text-ps-muted">Competência: <strong className="text-ps-ink">{fmtCompetencia(inv.competencia)}</strong></p>
+          {(inv.inicio || inv.fim) && (
+            <div className="mt-2 border border-ps-navy/15 rounded px-3 py-1.5 text-right">
+              <p className="text-[10px] text-ps-muted uppercase tracking-wide font-semibold">Período de apuração</p>
+              <p className="text-xs font-bold text-ps-navy">{fmtDate(inv.inicio)} a {fmtDate(inv.fim)}</p>
+            </div>
+          )}
+        </div>
+      </div>
+      <hr className="border-ps-navy/10 mb-5" />
+      <div className="mb-5">
+        <p className="text-[10px] text-ps-muted uppercase tracking-widest font-semibold mb-1">Razão Social</p>
+        <p className="font-bold text-ps-ink text-base">{client?.razao ?? "—"}</p>
+        {client?.cnpj && <p className="text-xs text-ps-muted">CNPJ: {client.cnpj}</p>}
+        {(client?.agencia || client?.num_conta) && (
+          <p className="text-xs text-ps-muted">
+            {client.agencia ? `Ag. ${client.agencia}` : ""}
+            {client.agencia && client.num_conta ? " | " : ""}
+            {client.num_conta ? `Conta Master ${client.num_conta}` : ""}
+          </p>
+        )}
+      </div>
+      <table className="w-full border-collapse text-xs">
+        <thead>
+          <tr className="bg-ps-navy text-white">
+            <th className="text-left px-4 py-2.5 font-semibold">Descrição</th>
+            <th className="text-right px-4 py-2.5 font-semibold">Qtd</th>
+            <th className="text-right px-4 py-2.5 font-semibold">Valor unit.</th>
+            <th className="text-right px-4 py-2.5 font-semibold">Valor</th>
+          </tr>
+        </thead>
+        <tbody>
+          {itens.map((it, i) => (
+            <tr key={i} className="border-b border-ps-navy/5">
+              <td className="px-4 py-2.5 text-ps-ink">{it.descricao}</td>
+              <td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{Number(it.qtd).toLocaleString("pt-BR")}</td>
+              <td className="px-4 py-2.5 text-right tabular-nums text-ps-muted">{N(it.valUnit)}</td>
+              <td className="px-4 py-2.5 text-right tabular-nums text-ps-ink font-semibold">{N(it.total)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="mt-5 flex justify-end">
+        <div className="min-w-[300px]">
+          <div className="bg-ps-navy text-white rounded px-5 py-3.5 flex justify-between items-center font-bold">
+            <span className="text-sm uppercase tracking-wide">Total a Pagar</span>
+            <span className="text-ps-green tabular-nums text-xl">{N(inv.total)}</span>
+          </div>
+        </div>
+      </div>
+      {subcontas.length > 0 && (
+        <div className="mt-6">
+          <p className="text-[10px] text-ps-muted uppercase tracking-widest font-semibold mb-2">Subcontas ativas ({subcontas.length})</p>
+          <table className="w-full border-collapse text-xs">
+            <tbody>
+              {subcontas.map((s, i) => (
+                <tr key={i} className="border-b border-ps-navy/5">
+                  <td className="py-1.5 text-ps-ink">{s.razao ?? "—"}</td>
+                  <td className="py-1.5 text-ps-muted">{s.cnpj ?? ""}</td>
+                  <td className="py-1.5 text-ps-muted text-right">{s.num_conta ?? ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div className="mt-6 pt-4 border-t border-ps-navy/10 grid grid-cols-2 gap-8 text-xs text-ps-muted">
+        <div>
+          <p className="font-semibold text-ps-ink uppercase tracking-wide text-[10px] mb-1">Observações</p>
+          <p className="leading-relaxed">Dados bancários para pagamento: {dadosBanc}</p>
+          {inv.obs && <p className="mt-1">{inv.obs}</p>}
+        </div>
+        <div className="text-right space-y-1">
+          <div><span className="text-ps-muted">Data de emissão: </span><span className="font-semibold text-ps-ink">{fmtDate(inv.data_emissao)}</span></div>
+          <div><span className="text-ps-muted">Data de vencimento: </span><span className="font-semibold text-ps-ink">{fmtDate(inv.data_vencimento)}</span></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Fee informado + % de divisão: demonstrativo simples do fee apurado e da parte do parceiro.
+export function FeePercDoc({ inv, client }: { inv: any; client: any }) {
+  const d = inv.subcontas_detalhe?.fee_perc ?? {};
+  const fee = Number(d.fee ?? inv.total_faturado ?? 0);
+  const repasse = Number(d.repasse ?? inv.total_repasse ?? 0);
+  const perc = Number(d.perc ?? (fee > 0 ? (repasse / fee) * 100 : 0));
+  return (
+    <div className="doc-navy bg-white p-10">
+      <div className="flex justify-between items-start mb-6">
+        <Logo />
+        <div className="text-right">
+          <h1 className="text-xl font-black text-ps-navy tracking-tight uppercase">Demonstrativo de Repasse</h1>
+          <p className="text-xs text-ps-muted mt-1">Emissão: <strong className="text-ps-ink">{fmtDate(inv.data_emissao)}</strong></p>
+          <p className="text-xs text-ps-muted">Competência: <strong className="text-ps-ink">{fmtCompetencia(inv.competencia)}</strong></p>
+          {(inv.inicio || inv.fim) && (
+            <div className="mt-2 border border-ps-navy/15 rounded px-3 py-1.5 text-right">
+              <p className="text-[10px] text-ps-muted uppercase tracking-wide font-semibold">Período</p>
+              <p className="text-xs font-bold text-ps-navy">{fmtDate(inv.inicio)} a {fmtDate(inv.fim)}</p>
+            </div>
+          )}
+        </div>
+      </div>
+      <hr className="border-ps-navy/10 mb-5" />
+      <div className="mb-5">
+        <p className="text-[10px] text-ps-muted uppercase tracking-widest font-semibold mb-1">Razão Social</p>
+        <p className="font-bold text-ps-ink text-base">{client?.razao ?? "—"}</p>
+        {client?.cnpj && <p className="text-xs text-ps-muted">CNPJ: {client.cnpj}</p>}
+      </div>
+      <table className="w-full border-collapse text-xs">
+        <tbody>
+          <tr className="border-b border-ps-navy/5">
+            <td className="px-4 py-3 text-ps-ink">Fee apurado no período</td>
+            <td className="px-4 py-3 text-right tabular-nums font-semibold text-ps-ink">{N(fee)}</td>
+          </tr>
+          <tr className="border-b border-ps-navy/5">
+            <td className="px-4 py-3 text-ps-ink">Percentual de divisão</td>
+            <td className="px-4 py-3 text-right tabular-nums text-ps-muted">{perc.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%</td>
+          </tr>
+        </tbody>
+      </table>
+      <div className="mt-5 flex justify-end">
+        <div className="min-w-[300px]">
+          <div className="bg-ps-navy text-white rounded px-5 py-3.5 flex justify-between items-center font-bold">
+            <span className="text-sm uppercase tracking-wide">Valor de Repasse</span>
+            <span className="text-ps-green tabular-nums text-xl">{N(repasse)}</span>
+          </div>
+        </div>
+      </div>
+      <div className="mt-6 pt-4 border-t border-ps-navy/10 flex justify-between items-end text-xs text-ps-muted">
+        <div>{inv.obs && <><p className="font-semibold text-ps-ink uppercase tracking-wide text-[10px] mb-1">Observações</p><p>{inv.obs}</p></>}</div>
+        <div className="text-right">
+          <p className="font-semibold text-ps-ink uppercase tracking-wide text-[10px] mb-1">{inv.status === "pago" ? "Data de Repasse" : "Vencimento"}</p>
+          <p className="font-bold text-ps-ink text-sm">{fmtDate(inv.status === "pago" ? (inv.data_pgto ?? inv.data_repasse) : (inv.data_vencimento ?? inv.data_repasse))}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function InvoiceDocument({ inv }: { inv: any }) {
   const { client, isBets, isMensalidade, det, subcontas } = parseInvoiceData(inv);
+  if (inv.modelo === "fee_perc") return <FeePercDoc inv={inv} client={client} />;
+  if (inv.modelo === "combo") return <ComboDoc inv={inv} client={client} subcontas={subcontas} />;
   if (isMensalidade) return <MensalidadeDoc inv={inv} client={client} subcontas={subcontas} />;
   if (isBets) return <BetsDoc inv={inv} client={client} det={det} />;
   return <TransacaoDoc inv={inv} client={client} subcontas={subcontas} />;

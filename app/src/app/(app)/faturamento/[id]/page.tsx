@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatBRL } from "@/lib/calculations/money";
 import { InvoiceActions } from "./InvoiceActions";
 import { PrintButton } from "./PrintButton";
+import { ComboDoc, FeePercDoc } from "./InvoiceDoc";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -591,6 +592,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   const rawDet = inv.subcontas_detalhe;
   const isBets = ["bet", "bets"].includes(inv.modelo);
   const isMensalidade = ["mensalidade", "mensalidade_intro"].includes(inv.modelo);
+  const isCombo = inv.modelo === "combo";
 
   // For bets: single object; for others: array
   let det: any = null;
@@ -630,8 +632,10 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Documento */}
         <div className="lg:col-span-2">
+          {isCombo && <ComboDoc inv={inv} client={client} subcontas={subcontas} />}
+          {inv.modelo === "fee_perc" && <FeePercDoc inv={inv} client={client} />}
           {isMensalidade && <MensalidadeDoc inv={inv} client={client} subcontas={subcontas} />}
-          {!isMensalidade && !isBets && <TransacaoDoc inv={inv} client={client} subcontas={subcontas} />}
+          {!isMensalidade && !isBets && !isCombo && inv.modelo !== "fee_perc" && <TransacaoDoc inv={inv} client={client} subcontas={subcontas} />}
           {isBets && <BetsDoc inv={inv} client={client} company={company} det={det} />}
         </div>
 
@@ -645,7 +649,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             {inv.data_pgto && <p className="text-xs text-ps-muted">Pago em: {fmtDate(inv.data_pgto)}</p>}
             <div className="border-t border-ps-navy/5 pt-3 space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-ps-muted">{isBets ? "Total a pagar" : isMensalidade ? "Mensalidade" : Number(inv.total_repasse ?? 0) === 0 && inv.revenue_id ? "Valor a receber" : "Valor de repasse"}</span>
+                <span className="text-ps-muted">{isBets || isCombo ? "Total a pagar" : isMensalidade ? "Mensalidade" : Number(inv.total_repasse ?? 0) === 0 && inv.revenue_id ? "Valor a receber" : "Valor de repasse"}</span>
                 <span className="font-semibold text-ps-green-700 tabular-nums">{formatBRL(inv.total)}</span>
               </div>
               {Number(inv.total_repasse) > 0 && (

@@ -48,10 +48,11 @@ function calcMensalidade(faixas: any[], numContas: number): { faixa: string; val
 const defaultRow: RowState = { qtdIn: 0, volIn: 0, qtdOut: 0, volOut: 0, repIn: 0, repOut: 0, repPercIn: 0, repPercOut: 0, feeInOverride: null, feeOutOverride: null };
 
 export function EmitirFaturaForm({
-  clients, companies, subcontaCounts, subcontasMap,
+  clients, companies, subcontaCounts, subcontasMap, subcontasAtivas,
 }: {
   clients: Client[]; companies: Company[];
   subcontaCounts: Record<string, number>;
+  subcontasAtivas: Record<string, number>;
   subcontasMap: Record<string, Subconta[]>;
 }) {
   const router = useRouter();
@@ -83,10 +84,48 @@ export function EmitirFaturaForm({
   const [bQtdNegadas, setBQtdNegadas] = useState(0);
   const [bQtdRefund, setBQtdRefund] = useState(0);
   const [bRemessaPerc, setBRemessaPerc] = useState(0);
+  const [fpFee, setFpFee] = useState(0);
+  const [fpPerc, setFpPerc] = useState<number | null>(null);
+  // Combo de contas (EVNO): master + subcontas + PIX/TED
+  const [cSubPj, setCSubPj] = useState(0);
+  const [cPaPf, setCPaPf] = useState(0);
+  const [cSubAtivas, setCSubAtivas] = useState(0);
+  const [cPixIn, setCPixIn] = useState(0);
+  const [cPixOut, setCPixOut] = useState(0);
+  const [cTedIn, setCTedIn] = useState(0);
+  const [cTedOut, setCTedOut] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const client = clients.find(c => c.id === clientId);
+  const isCombo = client?.modelo === "combo";
+  // Fee informado + % de divisão: informamos o fee do período e o % que vai para o parceiro
+  const isFeePerc = client?.modelo === "fee_perc";
+  const feePercPadrao = Number((client?.faixas_mens as any)?.perc_repasse ?? 0);
+  const fpPercEfetivo = fpPerc ?? feePercPadrao;
+  const fpRepasse = Math.round(fpFee * fpPercEfetivo) / 100;
+  const cfg = (isCombo && client?.faixas_mens && !Array.isArray(client.faixas_mens) ? client.faixas_mens : {}) as any;
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const comboItens = isCombo ? [
+    { descricao: "Manutenção da conta Master (mensal)", qtd: 1, valUnit: Number(cfg.master ?? 0) },
+    { descricao: "Criação de subconta PJ", qtd: cSubPj, valUnit: Number(cfg.sub_pj ?? 0) },
+    { descricao: "Manutenção de subconta", qtd: cSubAtivas, valUnit: Number(cfg.manut_sub ?? 0) },
+    { descricao: "Criação de conta PA – PF", qtd: cPaPf, valUnit: Number(cfg.conta_pa_pf ?? 0) },
+    { descricao: "PIX IN", qtd: cPixIn, valUnit: Number(cfg.pix ?? 0) },
+    { descricao: "PIX OUT", qtd: cPixOut, valUnit: Number(cfg.pix ?? 0) },
+    { descricao: "TED IN", qtd: cTedIn, valUnit: Number(cfg.ted ?? 0) },
+    { descricao: "TED OUT", qtd: cTedOut, valUnit: Number(cfg.ted ?? 0) },
+  ].map(i => ({ ...i, total: round2(i.qtd * i.valUnit) })) : [];
+  const comboBruto = round2(comboItens.reduce((s, i) => s + i.total, 0));
+  const comboRepasse = round2(comboBruto * (Number(cfg.repasse_perc ?? 0) / 100));
+  // a mensalidade vence todo dia X (padrão 10) do mês seguinte à competência; a fatura é emitida no começo do mês
+  const vencPadrao = (() => {
+    if (!isCombo || !/^\d{4}-\d{2}$/.test(competencia)) return "";
+    const [a, m] = competencia.split("-").map(Number);
+    const dia = String(cfg.dia_venc ?? 10).padStart(2, "0");
+    const prox = m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, "0")}`;
+    return `${prox}-${dia}`;
+  })();
   const clientSubcontas: Subconta[] = subcontasMap[clientId] ?? [];
   const hasSubcontas = clientSubcontas.length > 0 && client?.modelo === "transacao";
   const isBets = ["bet", "bets"].includes(client?.modelo ?? "");
@@ -100,6 +139,8 @@ export function EmitirFaturaForm({
     setRepOutOverride(null);
     const c = clients.find(x => x.id === id);
     if (c?.modelo === "mensalidade") setNumContas(subcontaCounts[id] ?? 0);
+    if (c?.modelo === "combo") setCSubAtivas(subcontasAtivas[id] ?? 0);
+    setFpPerc(null);
     // init subconta rows
     const subs = subcontasMap[id] ?? [];
     const newRows: Record<string, RowState> = {};
@@ -147,11 +188,12 @@ export function EmitirFaturaForm({
   const bTotal = bSubtotalRec + bSubtotalPag + bTotalOutras;
 
   const mens = client?.modelo === "mensalidade" ? calcMensalidade(faixas, numContas) : null;
-  const totalFaturado = client?.modelo === "mensalidade" ? (mens?.val ?? 0) : isBets ? bTotal : feeIn + feeOut;
-  const descontoVal = totalFaturado * (descontoPerc / 100);
-  const totalRepasse = (client?.modelo === "mensalidade" || isBets) ? 0 : repasseIn + repasseOut;
-  // total = receita liquida da PagSmile (fee), descontando o repasse que sera devolvido ao cliente
-  const total = totalFaturado - descontoVal - totalRepasse;
+  const totalFaturado = isFeePerc ? fpFee : isCombo ? comboBruto : client?.modelo === "mensalidade" ? (mens?.val ?? 0) : isBets ? bTotal : feeIn + feeOut;
+  const descontoVal = isCombo || isFeePerc ? 0 : totalFaturado * (descontoPerc / 100);
+  const totalRepasse = isFeePerc ? fpRepasse : isCombo ? comboRepasse : (client?.modelo === "mensalidade" || isBets) ? 0 : repasseIn + repasseOut;
+  // total = receita liquida da PagSmile (fee), descontando o repasse que sera devolvido ao cliente.
+  // No combo o cliente paga o valor cheio e o repasse ao parceiro sai à parte, então total = valor da fatura.
+  const total = isCombo ? comboBruto : totalFaturado - descontoVal - totalRepasse;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -196,20 +238,30 @@ export function EmitirFaturaForm({
         }),
     } : undefined;
 
+    const comboDetalhe = isCombo ? {
+      itens: comboItens.filter(i => i.qtd > 0),
+      repasse_perc: Number(cfg.repasse_perc ?? 0),
+      parceiro: cfg.parceiro ?? null,
+      subcontas: clientSubcontas
+        .filter(s => (s as any).status === "ativa")
+        .map(s => ({ razao: s.razao, cnpj: s.cnpj, num_conta: s.num_conta })),
+    } : undefined;
+    const venc = dataVencimento || vencPadrao;
+
     startTransition(async () => {
       const res = await emitirFatura({
         client_id: clientId, company_id: companyId, competencia,
         inicio: inicio || undefined, fim: fim || undefined,
         modelo: client?.modelo ?? "transacao",
-        qtd_in: hasSubcontas ? aggQtdIn : qtdIn,
-        qtd_out: hasSubcontas ? aggQtdOut : qtdOut,
-        fee_in: feeIn, fee_out: feeOut,
-        repasse_in: repasseIn, repasse_out: repasseOut,
+        qtd_in: isCombo ? cPixIn + cTedIn : hasSubcontas ? aggQtdIn : qtdIn,
+        qtd_out: isCombo ? cPixOut + cTedOut : hasSubcontas ? aggQtdOut : qtdOut,
+        fee_in: isFeePerc ? fpFee : isCombo ? comboBruto : feeIn, fee_out: isCombo || isFeePerc ? 0 : feeOut,
+        repasse_in: isFeePerc ? fpRepasse : isCombo ? comboRepasse : repasseIn, repasse_out: isCombo || isFeePerc ? 0 : repasseOut,
         num_contas: numContas, faixa_mens: mens?.faixa,
         total_faturado: totalFaturado, desconto_perc: descontoPerc, desconto_val: descontoVal,
         total_repasse: totalRepasse, total,
-        obs: obs || undefined, data_vencimento: dataVencimento || undefined, data_repasse: dataRepasse || undefined,
-        subcontas_detalhe: betsDetalhe ?? subcontasDetalhe,
+        obs: obs || undefined, data_vencimento: venc || undefined, data_repasse: dataRepasse || undefined,
+        subcontas_detalhe: isFeePerc ? { fee_perc: { fee: fpFee, perc: fpPercEfetivo, repasse: fpRepasse } } : comboDetalhe ?? betsDetalhe ?? subcontasDetalhe,
       });
       if (res.error) { setError(res.error); return; }
       setSuccess("Demonstrativo emitido! Receita e pagamento criados automaticamente.");
@@ -523,6 +575,47 @@ export function EmitirFaturaForm({
             </div>
           )}
 
+          {isFeePerc && (
+            <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5 space-y-4">
+              <h3 className="font-semibold text-ps-ink text-sm border-b border-ps-navy/5 pb-3">Fee e divisão</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className={labelCls}>Fee do período (R$)</label>
+                  <input type="number" min="0" step="any" value={fpFee} onChange={e => setFpFee(Number(e.target.value))} className={inputCls} /></div>
+                <div><label className={labelCls}>% dividido com o parceiro</label>
+                  <input type="number" min="0" max="100" step="any" value={fpPercEfetivo} onChange={e => setFpPerc(Number(e.target.value))} className={inputCls} />
+                  <p className="text-xs text-ps-muted mt-1">Repasse = {fmt(fpRepasse)} · fica com a PagSmile {fmt(fpFee - fpRepasse)}</p></div>
+              </div>
+            </div>
+          )}
+
+          {isCombo && (
+            <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5 space-y-4">
+              <h3 className="font-semibold text-ps-ink text-sm border-b border-ps-navy/5 pb-3">Combo de contas</h3>
+              <p className="text-xs text-ps-muted">
+                A mensalidade da conta Master ({fmt(Number(cfg.master ?? 0))}) entra em toda fatura. Informe o que foi criado e movimentado no período apurado.
+                Repasse ao parceiro{cfg.parceiro ? ` (${cfg.parceiro})` : ""}: {Number(cfg.repasse_perc ?? 0)}% de toda a tarifa.
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div><label className={labelCls}>Subcontas PJ criadas ({fmt(Number(cfg.sub_pj ?? 0))})</label>
+                  <input type="number" min="0" value={cSubPj} onChange={e => setCSubPj(Number(e.target.value))} className={inputCls} /></div>
+                <div><label className={labelCls}>Contas PA – PF criadas ({fmt(Number(cfg.conta_pa_pf ?? 0))})</label>
+                  <input type="number" min="0" value={cPaPf} onChange={e => setCPaPf(Number(e.target.value))} className={inputCls} /></div>
+                <div><label className={labelCls}>Subcontas ativas ({fmt(Number(cfg.manut_sub ?? 0))})</label>
+                  <input type="number" min="0" value={cSubAtivas} onChange={e => setCSubAtivas(Number(e.target.value))} className={inputCls} />
+                  <p className="text-xs text-ps-muted mt-1">Carregado do cadastro: {subcontasAtivas[clientId] ?? 0}</p></div>
+                <div><label className={labelCls}>Qtd PIX IN ({fmt(Number(cfg.pix ?? 0))})</label>
+                  <input type="number" min="0" value={cPixIn} onChange={e => setCPixIn(Number(e.target.value))} className={inputCls} /></div>
+                <div><label className={labelCls}>Qtd PIX OUT</label>
+                  <input type="number" min="0" value={cPixOut} onChange={e => setCPixOut(Number(e.target.value))} className={inputCls} /></div>
+                <div />
+                <div><label className={labelCls}>Qtd TED IN ({fmt(Number(cfg.ted ?? 0))})</label>
+                  <input type="number" min="0" value={cTedIn} onChange={e => setCTedIn(Number(e.target.value))} className={inputCls} /></div>
+                <div><label className={labelCls}>Qtd TED OUT</label>
+                  <input type="number" min="0" value={cTedOut} onChange={e => setCTedOut(Number(e.target.value))} className={inputCls} /></div>
+              </div>
+            </div>
+          )}
+
           {client?.modelo === "mensalidade" && (
             <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5 space-y-4">
               <h3 className="font-semibold text-ps-ink text-sm border-b border-ps-navy/5 pb-3">Mensalidade</h3>
@@ -552,8 +645,8 @@ export function EmitirFaturaForm({
           <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5 space-y-4">
             <h3 className="font-semibold text-ps-ink text-sm border-b border-ps-navy/5 pb-3">Ajustes e datas</h3>
             <div className="grid grid-cols-3 gap-4">
-              <div><label className={labelCls}>Desconto (%)</label><input type="number" min="0" max="100" step="any" value={descontoPerc} onChange={e => setDescontoPerc(Number(e.target.value))} className={inputCls} /></div>
-              <div><label className={labelCls}>Vencimento</label><input type="date" value={dataVencimento} onChange={e => setDataVencimento(e.target.value)} className={inputCls} /></div>
+              <div><label className={labelCls}>Desconto (%)</label><input type="number" min="0" max="100" step="any" value={isCombo || isFeePerc ? 0 : descontoPerc} disabled={isCombo || isFeePerc} onChange={e => setDescontoPerc(Number(e.target.value))} className={inputCls} /></div>
+              <div><label className={labelCls}>Vencimento</label><input type="date" value={dataVencimento || vencPadrao} onChange={e => setDataVencimento(e.target.value)} className={inputCls} /></div>
               <div><label className={labelCls}>Data de repasse</label><input type="date" value={dataRepasse} onChange={e => setDataRepasse(e.target.value)} className={inputCls} /></div>
             </div>
             <div><label className={labelCls}>Observações</label><textarea value={obs} onChange={e => setObs(e.target.value)} rows={2} className={inputCls + " resize-none"} /></div>
@@ -588,6 +681,20 @@ export function EmitirFaturaForm({
                     <div className="flex justify-between text-sm"><span className="text-white/70">Fee OUT ({qtdOut} tx)</span><span>{fmt(feeOut)}</span></div>
                     <div className="flex justify-between text-sm"><span className="text-white/70">Repasse IN</span><span className="text-red-300">−{fmt(repasseIn)}</span></div>
                     <div className="flex justify-between text-sm"><span className="text-white/70">Repasse OUT</span><span className="text-red-300">−{fmt(repasseOut)}</span></div>
+                  </>
+                )}
+                {isFeePerc && (
+                  <>
+                    <div className="flex justify-between text-sm"><span className="text-white/70">Fee do período</span><span>{fmt(fpFee)}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-white/70">Repasse ({fpPercEfetivo}%)</span><span className="text-red-300">−{fmt(fpRepasse)}</span></div>
+                  </>
+                )}
+                {isCombo && (
+                  <>
+                    {comboItens.filter(i => i.qtd > 0).map(i => (
+                      <div key={i.descricao} className="flex justify-between text-sm"><span className="text-white/70">{i.descricao}{i.qtd !== 1 ? ` (${i.qtd.toLocaleString("pt-BR")})` : ""}</span><span>{fmt(i.total)}</span></div>
+                    ))}
+                    <div className="flex justify-between text-sm"><span className="text-white/70">Repasse parceiro ({Number(cfg.repasse_perc ?? 0)}%)</span><span className="text-red-300">−{fmt(comboRepasse)}</span></div>
                   </>
                 )}
                 {client.modelo === "mensalidade" && mens && (

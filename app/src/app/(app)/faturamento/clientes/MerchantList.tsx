@@ -20,13 +20,24 @@ type Client = {
   id: string; razao: string; cnpj?: string; email_cobranca?: string; chave_pix?: string;
   agencia?: string; conta?: string; num_conta?: string; contrato?: boolean;
   modelo: string; in_tipo?: string; in_val?: number; out_tipo?: string; out_val?: number;
-  rep_in?: number; rep_out?: number; faixas_mens?: Faixa[]; status?: string;
+  rep_in?: number; rep_out?: number; faixas_mens?: Faixa[] | ComboCfg; status?: string;
   billing_subcontas?: Subconta[];
+};
+
+// Combo de contas: tarifas e regras guardadas em faixas_mens (objeto) do cliente
+type ComboCfg = {
+  master: number; sub_pj: number; manut_sub: number; conta_pa_pf: number;
+  pix: number; ted: number; repasse_perc: number; dia_venc: number; parceiro: string;
+};
+const COMBO_PADRAO: ComboCfg = {
+  master: 649, sub_pj: 3.5, manut_sub: 0.9, conta_pa_pf: 1, pix: 0.25, ted: 0.25,
+  repasse_perc: 10, dia_venc: 10, parceiro: "",
 };
 
 const MODELO_LABEL: Record<string, string> = {
   transacao: "Transação", transacao_intro: "Transação Intro",
   mensalidade: "Mensalidade", mensalidade_intro: "Mensalidade Intro",
+  combo: "Combo de contas", fee_perc: "Fee + % de divisão",
   bet: "Bets", bets: "Bets",
 };
 const TIPO_LABEL: Record<string, string> = { fixo: "R$/tx", perc: "%vol", fixo_perc: "R$+%" };
@@ -46,12 +57,20 @@ function MerchantForm({ initial, onSaved, onCancel }: {
   const [inTipo, setInTipo] = useState(initial?.in_tipo ?? "fixo");
   const [outTipo, setOutTipo] = useState(initial?.out_tipo ?? "fixo");
   const [faixas, setFaixas] = useState<Faixa[]>(
-    initial?.faixas_mens ?? [{ ate: 50, val: 30000 }, { ate: 100, val: 50000 }]
+    Array.isArray(initial?.faixas_mens) ? (initial!.faixas_mens as Faixa[]) : [{ ate: 50, val: 30000 }, { ate: 100, val: 50000 }]
+  );
+  const [combo, setCombo] = useState<ComboCfg>(
+    initial?.faixas_mens && !Array.isArray(initial.faixas_mens)
+      ? { ...COMBO_PADRAO, ...(initial.faixas_mens as any) }
+      : COMBO_PADRAO
   );
   const [error, setError] = useState<string | null>(null);
 
   const isBets = ["bet", "bets"].includes(modelo);
   const isMens = ["mensalidade", "mensalidade_intro"].includes(modelo);
+  const isCombo = modelo === "combo";
+  const isFeePerc = modelo === "fee_perc";
+  const [feePerc, setFeePerc] = useState<number>(Number((initial?.faixas_mens as any)?.perc_repasse ?? 0));
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -64,7 +83,7 @@ function MerchantForm({ initial, onSaved, onCancel }: {
       modelo, in_tipo: inTipo, in_val: parseFloat(g("in_val") || "0"),
       out_tipo: outTipo, out_val: parseFloat(g("out_val") || "0"),
       rep_in: parseFloat(g("rep_in") || "0"), rep_out: parseFloat(g("rep_out") || "0"),
-      faixas_mens: isMens ? faixas : undefined,
+      faixas_mens: isMens ? faixas : isCombo ? combo : isFeePerc ? { perc_repasse: feePerc } : undefined,
       ...(initial ? { status: g("status") } : {}),
     };
     startTransition(async () => {
@@ -121,12 +140,55 @@ function MerchantForm({ initial, onSaved, onCancel }: {
           <option value="transacao_intro">Transação Introducer</option>
           <option value="mensalidade">Mensalidade</option>
           <option value="mensalidade_intro">Mensalidade Introducer</option>
+          <option value="combo">Combo de contas (master + subcontas + PIX/TED)</option>
+          <option value="fee_perc">Fee informado + % de divisão</option>
           <option value="bet">Bets</option>
         </select>
       </div>
 
+      {/* Fee informado + % de divisão */}
+      {isFeePerc && (
+        <div className="bg-ps-bg-2 rounded-ps-sm p-3 space-y-2">
+          <label className={labelCls}>% padrão dividido com o parceiro</label>
+          <input type="number" step="any" min="0" max="100" value={feePerc} onChange={e => setFeePerc(Number(e.target.value))} className={inputCls} />
+          <p className="text-xs text-ps-muted">O fee é informado a cada fatura; este % só vem preenchido e pode ser trocado na emissão.</p>
+          <input name="in_val" type="hidden" defaultValue="0" />
+          <input name="out_val" type="hidden" defaultValue="0" />
+          <input name="rep_in" type="hidden" defaultValue="0" />
+          <input name="rep_out" type="hidden" defaultValue="0" />
+        </div>
+      )}
+
+      {/* Combo de contas */}
+      {isCombo && (
+        <div className="bg-ps-bg-2 rounded-ps-sm p-3 space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              ["master", "Mensalidade conta Master (R$/mês)"],
+              ["sub_pj", "Criação de subconta PJ (R$)"],
+              ["manut_sub", "Manutenção de subconta (R$)"],
+              ["conta_pa_pf", "Criação de conta PA – PF (R$)"],
+              ["pix", "PIX IN/OUT (R$/tx)"],
+              ["ted", "TED IN/OUT (R$/tx)"],
+              ["repasse_perc", "Repasse ao parceiro (% da tarifa)"],
+              ["dia_venc", "Dia do vencimento"],
+            ] as [keyof ComboCfg, string][]).map(([k, label]) => (
+              <div key={k}><label className={labelCls}>{label}</label>
+                <input type="number" step="any" min="0" value={combo[k] as number}
+                  onChange={e => setCombo({ ...combo, [k]: Number(e.target.value) })} className={inputCls} /></div>
+            ))}
+          </div>
+          <div><label className={labelCls}>Parceiro que recebe o repasse</label>
+            <input value={combo.parceiro} onChange={e => setCombo({ ...combo, parceiro: e.target.value })} className={inputCls} /></div>
+          <input name="in_val" type="hidden" defaultValue="0" />
+          <input name="out_val" type="hidden" defaultValue="0" />
+          <input name="rep_in" type="hidden" defaultValue="0" />
+          <input name="rep_out" type="hidden" defaultValue="0" />
+        </div>
+      )}
+
       {/* Campos de tarifa — transação e bets */}
-      {!isMens && (
+      {!isMens && !isCombo && !isFeePerc && (
         <div className="space-y-3 bg-ps-bg-2 rounded-ps-sm p-3">
           {!isBets && (
             <>

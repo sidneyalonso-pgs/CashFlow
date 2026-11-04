@@ -37,7 +37,8 @@ async function criarLancamentosFatura(
   supabase: ReturnType<typeof createClient>,
   fatura: FaturaLancavel,
   clientName: string,
-  interAccountId: string | null
+  interAccountId: string | null,
+  parceiroNome?: string | null
 ): Promise<{ revenueId: string | null; paymentId: string | null; error?: string }> {
   const hoje = new Date().toISOString().split("T")[0];
   const competenciaLabel = fatura.competencia
@@ -48,9 +49,9 @@ async function criarLancamentosFatura(
   // No modelo transação o fee já é reconhecido pelos lançamentos diários (CCME/FEE)
   // e o valor faturado é repasse do cliente, então gerar receita aqui contaria em dobro.
   let revenueId: string | null = null;
-  if ((fatura.modelo === "bets" || fatura.modelo === "mensalidade") && Number(fatura.total) > 0) {
+  if ((fatura.modelo === "bets" || fatura.modelo === "mensalidade" || fatura.modelo === "combo") && Number(fatura.total) > 0) {
     // a categoria sai do modelo da fatura: bets recebem "Prestação de Serviços - Bets Federais" e
-    // mensalidade, "Tarifa Mensalidade". Sem a categoria cadastrada, a receita fica sem (como antes).
+    // mensalidade e combo de contas, "Tarifa Mensalidade". Sem a categoria cadastrada, a receita fica sem (como antes).
     const nomeCategoria = fatura.modelo === "bets" ? "Prestação de Serviços - Bets Federais" : "Tarifa Mensalidade";
     const { data: categoria } = await supabase.from("categories").select("id").eq("name", nomeCategoria).maybeSingle();
     const { data: rev, error: revErr } = await supabase.from("revenues").insert({
@@ -68,14 +69,16 @@ async function criarLancamentosFatura(
 
   let paymentId: string | null = null;
   if (Number(fatura.total_repasse) > 0) {
-    // payments.supplier_id é NOT NULL: reaproveita o fornecedor do cliente ou cria
+    // payments.supplier_id é NOT NULL: reaproveita o fornecedor do cliente ou cria.
+    // No combo de contas o repasse vai para o parceiro que indicou o cliente, não para o cliente.
+    const supplierName = fatura.modelo === "combo" ? (parceiroNome?.trim() || `Parceiro — ${clientName}`) : clientName;
     const { data: existingSupplier } = await supabase
-      .from("suppliers").select("id").eq("legal_name", clientName).limit(1).maybeSingle();
+      .from("suppliers").select("id").eq("legal_name", supplierName).limit(1).maybeSingle();
 
     let supplierId = existingSupplier?.id ?? null;
     if (!supplierId) {
       const { data: newSupplier, error: supErr } = await supabase.from("suppliers").insert({
-        legal_name: clientName,
+        legal_name: supplierName,
         person_type: "juridica",
         status: "ativo",
         cost_type: "despesas",
@@ -93,7 +96,7 @@ async function criarLancamentosFatura(
       company_id: fatura.company_id,
       supplier_id: supplierId,
       category_id: categoriaRepasse?.id ?? null,
-      description: `Repasse — ${clientName} (${competenciaLabel})`,
+      description: `Repasse — ${supplierName} (${competenciaLabel})`,
       gross_amount: fatura.total_repasse,
       document_date: repasseDate,
       due_date: repasseDate,
@@ -113,7 +116,7 @@ export async function createBillingClient(data: {
   razao: string; cnpj?: string; email_cobranca?: string; chave_pix?: string;
   agencia?: string; conta?: string; num_conta?: string; contrato: boolean;
   modelo: string; in_tipo: string; in_val: number; out_tipo: string; out_val: number;
-  rep_in: number; rep_out: number; faixas_mens?: any[];
+  rep_in: number; rep_out: number; faixas_mens?: any;
 }) {
   const supabase = createClient();
   const { error } = await supabase.from("billing_clients").insert({
@@ -129,7 +132,7 @@ export async function updateBillingClient(id: string, data: {
   razao?: string; cnpj?: string; email_cobranca?: string; chave_pix?: string;
   agencia?: string; conta?: string; num_conta?: string; contrato?: boolean;
   modelo?: string; in_tipo?: string; in_val?: number; out_tipo?: string; out_val?: number;
-  rep_in?: number; rep_out?: number; faixas_mens?: any[]; status?: string;
+  rep_in?: number; rep_out?: number; faixas_mens?: any; status?: string;
 }) {
   const supabase = createClient();
   const { error } = await supabase.from("billing_clients").update({
@@ -196,8 +199,9 @@ export async function emitirFatura(data: {
   const supabase = createClient();
 
   const { data: client } = await supabase
-    .from("billing_clients").select("razao").eq("id", data.client_id).single();
+    .from("billing_clients").select("razao, faixas_mens").eq("id", data.client_id).single();
   const clientName = client?.razao ?? "Cliente";
+  const parceiroNome = (client?.faixas_mens as any)?.parceiro ?? null;
   const interAccountId = await getInterAccountId(supabase, data.company_id);
 
   const { data: invoice, error: invError } = await supabase
@@ -216,7 +220,8 @@ export async function emitirFatura(data: {
     supabase,
     data,
     clientName,
-    interAccountId
+    interAccountId,
+    parceiroNome
   );
   if (lancErr) return { error: `Fatura criada, mas ${lancErr}` };
 
@@ -257,13 +262,14 @@ export async function baixarFatura(invoiceId: string, dataPgto: string, bankAcco
   // agora, a baixa marcaria a fatura como paga sem nada aparecer no Cash Flow.
   if (!invoice.revenue_id && !invoice.payment_id) {
     const { data: client } = await supabase
-      .from("billing_clients").select("razao").eq("id", invoice.client_id).single();
+      .from("billing_clients").select("razao, faixas_mens").eq("id", invoice.client_id).single();
     const { revenueId, paymentId, error: lancErr } = await criarLancamentosFatura(
       supabase,
       // sem vencimento (caso das importadas), a data da baixa é a referência do lançamento
       { ...invoice, data_vencimento: invoice.data_vencimento ?? dataPgto },
       client?.razao ?? "Cliente",
-      interAccountId
+      interAccountId,
+      (client?.faixas_mens as any)?.parceiro ?? null
     );
     if (lancErr) return { error: `Não foi possível gerar os lançamentos da fatura: ${lancErr}` };
     if (!revenueId && !paymentId) {

@@ -9,7 +9,7 @@ export default async function EmitirFaturaPage() {
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
     // ordem alfabética (e por número da conta quando o nome repete): é a ordem em que as contas
     // aparecem na hora de faturar e também na fatura emitida
-    supabase.from("billing_subcontas").select("id, client_id, razao, cnpj, num_conta, in_tipo, in_val, out_tipo, out_val, rep_in, rep_out").order("razao").order("num_conta"),
+    supabase.from("billing_subcontas").select("id, client_id, razao, cnpj, num_conta, status, in_tipo, in_val, out_tipo, out_val, rep_in, rep_out").order("razao").order("num_conta"),
   ]);
 
   const subcontasMap: Record<string, any[]> = {};
@@ -20,6 +20,12 @@ export default async function EmitirFaturaPage() {
     subcontaCounts[s.client_id] = (subcontaCounts[s.client_id] ?? 0) + 1;
   }
 
+  // combo de contas cobra manutenção só das subcontas ativas
+  const subcontasAtivas: Record<string, number> = {};
+  for (const s of allSubcontas ?? []) {
+    if (s.status === "ativa") subcontasAtivas[s.client_id] = (subcontasAtivas[s.client_id] ?? 0) + 1;
+  }
+
   return (
     <div>
       <PageHeader title="Emitir demonstrativo" subtitle="Calcule e emita um demonstrativo de repasse" />
@@ -27,6 +33,7 @@ export default async function EmitirFaturaPage() {
         clients={clients ?? []}
         companies={companies ?? []}
         subcontaCounts={subcontaCounts}
+        subcontasAtivas={subcontasAtivas}
         subcontasMap={subcontasMap}
       />
     </div>
