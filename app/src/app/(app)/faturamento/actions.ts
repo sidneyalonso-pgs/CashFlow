@@ -117,6 +117,7 @@ export async function createBillingClient(data: {
   agencia?: string; conta?: string; num_conta?: string; contrato: boolean;
   modelo: string; in_tipo: string; in_val: number; out_tipo: string; out_val: number;
   rep_in: number; rep_out: number; faixas_mens?: any;
+  introducer_nome?: string; introducer_cnpj?: string; frequencia?: string;
 }) {
   const supabase = createClient();
   const { error } = await supabase.from("billing_clients").insert({
@@ -133,6 +134,7 @@ export async function updateBillingClient(id: string, data: {
   agencia?: string; conta?: string; num_conta?: string; contrato?: boolean;
   modelo?: string; in_tipo?: string; in_val?: number; out_tipo?: string; out_val?: number;
   rep_in?: number; rep_out?: number; faixas_mens?: any; status?: string;
+  introducer_nome?: string; introducer_cnpj?: string; frequencia?: string;
 }) {
   const supabase = createClient();
   const { error } = await supabase.from("billing_clients").update({

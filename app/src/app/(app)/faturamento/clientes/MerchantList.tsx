@@ -22,6 +22,7 @@ type Client = {
   modelo: string; in_tipo?: string; in_val?: number; out_tipo?: string; out_val?: number;
   rep_in?: number; rep_out?: number; faixas_mens?: Faixa[] | ComboCfg; status?: string;
   billing_subcontas?: Subconta[];
+  introducer_nome?: string; introducer_cnpj?: string; frequencia?: string;
 };
 
 // Combo de contas: tarifas e regras guardadas em faixas_mens (objeto) do cliente
@@ -84,6 +85,9 @@ function MerchantForm({ initial, onSaved, onCancel }: {
       out_tipo: outTipo, out_val: parseFloat(g("out_val") || "0"),
       rep_in: parseFloat(g("rep_in") || "0"), rep_out: parseFloat(g("rep_out") || "0"),
       faixas_mens: isMens ? faixas : isCombo ? combo : isFeePerc ? { perc_repasse: feePerc } : undefined,
+      // vazio = null: a base de tarifas assume o próprio merchant como introducer e infere a frequência
+      introducer_nome: g("introducer_nome") || undefined, introducer_cnpj: g("introducer_cnpj") || undefined,
+      frequencia: g("frequencia") || undefined,
       ...(initial ? { status: g("status") } : {}),
     };
     startTransition(async () => {
@@ -131,6 +135,21 @@ function MerchantForm({ initial, onSaved, onCancel }: {
             </select>
           </div>
         )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div><label className={labelCls}>Introducer (se não for o próprio)</label>
+          <input name="introducer_nome" defaultValue={initial?.introducer_nome} className={inputCls} /></div>
+        <div><label className={labelCls}>CNPJ do introducer</label>
+          <input name="introducer_cnpj" defaultValue={initial?.introducer_cnpj} className={inputCls} /></div>
+      </div>
+      <div>
+        <label className={labelCls}>Tipo de faturamento</label>
+        <select name="frequencia" defaultValue={initial?.frequencia ?? ""} className={inputCls}>
+          <option value="">Não definido</option>
+          <option value="mensal">Mensal</option>
+          <option value="semanal">Semanal</option>
+        </select>
       </div>
 
       <div>

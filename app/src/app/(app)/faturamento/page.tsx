@@ -69,6 +69,9 @@ export default async function FaturamentoDashboard({ searchParams }: { searchPar
             <Link href="/faturamento/clientes" className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors">
               Merchants
             </Link>
+            <Link href="/faturamento/tarifas" className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors">
+              Base de tarifas
+            </Link>
             <Link href="/faturamento/faturas" className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors">
               Todas as faturas
             </Link>
