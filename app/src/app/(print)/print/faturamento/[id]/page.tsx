@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { InvoiceDocument } from "@/app/(app)/faturamento/[id]/InvoiceDoc";
 import { AutoPrint } from "./AutoPrint";
 
-export default async function InvoicePrintPage({ params }: { params: { id: string } }) {
+export default async function InvoicePrintPage({ params, searchParams }: { params: { id: string }; searchParams: { via?: string } }) {
   const supabase = createClient();
   const { data: inv } = await supabase
     .from("billing_invoices")
@@ -23,7 +23,7 @@ export default async function InvoicePrintPage({ params }: { params: { id: strin
         }
         body { background: white; }
       `}</style>
-      <InvoiceDocument inv={inv} />
+      <InvoiceDocument inv={inv} via={searchParams.via} />
     </>
   );
 }

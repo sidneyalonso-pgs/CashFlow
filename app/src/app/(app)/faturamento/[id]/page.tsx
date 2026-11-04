@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatBRL } from "@/lib/calculations/money";
 import { InvoiceActions } from "./InvoiceActions";
 import { PrintButton } from "./PrintButton";
-import { ComboDoc, FeePercDoc } from "./InvoiceDoc";
+import { ComboDoc, ComboIntroducerDoc, FeePercDoc } from "./InvoiceDoc";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -563,7 +563,7 @@ function BetsDoc({ inv, client, company, det }: { inv: any; client: any; company
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-export default async function InvoiceDetailPage({ params }: { params: { id: string } }) {
+export default async function InvoiceDetailPage({ params, searchParams }: { params: { id: string }; searchParams: { via?: string } }) {
   const supabase = createClient();
   const { data: inv } = await supabase
     .from("billing_invoices")
@@ -593,6 +593,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   const isBets = ["bet", "bets"].includes(inv.modelo);
   const isMensalidade = ["mensalidade", "mensalidade_intro"].includes(inv.modelo);
   const isCombo = inv.modelo === "combo";
+  const viaIntroducer = isCombo && searchParams.via === "introducer";
 
   // For bets: single object; for others: array
   let det: any = null;
@@ -623,6 +624,12 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
           ← Voltar
         </Link>
         <div className="flex items-center gap-2">
+          {isCombo && (
+            <div className="flex rounded-ps-sm border border-ps-navy/15 overflow-hidden text-sm font-medium">
+              <Link href={`/faturamento/${inv.id}`} className={`px-4 py-2 ${!viaIntroducer ? "bg-ps-navy text-white" : "bg-white text-ps-ink hover:bg-ps-bg-2"}`}>Via cliente</Link>
+              <Link href={`/faturamento/${inv.id}?via=introducer`} className={`px-4 py-2 ${viaIntroducer ? "bg-ps-navy text-white" : "bg-white text-ps-ink hover:bg-ps-bg-2"}`}>Via introducer</Link>
+            </div>
+          )}
           <span className={`px-3 py-1 rounded text-sm font-semibold ${STATUS_CLS[inv.status] ?? ""}`}>
             {(inv.status ?? "").charAt(0).toUpperCase() + (inv.status ?? "").slice(1)}
           </span>
@@ -632,7 +639,8 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Documento */}
         <div className="lg:col-span-2">
-          {isCombo && <ComboDoc inv={inv} client={client} subcontas={subcontas} />}
+          {isCombo && viaIntroducer && <ComboIntroducerDoc inv={inv} client={client} />}
+          {isCombo && !viaIntroducer && <ComboDoc inv={inv} client={client} subcontas={subcontas} />}
           {inv.modelo === "fee_perc" && <FeePercDoc inv={inv} client={client} />}
           {isMensalidade && <MensalidadeDoc inv={inv} client={client} subcontas={subcontas} />}
           {!isMensalidade && !isBets && !isCombo && inv.modelo !== "fee_perc" && <TransacaoDoc inv={inv} client={client} subcontas={subcontas} />}
@@ -690,7 +698,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             </div>
           )}
 
-          <PrintButton invoiceId={inv.id} />
+          <PrintButton invoiceId={inv.id} via={viaIntroducer ? "introducer" : undefined} />
         </div>
       </div>
     </div>
