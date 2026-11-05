@@ -574,6 +574,26 @@ export function FeePercDoc({ inv, client }: { inv: any; client: any }) {
         <p className="font-bold text-ps-ink text-base">{client?.razao ?? "—"}</p>
         {client?.cnpj && <p className="text-xs text-ps-muted">CNPJ: {client.cnpj}</p>}
       </div>
+      {Array.isArray(d.contas) && d.contas.length > 0 && (
+        <table className="w-full border-collapse text-xs mb-5">
+          <thead>
+            <tr className="bg-ps-navy text-white">
+              <th className="text-left px-4 py-2 font-semibold">Conta</th>
+              <th className="text-right px-4 py-2 font-semibold">Transações</th>
+              <th className="text-right px-4 py-2 font-semibold">Fee</th>
+            </tr>
+          </thead>
+          <tbody>
+            {d.contas.map((c: any, i: number) => (
+              <tr key={c.id ?? i} className="border-b border-ps-navy/5">
+                <td className="px-4 py-2 text-ps-ink">{c.razao} <span className="text-ps-muted">· {c.num_conta}</span></td>
+                <td className="px-4 py-2 text-right tabular-nums">{Number(c.qtd ?? 0).toLocaleString("pt-BR")}</td>
+                <td className="px-4 py-2 text-right tabular-nums">{N(Number(c.fee ?? 0))}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       <table className="w-full border-collapse text-xs">
         <tbody>
           <tr className="border-b border-ps-navy/5">

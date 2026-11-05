@@ -84,9 +84,10 @@ export function EmitirFaturaForm({
   const [bQtdNegadas, setBQtdNegadas] = useState(0);
   const [bQtdRefund, setBQtdRefund] = useState(0);
   const [bRemessaPerc, setBRemessaPerc] = useState(0);
-  const [fpFee, setFpFee] = useState(0);
+  const [fpFeeManual, setFpFee] = useState(0);
+  const [fpRows, setFpRows] = useState<Record<string, { fee: number; qtd: number }>>({});
   const [fpPerc, setFpPerc] = useState<number | null>(null);
-  const [fpQtd, setFpQtd] = useState(0);
+  const [fpQtdManual, setFpQtd] = useState(0);
   // Combo de contas (EVNO): master + subcontas + PIX/TED
   const [cSubPj, setCSubPj] = useState(0);
   const [cPaPf, setCPaPf] = useState(0);
@@ -105,6 +106,11 @@ export function EmitirFaturaForm({
   const feePercPadrao = Number((client?.faixas_mens as any)?.perc_repasse ?? 0);
   const fpPercEfetivo = fpPerc ?? feePercPadrao;
   // custo por transação (opcional): sai do fee antes da divisão e fica com a PagSmile
+  // com contas cadastradas, fee e quantidade são informados conta a conta e somados
+  const fpContas = isFeePerc ? (subcontasMap[clientId] ?? []).filter(s => s.status !== "inativa") : [];
+  const fpPorConta = fpContas.length > 0;
+  const fpFee = fpPorConta ? Math.round(fpContas.reduce((s, c) => s + (fpRows[c.id]?.fee ?? 0), 0) * 100) / 100 : fpFeeManual;
+  const fpQtd = fpPorConta ? fpContas.reduce((s, c) => s + (fpRows[c.id]?.qtd ?? 0), 0) : fpQtdManual;
   const fpCustoTx = Number((client?.faixas_mens as any)?.custo_tx ?? 0);
   const fpCusto = Math.round(fpQtd * fpCustoTx * 100) / 100;
   const fpBase = Math.round((fpFee - fpCusto) * 100) / 100;
@@ -269,7 +275,8 @@ export function EmitirFaturaForm({
         total_faturado: totalFaturado, desconto_perc: descontoPerc, desconto_val: descontoVal,
         total_repasse: totalRepasse, total,
         obs: obs || undefined, data_vencimento: venc || undefined, data_repasse: dataRepasse || undefined,
-        subcontas_detalhe: isFeePerc ? { fee_perc: { fee: fpFee, perc: fpPercEfetivo, repasse: fpRepasse, ...(fpCustoTx > 0 ? { qtd: fpQtd, custo_tx: fpCustoTx, custo: fpCusto, base: fpBase } : {}) } } : comboDetalhe ?? betsDetalhe ?? subcontasDetalhe,
+        subcontas_detalhe: isFeePerc ? { fee_perc: { fee: fpFee, perc: fpPercEfetivo, repasse: fpRepasse, ...(fpCustoTx > 0 ? { qtd: fpQtd, custo_tx: fpCustoTx, custo: fpCusto, base: fpBase } : {}),
+          ...(fpPorConta ? { contas: fpContas.filter(c => (fpRows[c.id]?.fee ?? 0) > 0 || (fpRows[c.id]?.qtd ?? 0) > 0).map(c => ({ id: c.id, razao: c.razao, num_conta: c.num_conta, fee: fpRows[c.id]?.fee ?? 0, qtd: fpRows[c.id]?.qtd ?? 0 })) } : {}) } } : comboDetalhe ?? betsDetalhe ?? subcontasDetalhe,
       });
       if (res.error) { setError(res.error); return; }
       setSuccess("Demonstrativo emitido! Receita e pagamento criados automaticamente.");
@@ -586,15 +593,48 @@ export function EmitirFaturaForm({
           {isFeePerc && (
             <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5 space-y-4">
               <h3 className="font-semibold text-ps-ink text-sm border-b border-ps-navy/5 pb-3">Fee e divisão</h3>
+              {fpPorConta && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-ps-bg-2 text-ps-muted border-b border-ps-navy/5">
+                        <th className="text-left px-3 py-2 font-semibold">Conta</th>
+                        <th className="text-right px-2 py-2 font-semibold w-36">Fee (R$)</th>
+                        <th className="text-right px-2 py-2 font-semibold w-36">Qtd. transações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fpContas.map((c, i) => (
+                        <tr key={c.id} className={`border-b border-ps-navy/5 ${i % 2 === 1 ? "bg-ps-bg-2/40" : ""}`}>
+                          <td className="px-3 py-1.5"><span className="font-medium text-ps-ink">{c.razao}</span> <span className="text-ps-muted">· {c.num_conta}</span></td>
+                          <td className="px-2 py-1.5"><input type="number" min="0" step="any" value={fpRows[c.id]?.fee ?? 0} onChange={e => setFpRows(r => ({ ...r, [c.id]: { fee: Number(e.target.value), qtd: r[c.id]?.qtd ?? 0 } }))} className={inputCls + " text-right"} /></td>
+                          <td className="px-2 py-1.5"><input type="number" min="0" step="1" value={fpRows[c.id]?.qtd ?? 0} onChange={e => setFpRows(r => ({ ...r, [c.id]: { fee: r[c.id]?.fee ?? 0, qtd: Number(e.target.value) } }))} className={inputCls + " text-right"} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="font-semibold text-ps-ink">
+                        <td className="px-3 py-2">Total</td>
+                        <td className="px-2 py-2 text-right tabular-nums">{fmt(fpFee)}</td>
+                        <td className="px-2 py-2 text-right tabular-nums">{fpQtd.toLocaleString("pt-BR")}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
+                {!fpPorConta && (
                 <div><label className={labelCls}>Fee do período (R$)</label>
-                  <input type="number" min="0" step="any" value={fpFee} onChange={e => setFpFee(Number(e.target.value))} className={inputCls} /></div>
+                  <input type="number" min="0" step="any" value={fpFeeManual} onChange={e => setFpFee(Number(e.target.value))} className={inputCls} /></div>
+                )}
                 <div><label className={labelCls}>% dividido com o parceiro</label>
                   <input type="number" min="0" max="100" step="any" value={fpPercEfetivo} onChange={e => setFpPerc(Number(e.target.value))} className={inputCls} />
                   <p className="text-xs text-ps-muted mt-1">Repasse = {fmt(fpRepasse)} · fica com a PagSmile {fmt(fpFee - fpRepasse)}</p></div>
                 {fpCustoTx > 0 && (
                   <div><label className={labelCls}>Quantidade de transações</label>
-                    <input type="number" min="0" step="1" value={fpQtd} onChange={e => setFpQtd(Number(e.target.value))} className={inputCls} />
+                    {fpPorConta
+                      ? <p className="text-sm font-semibold text-ps-ink py-2">{fpQtd.toLocaleString("pt-BR")}</p>
+                      : <input type="number" min="0" step="1" value={fpQtdManual} onChange={e => setFpQtd(Number(e.target.value))} className={inputCls} />}
                     <p className="text-xs text-ps-muted mt-1">Custo {fmt(fpCusto)} ({fpQtd.toLocaleString("pt-BR")} × {fmt(fpCustoTx)}) · base de divisão {fmt(fpBase)}</p></div>
                 )}
               </div>
