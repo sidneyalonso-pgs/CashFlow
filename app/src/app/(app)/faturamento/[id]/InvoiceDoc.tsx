@@ -580,6 +580,18 @@ export function FeePercDoc({ inv, client }: { inv: any; client: any }) {
             <td className="px-4 py-3 text-ps-ink">Fee apurado no período</td>
             <td className="px-4 py-3 text-right tabular-nums font-semibold text-ps-ink">{N(fee)}</td>
           </tr>
+          {Number(d.custo_tx ?? 0) > 0 && (
+            <>
+              <tr className="border-b border-ps-navy/5">
+                <td className="px-4 py-3 text-ps-ink">(−) Custo de transação ({Number(d.qtd ?? 0).toLocaleString("pt-BR")} × {N(Number(d.custo_tx))})</td>
+                <td className="px-4 py-3 text-right tabular-nums text-ps-muted">−{N(Number(d.custo ?? 0))}</td>
+              </tr>
+              <tr className="border-b border-ps-navy/5">
+                <td className="px-4 py-3 text-ps-ink">Base de divisão (fee − custo)</td>
+                <td className="px-4 py-3 text-right tabular-nums font-semibold text-ps-ink">{N(Number(d.base ?? 0))}</td>
+              </tr>
+            </>
+          )}
           <tr className="border-b border-ps-navy/5">
             <td className="px-4 py-3 text-ps-ink">Percentual de divisão</td>
             <td className="px-4 py-3 text-right tabular-nums text-ps-muted">{perc.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%</td>

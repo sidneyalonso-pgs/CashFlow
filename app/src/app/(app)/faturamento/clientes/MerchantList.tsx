@@ -72,6 +72,7 @@ function MerchantForm({ initial, onSaved, onCancel }: {
   const isCombo = modelo === "combo";
   const isFeePerc = modelo === "fee_perc";
   const [feePerc, setFeePerc] = useState<number>(Number((initial?.faixas_mens as any)?.perc_repasse ?? 0));
+  const [feeCusto, setFeeCusto] = useState<number>(Number((initial?.faixas_mens as any)?.custo_tx ?? 0));
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -84,7 +85,7 @@ function MerchantForm({ initial, onSaved, onCancel }: {
       modelo, in_tipo: inTipo, in_val: parseFloat(g("in_val") || "0"),
       out_tipo: outTipo, out_val: parseFloat(g("out_val") || "0"),
       rep_in: parseFloat(g("rep_in") || "0"), rep_out: parseFloat(g("rep_out") || "0"),
-      faixas_mens: isMens ? faixas : isCombo ? combo : isFeePerc ? { perc_repasse: feePerc } : undefined,
+      faixas_mens: isMens ? faixas : isCombo ? combo : isFeePerc ? { perc_repasse: feePerc, ...(feeCusto > 0 ? { custo_tx: feeCusto } : {}) } : undefined,
       // vazio = null: a base de tarifas assume o próprio merchant como introducer e infere a frequência
       introducer_nome: g("introducer_nome") || undefined, introducer_cnpj: g("introducer_cnpj") || undefined,
       frequencia: g("frequencia") || undefined,
@@ -170,7 +171,9 @@ function MerchantForm({ initial, onSaved, onCancel }: {
         <div className="bg-ps-bg-2 rounded-ps-sm p-3 space-y-2">
           <label className={labelCls}>% padrão dividido com o parceiro</label>
           <input type="number" step="any" min="0" max="100" value={feePerc} onChange={e => setFeePerc(Number(e.target.value))} className={inputCls} />
-          <p className="text-xs text-ps-muted">O fee é informado a cada fatura; este % só vem preenchido e pode ser trocado na emissão.</p>
+          <label className={labelCls}>Custo por transação (R$) — opcional</label>
+          <input type="number" step="any" min="0" value={feeCusto} onChange={e => setFeeCusto(Number(e.target.value))} className={inputCls} />
+          <p className="text-xs text-ps-muted">O fee é informado a cada fatura; este % só vem preenchido e pode ser trocado na emissão. Com custo por transação, a fatura pede a quantidade: custo = quantidade × custo, o % divide o fee menos o custo, e o custo fica com a PagSmile.</p>
           <input name="in_val" type="hidden" defaultValue="0" />
           <input name="out_val" type="hidden" defaultValue="0" />
           <input name="rep_in" type="hidden" defaultValue="0" />

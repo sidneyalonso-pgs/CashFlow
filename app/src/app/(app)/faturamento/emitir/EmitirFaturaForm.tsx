@@ -86,6 +86,7 @@ export function EmitirFaturaForm({
   const [bRemessaPerc, setBRemessaPerc] = useState(0);
   const [fpFee, setFpFee] = useState(0);
   const [fpPerc, setFpPerc] = useState<number | null>(null);
+  const [fpQtd, setFpQtd] = useState(0);
   // Combo de contas (EVNO): master + subcontas + PIX/TED
   const [cSubPj, setCSubPj] = useState(0);
   const [cPaPf, setCPaPf] = useState(0);
@@ -103,7 +104,11 @@ export function EmitirFaturaForm({
   const isFeePerc = client?.modelo === "fee_perc";
   const feePercPadrao = Number((client?.faixas_mens as any)?.perc_repasse ?? 0);
   const fpPercEfetivo = fpPerc ?? feePercPadrao;
-  const fpRepasse = Math.round(fpFee * fpPercEfetivo) / 100;
+  // custo por transação (opcional): sai do fee antes da divisão e fica com a PagSmile
+  const fpCustoTx = Number((client?.faixas_mens as any)?.custo_tx ?? 0);
+  const fpCusto = Math.round(fpQtd * fpCustoTx * 100) / 100;
+  const fpBase = Math.round((fpFee - fpCusto) * 100) / 100;
+  const fpRepasse = Math.round(fpBase * fpPercEfetivo) / 100;
   const cfg = (isCombo && client?.faixas_mens && !Array.isArray(client.faixas_mens) ? client.faixas_mens : {}) as any;
   const round2 = (n: number) => Math.round(n * 100) / 100;
   const comboItens = isCombo ? [
@@ -264,7 +269,7 @@ export function EmitirFaturaForm({
         total_faturado: totalFaturado, desconto_perc: descontoPerc, desconto_val: descontoVal,
         total_repasse: totalRepasse, total,
         obs: obs || undefined, data_vencimento: venc || undefined, data_repasse: dataRepasse || undefined,
-        subcontas_detalhe: isFeePerc ? { fee_perc: { fee: fpFee, perc: fpPercEfetivo, repasse: fpRepasse } } : comboDetalhe ?? betsDetalhe ?? subcontasDetalhe,
+        subcontas_detalhe: isFeePerc ? { fee_perc: { fee: fpFee, perc: fpPercEfetivo, repasse: fpRepasse, ...(fpCustoTx > 0 ? { qtd: fpQtd, custo_tx: fpCustoTx, custo: fpCusto, base: fpBase } : {}) } } : comboDetalhe ?? betsDetalhe ?? subcontasDetalhe,
       });
       if (res.error) { setError(res.error); return; }
       setSuccess("Demonstrativo emitido! Receita e pagamento criados automaticamente.");
@@ -587,6 +592,11 @@ export function EmitirFaturaForm({
                 <div><label className={labelCls}>% dividido com o parceiro</label>
                   <input type="number" min="0" max="100" step="any" value={fpPercEfetivo} onChange={e => setFpPerc(Number(e.target.value))} className={inputCls} />
                   <p className="text-xs text-ps-muted mt-1">Repasse = {fmt(fpRepasse)} · fica com a PagSmile {fmt(fpFee - fpRepasse)}</p></div>
+                {fpCustoTx > 0 && (
+                  <div><label className={labelCls}>Quantidade de transações</label>
+                    <input type="number" min="0" step="1" value={fpQtd} onChange={e => setFpQtd(Number(e.target.value))} className={inputCls} />
+                    <p className="text-xs text-ps-muted mt-1">Custo {fmt(fpCusto)} ({fpQtd.toLocaleString("pt-BR")} × {fmt(fpCustoTx)}) · base de divisão {fmt(fpBase)}</p></div>
+                )}
               </div>
             </div>
           )}
@@ -689,7 +699,8 @@ export function EmitirFaturaForm({
                 {isFeePerc && (
                   <>
                     <div className="flex justify-between text-sm"><span className="text-white/70">Fee do período</span><span>{fmt(fpFee)}</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-white/70">Repasse ({fpPercEfetivo}%)</span><span className="text-red-300">−{fmt(fpRepasse)}</span></div>
+                    {fpCustoTx > 0 && <div className="flex justify-between text-sm"><span className="text-white/70">Custo de transação (fica com a PagSmile)</span><span>{fmt(fpCusto)}</span></div>}
+                    <div className="flex justify-between text-sm"><span className="text-white/70">Repasse ({fpPercEfetivo}%{fpCustoTx > 0 ? " do fee − custo" : ""})</span><span className="text-red-300">−{fmt(fpRepasse)}</span></div>
                   </>
                 )}
                 {isCombo && (

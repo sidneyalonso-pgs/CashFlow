@@ -87,7 +87,7 @@ export function montaBaseTarifas(clients: any[], ultimoPeriodo: Record<string, {
       }
       if (c.modelo === "fee_perc") {
         const perc = Number(cfg.perc_repasse ?? 0);
-        return { tarIn: "Fee informado", repIn: `${num(perc)}% do fee`, tarOut: "Fee informado", repOut: `${num(perc)}% do fee`, pct: perc, outras: "" };
+        return { tarIn: "Fee informado", repIn: `${num(perc)}% do fee`, tarOut: "Fee informado", repOut: `${num(perc)}% do fee`, pct: perc, outras: Number(cfg.custo_tx ?? 0) > 0 ? `Custo de transação ${brl(Number(cfg.custo_tx))} (fica com a PagSmile; % incide sobre fee − custo)` : "" };
       }
       if (c.modelo === "mensalidade" || c.modelo === "mensalidade_intro") {
         const faixas = Array.isArray(c.faixas_mens) ? c.faixas_mens : [];
