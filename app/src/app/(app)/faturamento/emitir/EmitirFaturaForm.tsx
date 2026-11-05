@@ -12,7 +12,7 @@ type Company = { id: string; legal_name: string; trade_name: string | null };
 type Subconta = {
   id: string; client_id: string; razao: string; cnpj?: string; num_conta?: string;
   in_tipo: string; in_val: number; out_tipo: string; out_val: number;
-  rep_in: number; rep_out: number;
+  rep_in: number; rep_out: number; status?: string;
 };
 type RowState = {
   qtdIn: number; volIn: number; qtdOut: number; volOut: number;
