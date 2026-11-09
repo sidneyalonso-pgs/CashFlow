@@ -125,7 +125,7 @@ async function sincronizarReceitasDoDia(
 
 /**
  * Recalcula a projeção do restante do mês de refData: apaga as projeções daquele mês de referência
- * e cria de novo uma receita ESTIMADA por tipo e por dia de referência (média das 5 últimas
+ * e cria de novo uma receita ESTIMADA por tipo e por dia de referência (média das 3 últimas
  * apurações), com o caixa no primeiro dia útil seguinte, no banco da última apuração.
  * Nunca cria baixa: projeção é só previsão.
  */
@@ -159,7 +159,7 @@ async function recalcularProjecao(
         status: "estimada",
         origem: ORIGEM_PROJECAO,
         origem_ref: mesRef,
-        notes: "Média por tipo das 5 últimas apurações da Central Piloto, no primeiro dia útil seguinte à referência.",
+        notes: "Média por tipo das 3 últimas apurações da Central Piloto, no primeiro dia útil seguinte à referência.",
       }))
     );
     if (linhas.length > 0) await svc.from("revenues").insert(linhas);

@@ -83,17 +83,18 @@ export const SO_DIA_UTIL: readonly CompKey[] = ["rem_spi", "rem_ccme"];
 
 /**
  * Médias da projeção, por tipo. `apuracoes` vem da mais recente para a mais antiga.
- * Fees: média das 5 últimas apurações. SPI e CCME: média das 5 últimas apurações com valor.
+ * Fees: média das 3 últimas apurações. SPI e CCME: média das 3 últimas apurações com valor.
  */
+export const DIAS_MEDIA_PROJECAO = 3;
 export function mediasDaProjecao(
   apuracoes: Array<Partial<Record<CompKey, number | null | undefined>> & { data: string }>
 ): Record<CompKey, number> {
-  const ultimas5 = apuracoes.slice(0, 5);
+  const ultimasN = apuracoes.slice(0, DIAS_MEDIA_PROJECAO);
   const out = {} as Record<CompKey, number>;
   for (const c of COMPONENTES) {
-    // fees: as 5 últimas apurações. SPI e CCME: as 5 últimas COM valor — os dias sem rendimento
+    // fees: as 3 últimas apurações. SPI e CCME: as 3 últimas COM valor — os dias sem rendimento
     // (fim de semana, feriado) não entram, senão puxariam a média para baixo
-    const base = SO_DIA_UTIL.includes(c.key) ? apuracoes.filter((a) => (Number(a[c.key]) || 0) > 0).slice(0, 5) : ultimas5;
+    const base = SO_DIA_UTIL.includes(c.key) ? apuracoes.filter((a) => (Number(a[c.key]) || 0) > 0).slice(0, DIAS_MEDIA_PROJECAO) : ultimasN;
     const soma = base.reduce((s, a) => s + (Number(a[c.key]) || 0), 0);
     out[c.key] = base.length ? r2(soma / base.length) : 0;
   }

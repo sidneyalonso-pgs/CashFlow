@@ -54,7 +54,7 @@ export async function ultimasApuracoes(supabase: Cliente, companyId: string, lim
 
 /**
  * Projeção do restante do mês de refData, em duas etapas:
- *  1. receita de cada dia de referência (média por tipo das 5 últimas apurações; fees todos os
+ *  1. receita de cada dia de referência (média por tipo das 3 últimas apurações; fees todos os
  *     dias, SPI e CCME só em dia útil), do dia seguinte à última referência lançada até o fim do mês;
  *  2. data em que cada uma cai na conta: o primeiro dia útil seguinte à referência — sexta, sábado
  *     e domingo caem juntas na segunda.

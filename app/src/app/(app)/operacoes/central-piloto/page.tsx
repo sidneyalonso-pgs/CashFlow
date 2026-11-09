@@ -50,7 +50,7 @@ export default async function CentralPilotoPage({
   const existingByDate = new Map((existingRows ?? []).map((r: any) => [r.data, r]));
   const bancoPadraoId = ultimas[0]?.bankAccountId ?? null;
 
-  // projeção (média por tipo das 5 últimas apurações): do mês corrente até o horizonte, nos meses do filtro
+  // projeção (média por tipo das 3 últimas apurações): do mês corrente até o horizonte, nos meses do filtro
   const refProjecao = hoje >= dateFrom && hoje <= dateTo ? hoje : dateTo;
   const plano = await planejarProjecao(supabase, company.id, refProjecao, hoje);
   const projecaoPorReferencia = new Map((plano?.dias ?? []).map((p) => [p.referencia, p]));
@@ -155,7 +155,7 @@ export default async function CentralPilotoPage({
         <strong>data de referência</strong> (última coluna) é o dia a que aquela receita se refere, usada na DRE. Ao salvar, o sistema soma
         as seis colunas no <strong>Total apurado</strong> e mantém{" "}
         <strong>uma receita única por data de apuração e banco</strong> (a soma de todas as referências que caíram juntas), que casa com o
-        crédito do extrato. As linhas em cinza são a <strong>projeção</strong> do restante do mês: média por tipo das 5 últimas apurações
+        crédito do extrato. As linhas em cinza são a <strong>projeção</strong> do restante do mês: média por tipo das 3 últimas apurações
         (fees todos os dias; SPI e CCME só em dia útil), caindo no primeiro dia útil seguinte e recalculada a cada lançamento. A receita
         lançada por aqui só pode ser alterada aqui; datas futuras não podem ser lançadas.
       </p>
