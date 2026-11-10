@@ -600,7 +600,7 @@ export function EmitirFaturaForm({
                       <tr className="bg-ps-bg-2 text-ps-muted border-b border-ps-navy/5">
                         <th className="text-left px-3 py-2 font-semibold">Conta</th>
                         <th className="text-right px-2 py-2 font-semibold w-36">Fee (R$)</th>
-                        <th className="text-right px-2 py-2 font-semibold w-36">Qtd. transações</th>
+                        {fpCustoTx > 0 && <th className="text-right px-2 py-2 font-semibold w-36">Qtd. transações</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -608,7 +608,7 @@ export function EmitirFaturaForm({
                         <tr key={c.id} className={`border-b border-ps-navy/5 ${i % 2 === 1 ? "bg-ps-bg-2/40" : ""}`}>
                           <td className="px-3 py-1.5"><span className="font-medium text-ps-ink">{c.razao}</span> <span className="text-ps-muted">· {c.num_conta}</span></td>
                           <td className="px-2 py-1.5"><input type="number" min="0" step="any" value={fpRows[c.id]?.fee ?? 0} onChange={e => setFpRows(r => ({ ...r, [c.id]: { fee: Number(e.target.value), qtd: r[c.id]?.qtd ?? 0 } }))} className={inputCls + " text-right"} /></td>
-                          <td className="px-2 py-1.5"><input type="number" min="0" step="1" value={fpRows[c.id]?.qtd ?? 0} onChange={e => setFpRows(r => ({ ...r, [c.id]: { fee: r[c.id]?.fee ?? 0, qtd: Number(e.target.value) } }))} className={inputCls + " text-right"} /></td>
+                          {fpCustoTx > 0 && <td className="px-2 py-1.5"><input type="number" min="0" step="1" value={fpRows[c.id]?.qtd ?? 0} onChange={e => setFpRows(r => ({ ...r, [c.id]: { fee: r[c.id]?.fee ?? 0, qtd: Number(e.target.value) } }))} className={inputCls + " text-right"} /></td>}
                         </tr>
                       ))}
                     </tbody>
@@ -616,7 +616,7 @@ export function EmitirFaturaForm({
                       <tr className="font-semibold text-ps-ink">
                         <td className="px-3 py-2">Total</td>
                         <td className="px-2 py-2 text-right tabular-nums">{fmt(fpFee)}</td>
-                        <td className="px-2 py-2 text-right tabular-nums">{fpQtd.toLocaleString("pt-BR")}</td>
+                        {fpCustoTx > 0 && <td className="px-2 py-2 text-right tabular-nums">{fpQtd.toLocaleString("pt-BR")}</td>}
                       </tr>
                     </tfoot>
                   </table>
