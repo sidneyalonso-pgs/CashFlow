@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LoginForm } from "./LoginForm";
-import { LoginBackground } from "./LoginBackground";
+import { LoginBackground, ParticleLogo } from "./LoginBackground";
 
 export default async function LoginPage() {
   const supabase = createClient();
@@ -40,20 +40,42 @@ export default async function LoginPage() {
   }
 
   return (
-    <div className="login-page px-4 py-10">
+    <div className="login-page">
       <LoginBackground />
 
-      <div className="relative w-full max-w-[420px] bg-white/95 backdrop-blur-sm rounded-ps-lg shadow-ps border border-white/60 p-8 sm:p-10">
-        <img
-          src="/logos/pagsmile-logo-navy.png"
-          alt="PagSmile"
-          className="login-logo-in h-8 mb-7"
-        />
-        <h1 className="text-2xl font-bold text-ps-ink mb-1 tracking-tight">Treasury</h1>
-        <p className="text-sm text-ps-muted mb-7">Gestão de caixa, pagamentos e conciliação</p>
+      <header className="login-topbar">
+        <img src="/logos/pagsmile-logo-transparent.png" alt="PagSmile" className="login-logo-in h-7" />
+        <span className="login-topbar-tag">Treasury</span>
+      </header>
 
-        <LoginForm initialStep={initialStep} initialEnroll={initialEnroll} />
-      </div>
+      <main className="login-layout">
+        <section className="login-hero">
+          <ParticleLogo />
+          <div className="login-hero-copy">
+            <p className="login-hero-title">
+              Caixa sob <span>controle</span>.
+            </p>
+            <p className="login-hero-sub">Gestão de caixa, pagamentos e conciliação da PagSmile</p>
+          </div>
+        </section>
+
+        <section className="login-panel">
+          <p className="login-eyebrow">
+            <i /> Treasury
+          </p>
+          <h1 className="login-title">Entrar</h1>
+          <p className="login-lead">Use suas credenciais para acessar o Treasury.</p>
+
+          <LoginForm initialStep={initialStep} initialEnroll={initialEnroll} />
+
+          <p className="login-foot">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+              <path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.500 7-10V6l-7-3Z" />
+            </svg>
+            Acesso restrito PagSmile
+          </p>
+        </section>
+      </main>
     </div>
   );
 }

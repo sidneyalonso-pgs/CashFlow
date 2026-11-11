@@ -45,7 +45,7 @@ function Spinner() {
 
 function FieldShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="login-input flex items-center gap-2.5 rounded-ps-sm border border-ps-navy/10 bg-ps-navy-50/60 px-3.5 h-[50px]">
+    <div className="login-input flex items-center gap-2.5 rounded-ps-sm border border-white/12 bg-white/[0.04] px-3.5 h-[46px] text-white">
       {children}
     </div>
   );
@@ -56,7 +56,7 @@ function SubmitButton({ loading, children }: { loading: boolean; children: React
     <button
       type="submit"
       disabled={loading}
-      className="login-button w-full flex items-center justify-center gap-2 text-white font-semibold rounded-ps-sm h-[50px] text-sm"
+      className="login-button w-full flex items-center justify-center gap-2 text-[#00263f] font-bold rounded-full h-[46px] text-sm"
     >
       {loading && <Spinner />}
       {children}
@@ -164,18 +164,18 @@ export function LoginForm({
     return (
       <div className={cardClass}>
         <form onSubmit={handleEnrollSubmit} className="space-y-4" aria-label="Configurar autenticação em duas etapas">
-          <p className="text-sm text-ps-ink-2">
+          <p className="text-sm text-white/70">
             Primeiro acesso: configure a autenticação em duas etapas. Escaneie o QR code com um aplicativo autenticador
             (Google Authenticator, Authy, etc.).
           </p>
-          <div className="flex justify-center bg-white p-3 border border-ps-navy/10 rounded-ps-sm">
+          <div className="flex justify-center bg-white p-3 rounded-ps-sm">
             <img src={enrollData.qrCode} alt="QR code para configurar autenticação em duas etapas" className="w-40 h-40" />
           </div>
-          <p className="text-xs text-ps-muted text-center break-all">
+          <p className="text-xs text-white/50 text-center break-all">
             Não consegue escanear? Digite manualmente: <span className="font-mono">{enrollData.secret}</span>
           </p>
           <div>
-            <label htmlFor="mfa-enroll-code" className="block text-sm text-ps-ink-2 mb-1.5">
+            <label htmlFor="mfa-enroll-code" className="block text-xs font-semibold text-white/80 mb-1.5">
               Código de verificação
             </label>
             <FieldShell>
@@ -188,13 +188,13 @@ export function LoginForm({
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="000000"
-                className="w-full bg-transparent text-sm tracking-[0.3em] outline-none placeholder:tracking-normal placeholder:text-ps-muted-2"
+                className="w-full bg-transparent text-sm tracking-[0.3em] outline-none placeholder:tracking-normal placeholder:text-white/30"
               />
             </FieldShell>
           </div>
 
           {error && (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-red-300">
               {error}
             </p>
           )}
@@ -210,7 +210,7 @@ export function LoginForm({
       <div className={cardClass}>
         <form onSubmit={handleChallengeSubmit} className="space-y-4" aria-label="Verificação em duas etapas">
           <div>
-            <label htmlFor="mfa-code" className="block text-sm text-ps-ink-2 mb-1.5">
+            <label htmlFor="mfa-code" className="block text-xs font-semibold text-white/80 mb-1.5">
               Código de autenticação
             </label>
             <FieldShell>
@@ -223,14 +223,14 @@ export function LoginForm({
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="000000"
-                className="w-full bg-transparent text-sm tracking-[0.3em] outline-none placeholder:tracking-normal placeholder:text-ps-muted-2"
+                className="w-full bg-transparent text-sm tracking-[0.3em] outline-none placeholder:tracking-normal placeholder:text-white/30"
               />
             </FieldShell>
-            <p className="text-xs text-ps-muted mt-1.5">Digite o código do seu aplicativo autenticador.</p>
+            <p className="text-xs text-white/50 mt-1.5">Digite o código do seu aplicativo autenticador.</p>
           </div>
 
           {error && (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-red-300">
               {error}
             </p>
           )}
@@ -245,11 +245,11 @@ export function LoginForm({
     <div className={cardClass}>
       <form onSubmit={handlePasswordSubmit} className="space-y-4" aria-label="Entrar">
         <div>
-          <label htmlFor="email" className="block text-sm text-ps-ink-2 mb-1.5">
+          <label htmlFor="email" className="block text-xs font-semibold text-white/80 mb-1.5">
             E-mail
           </label>
           <FieldShell>
-            <span className="text-ps-muted-2" aria-hidden="true">
+            <span className="text-white/45" aria-hidden="true">
               <MailIcon />
             </span>
             <input
@@ -259,16 +259,16 @@ export function LoginForm({
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-transparent text-sm outline-none"
+              className="w-full bg-transparent text-sm text-white outline-none"
             />
           </FieldShell>
         </div>
         <div>
-          <label htmlFor="password" className="block text-sm text-ps-ink-2 mb-1.5">
+          <label htmlFor="password" className="block text-xs font-semibold text-white/80 mb-1.5">
             Senha
           </label>
           <FieldShell>
-            <span className="text-ps-muted-2" aria-hidden="true">
+            <span className="text-white/45" aria-hidden="true">
               <LockIcon />
             </span>
             <input
@@ -278,13 +278,13 @@ export function LoginForm({
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-transparent text-sm outline-none"
+              className="w-full bg-transparent text-sm text-white outline-none"
             />
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-              className="text-ps-muted-2 hover:text-ps-ink-2 transition-colors shrink-0"
+              className="text-white/45 hover:text-white transition-colors shrink-0"
             >
               <EyeIcon off={showPassword} />
             </button>
@@ -292,7 +292,7 @@ export function LoginForm({
         </div>
 
         {error && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-red-300">
             {error}
           </p>
         )}
