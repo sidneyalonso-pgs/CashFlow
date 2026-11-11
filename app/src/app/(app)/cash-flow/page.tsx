@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
+import { InfoTip } from "@/components/InfoTip";
 import { ResumoCard } from "./ResumoCard";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 import { formatBRL, sumMoney } from "@/lib/calculations/money";
@@ -318,11 +319,20 @@ export default async function CashFlowPage({
   }));
   const yearOptions = Array.from({ length: 5 }, (_, i) => today.getFullYear() - 2 + i);
 
+  // colunas sem nenhum movimento no período inteiro ficam ocultas (menos ruído na tabela)
+  const mostraInTransf = !somaCol("inTransf").isZero();
+  const mostraResgates = !somaCol("inResgates").isZero();
+  const mostraOutTransf = !somaCol("outTransf").isZero();
+  const mostraAplic = !somaCol("outAplic").isZero();
+  const colsEntradas = 3 + (mostraInTransf ? 1 : 0) + (mostraResgates ? 1 : 0); // receitas, a receber, total
+  const colsSaidas = 3 + (mostraOutTransf ? 1 : 0) + (mostraAplic ? 1 : 0); // despesas, a pagar, total
+  // a linha divisória das saídas fica na primeira coluna visível do grupo
+  const bordaSaidas = "border-l border-ps-navy/10";
+
   return (
     <div>
       <PageHeader
         title="Cash Flow"
-        subtitle="Resumo executivo e evolução do saldo de caixa"
         actions={
           <div className="flex gap-2">
             <Link
@@ -397,19 +407,36 @@ export default async function CashFlowPage({
       </div>
 
       {(!totalProvInflows.isZero() || !totalProvOutflows.isZero()) && (
-        <p className="text-xs text-ps-muted mb-6">
-          No período ainda há{" "}
-          <strong className="text-amber-700">{formatBRL(totalProvInflows)} a receber</strong> e{" "}
-          <strong className="text-amber-700">{formatBRL(totalProvOutflows)} a pagar</strong> —{" "}
-          {projetado
-            ? "já somados no saldo projetado."
-            : "fora do saldo acima, que mostra só o realizado. Troque para “Saldo projetado” para incluí-los."}
+        <p className="flex items-center flex-wrap gap-x-4 gap-y-1 text-sm text-ps-muted mb-6">
+          <span>
+            A receber <strong className="text-amber-700 tabular-nums">{formatBRL(totalProvInflows)}</strong>
+          </span>
+          <span>
+            A pagar <strong className="text-amber-700 tabular-nums">{formatBRL(totalProvOutflows)}</strong>
+          </span>
+          <InfoTip label="Sobre os valores a receber e a pagar">
+            {projetado
+              ? "Valores provisionados do período, já somados no saldo projetado."
+              : "Valores provisionados do período, fora do saldo acima (que mostra só o realizado). Troque para “Saldo projetado” para incluí-los."}
+          </InfoTip>
         </p>
       )}
 
       <div className="flex items-center gap-3 mb-2">
-        <h3 className="font-semibold text-ps-ink">
+        <h3 className="font-semibold text-ps-ink flex items-center gap-2">
           Evolução do Saldo — {granularity === "semana" ? "Semanal" : granularity === "mes" ? "Mensal" : "Trimestral"}
+          <InfoTip label="Como ler esta tabela">
+            {icMovimentos > 0 && (
+              <>
+                {icMovimentos} movimento{icMovimentos > 1 ? "s" : ""} entre empresas do grupo aparece{icMovimentos > 1 ? "m" : ""} nas
+                transferências, receitas e despesas dos dois lados, com o mesmo valor — então o saldo não muda.{" "}
+                <Link href="/conciliacao/intercompany" className="text-ps-navy underline">Ver vínculos</Link>.{" "}
+              </>
+            )}
+            Saldo inicial = saldo cadastrado nas contas + entradas e saídas realizadas até o dia anterior ao período.
+            Entradas e Saídas são o que já foi baixado; “A receber” e “A pagar” são provisões do intervalo e só entram no
+            saldo em “Saldo projetado”. Resgates e Aplicações movimentam a conta corrente. Colunas sem movimento no período ficam ocultas.
+          </InfoTip>
         </h3>
         {projetado && (
           <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 rounded px-2 py-0.5">
@@ -422,20 +449,20 @@ export default async function CashFlowPage({
           <thead className="text-ps-muted text-xs uppercase tracking-wide">
             <tr className="text-[11px] font-semibold tracking-[0.12em]">
               <th className="px-4 py-2" />
-              <th colSpan={5} className="px-4 py-2 text-center bg-emerald-50 text-emerald-800">Entradas</th>
-              <th colSpan={5} className="px-4 py-2 text-center bg-red-50 text-red-800 border-l border-ps-navy/10">Saídas</th>
+              <th colSpan={colsEntradas} className="px-4 py-2 text-center bg-emerald-50 text-emerald-800">Entradas</th>
+              <th colSpan={colsSaidas} className="px-4 py-2 text-center bg-red-50 text-red-800 border-l border-ps-navy/10">Saídas</th>
               <th colSpan={2} className="px-4 py-2 text-center bg-ps-navy-50 text-ps-navy border-l border-ps-navy/10">Saldo</th>
             </tr>
             <tr className="bg-ps-bg-2">
               <th className="text-left px-4 py-3">Período</th>
-              <th className="text-right px-3 py-3">Transf. recebidas</th>
+              {mostraInTransf && <th className="text-right px-3 py-3">Transf. recebidas</th>}
               <th className="text-right px-3 py-3">Receitas</th>
-              <th className="text-right px-3 py-3">Resgates</th>
+              {mostraResgates && <th className="text-right px-3 py-3">Resgates</th>}
               <th className="text-right px-3 py-3 text-amber-700">A receber</th>
               <th className="text-right px-3 py-3">Total</th>
-              <th className="text-right px-3 py-3 border-l border-ps-navy/10">Transf. enviadas</th>
-              <th className="text-right px-3 py-3">Despesas</th>
-              <th className="text-right px-3 py-3">Aplicações</th>
+              {mostraOutTransf && <th className="text-right px-3 py-3 border-l border-ps-navy/10">Transf. enviadas</th>}
+              <th className={`text-right px-3 py-3 ${mostraOutTransf ? "" : bordaSaidas}`}>Despesas</th>
+              {mostraAplic && <th className="text-right px-3 py-3">Aplicações</th>}
               <th className="text-right px-3 py-3 text-amber-700">A pagar</th>
               <th className="text-right px-3 py-3">Total</th>
               <th className="text-right px-3 py-3 border-l border-ps-navy/10">{projetado ? "Saldo C/C projetado" : "Saldo C/C"}</th>
@@ -445,8 +472,8 @@ export default async function CashFlowPage({
           <tbody>
             <tr className="border-t border-ps-navy/5 bg-ps-bg-2/40">
               <td className="px-4 py-3 font-medium text-ps-ink">Saldo Inicial ({formatShort(rangeStart)})</td>
-              {Array.from({ length: 10 }).map((_, i) => (
-                <td key={i} className={`px-3 py-3 text-right text-ps-muted ${i === 5 ? "border-l border-ps-navy/10" : ""}`}>—</td>
+              {Array.from({ length: colsEntradas + colsSaidas }).map((_, i) => (
+                <td key={i} className={`px-3 py-3 text-right text-ps-muted ${i === colsEntradas ? bordaSaidas : ""}`}>—</td>
               ))}
               <td className="px-3 py-3 text-right tabular-nums font-semibold border-l border-ps-navy/10">{formatBRL(openingBalance)}</td>
               <td className="px-3 py-3 text-right tabular-nums font-semibold text-ps-navy/70">{formatBRL(openingBalance.toNumber() + openingInvBalance)}</td>
@@ -463,14 +490,14 @@ export default async function CashFlowPage({
                       {row.label}
                     </Link>
                   </td>
-                  <td className="px-3 py-3 text-right tabular-nums text-ps-green-700">{valor(row.inTransf)}</td>
+                  {mostraInTransf && <td className="px-3 py-3 text-right tabular-nums text-ps-green-700">{valor(row.inTransf)}</td>}
                   <td className="px-3 py-3 text-right tabular-nums text-ps-green-700">{valor(row.inReceitas)}</td>
-                  <td className="px-3 py-3 text-right tabular-nums text-ps-green-700">{valor(row.inResgates)}</td>
+                  {mostraResgates && <td className="px-3 py-3 text-right tabular-nums text-ps-green-700">{valor(row.inResgates)}</td>}
                   <td className="px-3 py-3 text-right tabular-nums text-amber-700">{valor(row.provInflows)}</td>
                   <td className="px-3 py-3 text-right tabular-nums font-semibold text-ps-green-700">{formatBRL(row.inflows)}</td>
-                  <td className="px-3 py-3 text-right tabular-nums text-red-600 border-l border-ps-navy/10">{valor(row.outTransf)}</td>
-                  <td className="px-3 py-3 text-right tabular-nums text-red-600">{valor(row.outDespesas)}</td>
-                  <td className="px-3 py-3 text-right tabular-nums text-red-600">{valor(row.outAplic)}</td>
+                  {mostraOutTransf && <td className="px-3 py-3 text-right tabular-nums text-red-600 border-l border-ps-navy/10">{valor(row.outTransf)}</td>}
+                  <td className={`px-3 py-3 text-right tabular-nums text-red-600 ${mostraOutTransf ? "" : bordaSaidas}`}>{valor(row.outDespesas)}</td>
+                  {mostraAplic && <td className="px-3 py-3 text-right tabular-nums text-red-600">{valor(row.outAplic)}</td>}
                   <td className="px-3 py-3 text-right tabular-nums text-amber-700">{valor(row.provOutflows)}</td>
                   <td className="px-3 py-3 text-right tabular-nums font-semibold text-red-600">{formatBRL(row.outflows)}</td>
                   <td className={`px-3 py-3 text-right tabular-nums font-semibold border-l border-ps-navy/10 ${row.balance.isNegative() ? "text-red-600" : ""}`}>
@@ -484,14 +511,14 @@ export default async function CashFlowPage({
             })}
             <tr className="border-t-2 border-ps-navy/15 bg-ps-bg-2/60 font-semibold">
               <td className="px-4 py-3 text-ps-ink">Total do período</td>
-              <td className="px-3 py-3 text-right tabular-nums text-ps-green-700">{valor(somaCol("inTransf"))}</td>
+              {mostraInTransf && <td className="px-3 py-3 text-right tabular-nums text-ps-green-700">{valor(somaCol("inTransf"))}</td>}
               <td className="px-3 py-3 text-right tabular-nums text-ps-green-700">{valor(somaCol("inReceitas"))}</td>
-              <td className="px-3 py-3 text-right tabular-nums text-ps-green-700">{valor(somaCol("inResgates"))}</td>
+              {mostraResgates && <td className="px-3 py-3 text-right tabular-nums text-ps-green-700">{valor(somaCol("inResgates"))}</td>}
               <td className="px-3 py-3 text-right tabular-nums text-amber-700">{valor(totalProvInflows)}</td>
               <td className="px-3 py-3 text-right tabular-nums text-ps-green-700">{formatBRL(totalInflows)}</td>
-              <td className="px-3 py-3 text-right tabular-nums text-red-600 border-l border-ps-navy/10">{valor(somaCol("outTransf"))}</td>
-              <td className="px-3 py-3 text-right tabular-nums text-red-600">{valor(somaCol("outDespesas"))}</td>
-              <td className="px-3 py-3 text-right tabular-nums text-red-600">{valor(somaCol("outAplic"))}</td>
+              {mostraOutTransf && <td className="px-3 py-3 text-right tabular-nums text-red-600 border-l border-ps-navy/10">{valor(somaCol("outTransf"))}</td>}
+              <td className={`px-3 py-3 text-right tabular-nums text-red-600 ${mostraOutTransf ? "" : bordaSaidas}`}>{valor(somaCol("outDespesas"))}</td>
+              {mostraAplic && <td className="px-3 py-3 text-right tabular-nums text-red-600">{valor(somaCol("outAplic"))}</td>}
               <td className="px-3 py-3 text-right tabular-nums text-amber-700">{valor(totalProvOutflows)}</td>
               <td className="px-3 py-3 text-right tabular-nums text-red-600">{formatBRL(totalOutflows)}</td>
               <td className="px-3 py-3 text-right tabular-nums border-l border-ps-navy/10">{formatBRL(closingBalance)}</td>
@@ -500,21 +527,6 @@ export default async function CashFlowPage({
           </tbody>
         </table>
       </div>
-
-      <p className="text-xs text-ps-muted mt-4">
-        {icMovimentos > 0 && (
-          <>
-            {icMovimentos} movimento{icMovimentos > 1 ? "s" : ""} entre empresas do grupo aparece{icMovimentos > 1 ? "m" : ""} nas
-            transferências, receitas e despesas dos dois lados, com o mesmo valor — então o saldo não muda.{" "}
-            <Link href="/conciliacao/intercompany" className="text-ps-navy underline">Ver vínculos</Link>.{" "}
-          </>
-        )}
-        Saldo inicial do período = saldo cadastrado nas contas bancárias + todas as entradas e saídas realizadas
-        até o dia anterior ao início do período selecionado. Resgates e Aplicações são os movimentos de investimento que
-        creditam ou debitam a conta corrente. Entradas e Saídas são o que já foi baixado;
-        “A receber” e “A pagar” são as provisões com vencimento naquele intervalo e aparecem sempre, mas só
-        entram no saldo quando o filtro está em “Provisionados” ou “Ambos”.
-      </p>
 
     </div>
   );

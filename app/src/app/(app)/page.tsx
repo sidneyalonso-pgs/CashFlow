@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatBRL } from "@/lib/calculations/money";
 import { buildCapacity, type CompanyCapacity } from "@/lib/calculations/executiveCash";
 import { DecisionSimulator } from "./DecisionSimulator";
+import { InfoTip } from "@/components/InfoTip";
 
 /** Compacto na camada executiva; a tabela mostra o valor cheio. */
 function compacto(v: number) {
@@ -147,7 +148,6 @@ export default async function PosicaoExecutivaPage({
             <h1 className="mt-1 text-2xl font-light tracking-tight text-white print:text-ps-ink">
               Posição Executiva de <span className="text-ps-mint font-medium print:text-ps-ink">Recursos</span>
             </h1>
-            <p className="mt-1 text-sm text-white/70 print:text-ps-muted">Capacidade financeira atual e suporte à tomada de decisão</p>
           </div>
         </div>
         <div className="h-4 bg-ps-bg rounded-tl-[24px] print:hidden" />
@@ -168,13 +168,7 @@ export default async function PosicaoExecutivaPage({
         </select>
         <button className="text-sm text-ps-navy underline" type="submit">Filtrar</button>
       </form>
-      <div className="text-right text-[11px] font-mono uppercase tracking-wider text-ps-muted-2 leading-relaxed">
-        <p className="font-sans text-sm font-semibold normal-case tracking-normal text-ps-muted">
-          {companyId ? empresas[0]?.trade_name || empresas[0]?.legal_name : "Consolidado — todas as empresas"}
-        </p>
-        <p>Posição em {dataBR(hoje)}</p>
-        <p>Compromissos {horizonte.label} (até {dataBR(horizonEnd)})</p>
-      </div>
+      <p className="text-right text-xs font-mono uppercase tracking-wider text-ps-muted">Posição em {dataBR(hoje)}</p>
       </div>
 
       {/* KPIs */}
@@ -193,16 +187,28 @@ export default async function PosicaoExecutivaPage({
       </div>
 
       {g.reserva == null && (
-        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-ps-sm px-4 py-2.5">
-          <strong>Reserva operacional não cadastrada.</strong> A capacidade acima é a disponibilidade menos os
-          compromissos, sem descontar reserva nenhuma — ou seja, está superestimada. O cálculo já prevê o campo;
-          basta definir o valor mínimo de cada empresa para ele passar a ser descontado.
+        <p className="inline-flex items-center gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-4 py-1.5">
+          <strong className="font-semibold">Reserva operacional não cadastrada</strong>
+          <InfoTip label="Entenda o aviso de reserva">
+            A capacidade é a disponibilidade menos os compromissos, sem descontar reserva — por isso está
+            superestimada. Defina o valor mínimo de cada empresa em Cadastros › Empresas para ele passar a ser descontado.
+          </InfoTip>
         </p>
       )}
 
       {/* posição por empresa */}
       <div>
-        <h2 className="font-semibold text-ps-ink mb-2">Posição por empresa</h2>
+        <h2 className="font-semibold text-ps-ink mb-2 flex items-center gap-2">
+          Posição por empresa
+          <InfoTip label="Como ler esta tabela">
+            Caixa é saldo em conta e nunca inclui investimento. Capacidade = disponibilidade − compromissos − reserva.
+            Recurso em uma empresa não está automaticamente disponível para outra.
+            {intercompanyIdentificavel > 0
+              ? ` No consolidado, transferência entre contas do próprio grupo se anula (${intercompanyIdentificavel} lançamento identificável).`
+              : ""}
+            {!diferencaReconciliacao.isZero() && ` Atenção: a soma das empresas difere do consolidado em ${formatBRL(diferencaReconciliacao)}.`}
+          </InfoTip>
+        </h2>
         <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 overflow-hidden overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-ps-bg-2 text-ps-muted text-[10px] uppercase tracking-wider font-mono">
@@ -242,7 +248,8 @@ export default async function PosicaoExecutivaPage({
             )}
           </table>
         </div>
-        <p className="text-[11px] text-ps-muted mt-2">
+        {/* o ⓘ some na impressão; aqui a mesma nota fica visível só no papel */}
+        <p className="hidden print:block text-[11px] text-ps-muted mt-2">
           Caixa é saldo em conta e nunca inclui investimento. Capacidade = disponibilidade − compromissos − reserva.
           Recurso em uma empresa não está automaticamente disponível para outra.
           {intercompanyIdentificavel > 0

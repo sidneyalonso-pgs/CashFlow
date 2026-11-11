@@ -8,6 +8,7 @@ import { InlineDueDateEdit } from "./InlineDueDateEdit";
 import { InlineBankAccountEdit } from "./InlineBankAccountEdit";
 import { PaymentRowActions } from "./PaymentRowActions";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
+import { Pagination, parsePage, pageRange } from "@/components/Pagination";
 
 function getDisplayStatus(status: string, dueDate: string | null, today: string): string {
   if (status === "pago" || status === "cancelado") return status;
@@ -31,7 +32,8 @@ function SortLink({
   const isActive = currentSort === field;
   const nextDir = isActive && currentDir === "desc" ? "asc" : "desc";
   const params = new URLSearchParams();
-  Object.entries(searchParams).forEach(([k, v]) => { if (v && k !== "sort_by" && k !== "sort_dir") params.set(k, v); });
+  // trocar a ordenação volta para a página 1
+  Object.entries(searchParams).forEach(([k, v]) => { if (v && k !== "sort_by" && k !== "sort_dir" && k !== "page") params.set(k, v); });
   params.set("sort_by", field);
   params.set("sort_dir", nextDir);
 
@@ -56,19 +58,24 @@ export default async function PaymentsPage({
     date_to?: string;
     sort_by?: string;
     sort_dir?: string;
+    page?: string;
   };
 }) {
   const supabase = createClient();
   const today = new Date().toISOString().split("T")[0];
+  const page = parsePage(searchParams.page);
+  const [rangeFrom, rangeTo] = pageRange(page);
 
   const sortBy = searchParams.sort_by === "gross_amount" ? "gross_amount" : searchParams.sort_by === "supplier" ? "supplier_id" : "due_date";
   const sortDir = searchParams.sort_dir === "asc";
 
   let query = supabase
     .from("payments")
-    .select("id, description, gross_amount, due_date, status, paying_bank_account_id, companies(legal_name, trade_name), suppliers(legal_name), bank_accounts:paying_bank_account_id(nickname, bank_name)")
+    .select("id, description, gross_amount, due_date, status, paying_bank_account_id, companies(legal_name, trade_name), suppliers(legal_name), bank_accounts:paying_bank_account_id(nickname, bank_name)", { count: "exact" })
     .is("deleted_at", null)
-    .order(sortBy, { ascending: sortDir });
+    // desempate por id: sem ele, linhas com a mesma data podem repetir ou sumir entre páginas
+    .order(sortBy, { ascending: sortDir })
+    .order("id", { ascending: true });
 
   if (searchParams.company_id) query = query.eq("company_id", searchParams.company_id);
   if (searchParams.supplier_id) query = query.eq("supplier_id", searchParams.supplier_id);
@@ -87,8 +94,8 @@ export default async function PaymentsPage({
   if (searchParams.date_from) query = query.gte("due_date", searchParams.date_from);
   if (searchParams.date_to) query = query.lte("due_date", searchParams.date_to);
 
-  const [{ data: payments }, { data: companies }, { data: suppliers }, { data: bankAccounts }] = await Promise.all([
-    query,
+  const [{ data: payments, count: totalCount }, { data: companies }, { data: suppliers }, { data: bankAccounts }] = await Promise.all([
+    query.range(rangeFrom, rangeTo),
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
     supabase.from("suppliers").select("id, legal_name").eq("status", "ativo").order("legal_name"),
     supabase.from("bank_accounts").select("id, nickname, bank_name").order("nickname"),
@@ -111,7 +118,6 @@ export default async function PaymentsPage({
     <div>
       <PageHeader
         title="Pagamentos"
-        subtitle="Lance pagamentos avulsos ou gerencie os pagamentos recorrentes"
         actions={
           <div className="flex gap-2">
             <Link
@@ -269,6 +275,8 @@ export default async function PaymentsPage({
           </tbody>
         </table>
       </div>
+
+      <Pagination page={page} total={totalCount ?? rows.length} searchParams={sp} noun="pagamentos" />
     </div>
   );
 }

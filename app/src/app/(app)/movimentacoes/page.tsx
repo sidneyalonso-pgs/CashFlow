@@ -6,21 +6,27 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { DataTable } from "@/components/DataTable";
 import { formatBRL } from "@/lib/calculations/money";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
+import { Pagination, parsePage, pageRange } from "@/components/Pagination";
 
 export default async function MovementsPage({
   searchParams,
 }: {
-  searchParams: { company_id?: string; from?: string; to?: string };
+  searchParams: { company_id?: string; from?: string; to?: string; page?: string };
 }) {
   const supabase = createClient();
+  const page = parsePage(searchParams.page);
+  const [rangeFrom, rangeTo] = pageRange(page);
 
   let payQuery = supabase
     .from("payments")
     .select(
-      "id, description, gross_amount, paid_amount, due_date, effective_payment_date, status, reconciliation_status, companies(legal_name, trade_name), suppliers(legal_name), categories(name)"
+      "id, description, gross_amount, paid_amount, due_date, effective_payment_date, status, reconciliation_status, companies(legal_name, trade_name), suppliers(legal_name), categories(name)",
+      { count: "exact" }
     )
     .is("deleted_at", null)
-    .order("due_date", { ascending: false });
+    // desempate por id: sem ele, linhas com a mesma data podem repetir ou sumir entre páginas
+    .order("due_date", { ascending: false })
+    .order("id", { ascending: true });
 
   let invQuery = supabase
     .from("investments")
@@ -40,8 +46,8 @@ export default async function MovementsPage({
     invQuery = invQuery.lte("applied_date", searchParams.to);
   }
 
-  const [{ data: movements }, { data: investments }, { data: companies }] = await Promise.all([
-    payQuery,
+  const [{ data: movements, count: totalCount }, { data: investments }, { data: companies }] = await Promise.all([
+    payQuery.range(rangeFrom, rangeTo),
     invQuery,
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
   ]);
@@ -50,7 +56,6 @@ export default async function MovementsPage({
     <div>
       <PageHeader
         title="Extrato geral"
-        subtitle="Consulta consolidada de pagamentos (saídas) previstos e realizados"
       />
 
       <AutoSubmitForm className="flex flex-wrap gap-3 mb-4">
@@ -118,6 +123,8 @@ export default async function MovementsPage({
           },
         ]}
       />
+
+      <Pagination page={page} total={totalCount ?? (movements ?? []).length} searchParams={searchParams as Record<string, string | undefined>} noun="pagamentos" />
 
       {/* Investimentos */}
       {(investments ?? []).length > 0 && (

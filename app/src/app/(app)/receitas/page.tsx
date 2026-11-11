@@ -10,13 +10,14 @@ import { EditRevenueButton } from "./EditRevenueButton";
 import { RevenueRowActions } from "./RevenueRowActions";
 import { InlineRevenueBankAccountEdit } from "./InlineRevenueBankAccountEdit";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
+import { Pagination, parsePage, pageRange } from "@/components/Pagination";
 
 function SortLink({ label, field, currentSort, currentDir, searchParams }: any) {
   const isActive = currentSort === field;
   const nextDir = isActive && currentDir === "desc" ? "asc" : "desc";
   const params = new URLSearchParams();
   Object.entries(searchParams).forEach(([k, v]: any) => {
-    if (v && k !== "sort_by" && k !== "sort_dir") params.set(k, v as string);
+    if (v && k !== "sort_by" && k !== "sort_dir" && k !== "page") params.set(k, v as string);
   });
   params.set("sort_by", field);
   params.set("sort_dir", nextDir);
@@ -41,9 +42,12 @@ export default async function RevenuesPage({
     date_to?: string;
     sort_by?: string;
     sort_dir?: string;
+    page?: string;
   };
 }) {
   const supabase = createClient();
+  const page = parsePage(searchParams.page);
+  const [rangeFrom, rangeTo] = pageRange(page);
 
   const sortBy = searchParams.sort_by === "amount" ? "expected_amount"
     : searchParams.sort_by === "category" ? "category_id"
@@ -52,9 +56,11 @@ export default async function RevenuesPage({
 
   let query = supabase
     .from("revenues")
-    .select("id, description, category_id, expected_amount, realized_amount, expected_date, realized_date, status, notes, origem, receiving_bank_account_id, companies(legal_name, trade_name), categories(name), bank_accounts:receiving_bank_account_id(nickname, bank_name)")
+    .select("id, description, category_id, expected_amount, realized_amount, expected_date, realized_date, status, notes, origem, receiving_bank_account_id, companies(legal_name, trade_name), categories(name), bank_accounts:receiving_bank_account_id(nickname, bank_name)", { count: "exact" })
     .is("deleted_at", null)
-    .order(sortBy, { ascending: sortAsc });
+    // desempate por id: sem ele, linhas com a mesma data podem repetir ou sumir entre páginas
+    .order(sortBy, { ascending: sortAsc })
+    .order("id", { ascending: true });
 
   if (searchParams.company_id) query = query.eq("company_id", searchParams.company_id);
   if (searchParams.category_id) query = query.eq("category_id", searchParams.category_id);
@@ -62,8 +68,8 @@ export default async function RevenuesPage({
   if (searchParams.date_from) query = query.gte("expected_date", searchParams.date_from);
   if (searchParams.date_to) query = query.lte("expected_date", searchParams.date_to);
 
-  const [{ data: revenues }, { data: bankAccounts }, { data: categories }, { data: companies }] = await Promise.all([
-    query,
+  const [{ data: revenues, count: totalCount }, { data: bankAccounts }, { data: categories }, { data: companies }] = await Promise.all([
+    query.range(rangeFrom, rangeTo),
     supabase.from("bank_accounts").select("id, bank_name, nickname").order("bank_name"),
     supabase.from("categories").select("id, name").in("allowed_direction", ["entrada", "ambas"]).neq("status", "inativo").order("name"),
     supabase.from("companies").select("id, legal_name, trade_name").order("legal_name"),
@@ -80,7 +86,6 @@ export default async function RevenuesPage({
     <div>
       <PageHeader
         title="Receitas"
-        subtitle="Receitas recebidas e estimativas futuras"
         actions={
           <div className="flex gap-2">
             <Link
@@ -187,6 +192,8 @@ export default async function RevenuesPage({
           },
         ]}
       />
+
+      <Pagination page={page} total={totalCount ?? (revenues ?? []).length} searchParams={sp as Record<string, string | undefined>} noun="receitas" />
     </div>
   );
 }
