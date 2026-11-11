@@ -12,14 +12,11 @@ function Titulo({ texto }: { texto: string }) {
   );
 }
 
-// Botões do cabeçalho viram contorno translúcido sobre o verde, qualquer que seja o estilo de origem
-const ACOES_NO_VERDE =
-  "flex items-center gap-2 [&_a]:!bg-white/10 [&_a]:!text-white [&_a]:!border [&_a]:!border-white/30 [&_a]:!rounded-full [&_a:hover]:!bg-white/20 " +
-  "[&_button]:!bg-white/10 [&_button]:!text-white [&_button]:!border [&_button]:!border-white/30 [&_button]:!rounded-full [&_button:hover]:!bg-white/20";
-
 /**
  * Cabeçalho da página dentro da faixa verde. Sobe até a faixa do topo (a Topbar) cancelando o
  * padding do <main>, e termina com a borda arredondada do conteúdo claro.
+ * As ações (botões/links) ficam na parte clara, logo abaixo da curva, alinhadas à direita,
+ * com o estilo original de cada botão — a faixa verde fica só com título e subtítulo.
  */
 export function PageHeader({
   title,
@@ -31,20 +28,21 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="-mx-8 -mt-8 mb-2 bg-ps-navy print:bg-transparent print:mx-0 print:mt-0">
-      <div className="flex items-end justify-between gap-6 flex-wrap px-8 pt-6 pb-3 min-h-[132px]">
-        <div>
-          {/* deriva o destino do endereço: tela interna nova já nasce com saída */}
-          <BackLink />
-          <h1 className="text-2xl font-light tracking-tight text-white print:text-ps-ink">
-            <Titulo texto={title} />
-          </h1>
-          {subtitle && <p className="text-sm text-white/70 mt-1 print:text-ps-muted">{subtitle}</p>}
+    <>
+      <div className="-mx-8 -mt-8 mb-2 bg-ps-navy print:bg-transparent print:mx-0 print:mt-0">
+        <div className="flex items-end justify-between gap-6 flex-wrap px-8 pt-6 pb-3 min-h-[132px]">
+          <div>
+            {/* deriva o destino do endereço: tela interna nova já nasce com saída */}
+            <BackLink />
+            <h1 className="text-2xl font-light tracking-tight text-white print:text-ps-ink">
+              <Titulo texto={title} />
+            </h1>
+            {subtitle && <p className="text-sm text-white/70 mt-1 print:text-ps-muted">{subtitle}</p>}
+          </div>
         </div>
-        {/* mt-14: reserva a altura do usuário (canto superior direito) para os botões nunca ficarem por baixo dele */}
-        {actions && <div className={`${ACOES_NO_VERDE} mt-14 print:hidden print:mt-0`}>{actions}</div>}
+        <div className="h-4 bg-ps-bg rounded-tl-[24px] print:hidden" />
       </div>
-      <div className="h-4 bg-ps-bg rounded-tl-[24px] print:hidden" />
-    </div>
+      {actions && <div className="flex items-center justify-end gap-2 flex-wrap mb-4 print:hidden">{actions}</div>}
+    </>
   );
 }

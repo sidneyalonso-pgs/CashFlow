@@ -68,6 +68,26 @@ html, body {
   color: rgb(var(--ps-ink));
 }
 
+/* Sidebar: gradiente sutil (verde-floresta -> petróleo), brilho menta atrás do logo e linha de luz na borda.
+   O topo mantém a cor do topbar para os dois seguirem como um bloco só. Sem animação. */
+.app-shell aside {
+  background-image:
+    radial-gradient(ellipse 240px 130px at 50% 44px, rgba(125, 240, 190, 0.16), transparent 70%),
+    linear-gradient(180deg, rgb(29, 75, 68) 0%, rgb(23, 66, 63) 50%, rgb(13, 46, 56) 100%);
+  background-attachment: fixed, fixed;
+}
+
+.app-shell aside::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(125, 240, 190, 0.55), rgba(125, 240, 190, 0.12) 40%, transparent);
+}
+
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
