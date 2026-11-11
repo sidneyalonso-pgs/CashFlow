@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
+import { Toolbar } from "@/components/Toolbar";
 import { formatBRL } from "@/lib/calculations/money";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 
@@ -46,26 +47,30 @@ export default async function FaturasPage({ searchParams }: { searchParams: { me
 
   return (
     <div>
-      <PageHeader title="Faturas emitidas" subtitle="Histórico de todos os demonstrativos" actions={
-        <Link href="/faturamento/emitir" className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors">
-          Emitir demonstrativo
-        </Link>
-      } />
+      <PageHeader title="Faturas emitidas" subtitle="Histórico de todos os demonstrativos"/>
 
-      <AutoSubmitForm className="flex flex-wrap gap-3 mb-4">
-        <input type="month" name="mes" defaultValue={searchParams.mes ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white" />
-        <select name="client_id" defaultValue={searchParams.client_id ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="">Todos os merchants</option>
-          {(clients ?? []).map((c: any) => <option key={c.id} value={c.id}>{c.razao}</option>)}
-        </select>
-        <select name="status" defaultValue={searchParams.status ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="">Todos os status</option>
-          <option value="pendente">Pendente</option>
-          <option value="pago">Pago</option>
-          <option value="cancelado">Cancelado</option>
-        </select>
-        <Link href="/faturamento/faturas" className="text-sm text-ps-muted underline self-center">Limpar</Link>
-      </AutoSubmitForm>
+      <Toolbar
+        actions={
+          <Link href="/faturamento/emitir" className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors">
+            Emitir demonstrativo
+          </Link>
+        }
+      >
+        <AutoSubmitForm className="flex flex-wrap gap-3 mb-4">
+          <input type="month" name="mes" defaultValue={searchParams.mes ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white" />
+          <select name="client_id" defaultValue={searchParams.client_id ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+            <option value="">Todos os merchants</option>
+            {(clients ?? []).map((c: any) => <option key={c.id} value={c.id}>{c.razao}</option>)}
+          </select>
+          <select name="status" defaultValue={searchParams.status ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+            <option value="">Todos os status</option>
+            <option value="pendente">Pendente</option>
+            <option value="pago">Pago</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+          <Link href="/faturamento/faturas" className="text-sm text-ps-muted underline self-center">Limpar</Link>
+        </AutoSubmitForm>
+      </Toolbar>
 
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 border-l-4 border-l-ps-green px-5 py-4">

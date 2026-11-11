@@ -1,6 +1,7 @@
 import { companyLabel } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
+import { Toolbar } from "@/components/Toolbar";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 import { formatBRL } from "@/lib/calculations/money";
 import { NewInvestmentButton } from "./NewInvestmentButton";
@@ -85,39 +86,44 @@ export default async function InvestmentsPage({
       <PageHeader
         title="Investimentos"
         subtitle="Aplicações e resgates financeiros"
-        actions={<NewInvestmentButton companies={companies ?? []} bankAccounts={bankAccounts ?? []} />}
       />
 
-      <AutoSubmitForm className="flex flex-wrap gap-3 mb-6">
-        <select name="company_id" defaultValue={companyId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="">Todas as empresas</option>
-          {(companies ?? []).map((c: any) => (
-            <option key={c.id} value={c.id}>
-              {c.trade_name || c.legal_name}
-            </option>
-          ))}
-        </select>
-        <select name="bank_account_id" defaultValue={bankAccountId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="">Todas as contas</option>
-          {(bankAccounts ?? []).map((a: any) => (
-            <option key={a.id} value={a.id}>
-              {a.nickname ?? a.bank_name}
-            </option>
-          ))}
-        </select>
-        <input
-          type="date"
-          name="date_from"
-          defaultValue={dateFrom ?? ""}
-          className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
-        />
-        <input
-          type="date"
-          name="date_to"
-          defaultValue={dateTo ?? ""}
-          className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
-        />
-      </AutoSubmitForm>
+      <Toolbar
+        actions={
+          <NewInvestmentButton companies={companies ?? []} bankAccounts={bankAccounts ?? []} />
+        }
+      >
+        <AutoSubmitForm className="flex flex-wrap gap-3 mb-6">
+          <select name="company_id" defaultValue={companyId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+            <option value="">Todas as empresas</option>
+            {(companies ?? []).map((c: any) => (
+              <option key={c.id} value={c.id}>
+                {c.trade_name || c.legal_name}
+              </option>
+            ))}
+          </select>
+          <select name="bank_account_id" defaultValue={bankAccountId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+            <option value="">Todas as contas</option>
+            {(bankAccounts ?? []).map((a: any) => (
+              <option key={a.id} value={a.id}>
+                {a.nickname ?? a.bank_name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="date"
+            name="date_from"
+            defaultValue={dateFrom ?? ""}
+            className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+          />
+          <input
+            type="date"
+            name="date_to"
+            defaultValue={dateTo ?? ""}
+            className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+          />
+        </AutoSubmitForm>
+      </Toolbar>
 
       {/* Cards de resumo */}
       <div className="grid grid-cols-3 gap-4 mb-6">

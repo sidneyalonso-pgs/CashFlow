@@ -2,6 +2,7 @@ import { companyLabel } from "@/lib/format";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
+import { Toolbar } from "@/components/Toolbar";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatBRL } from "@/lib/calculations/money";
 import { InlineDueDateEdit } from "./InlineDueDateEdit";
@@ -118,95 +119,98 @@ export default async function PaymentsPage({
     <div>
       <PageHeader
         title="Pagamentos"
-        actions={
-          <div className="flex gap-2">
-            <Link
-              href="/pagamentos/recorrentes"
-              className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
-            >
-              Pagamentos recorrentes
-            </Link>
-            <Link
-              href="/pagamentos/novo-em-massa"
-              className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
-            >
-              Lançar em massa
-            </Link>
-            <Link
-              href="/pagamentos/novo"
-              className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors"
-            >
-              Lançar pagamento
-            </Link>
-          </div>
-        }
       />
 
       {/* Filtros */}
-      <AutoSubmitForm className="flex flex-wrap gap-3 mb-4">
-        <select
-          name="company_id"
-          defaultValue={searchParams.company_id ?? ""}
-          className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
-        >
-          <option value="">Todas as empresas</option>
-          {(companies ?? []).map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.trade_name || c.legal_name}
-            </option>
-          ))}
-        </select>
-
-        <select
-          name="supplier_id"
-          defaultValue={searchParams.supplier_id ?? ""}
-          className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
-        >
-          <option value="">Todos os fornecedores</option>
-          {(suppliers ?? []).map((s: any) => (
-            <option key={s.id} value={s.id}>{s.legal_name}</option>
-          ))}
-        </select>
-
-        <select
-          name="status"
-          defaultValue={searchParams.status ?? ""}
-          className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
-        >
-          <option value="">Todos os status</option>
-          <option value="pago">Pago</option>
-          <option value="provisionado">Provisionado (futuro)</option>
-          <option value="em_aberto">Em aberto (vencido)</option>
-          <option value="cancelado">Cancelado</option>
-        </select>
-
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-ps-muted">De</label>
-          <input
-            type="date"
-            name="date_from"
-            defaultValue={searchParams.date_from ?? ""}
+      <Toolbar
+        actions={
+          <div className="flex gap-2">
+              <Link
+                href="/pagamentos/recorrentes"
+                className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
+              >
+                Pagamentos recorrentes
+              </Link>
+              <Link
+                href="/pagamentos/novo-em-massa"
+                className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
+              >
+                Lançar em massa
+              </Link>
+              <Link
+                href="/pagamentos/novo"
+                className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors"
+              >
+                Lançar pagamento
+              </Link>
+            </div>
+        }
+      >
+        <AutoSubmitForm className="flex flex-wrap gap-3 mb-4">
+          <select
+            name="company_id"
+            defaultValue={searchParams.company_id ?? ""}
             className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
-          />
-          <label className="text-xs text-ps-muted">até</label>
-          <input
-            type="date"
-            name="date_to"
-            defaultValue={searchParams.date_to ?? ""}
+          >
+            <option value="">Todas as empresas</option>
+            {(companies ?? []).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.trade_name || c.legal_name}
+              </option>
+            ))}
+          </select>
+  
+          <select
+            name="supplier_id"
+            defaultValue={searchParams.supplier_id ?? ""}
             className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
-          />
-        </div>
-
-        {/* Preservar sort nos filtros */}
-        {searchParams.sort_by && <input type="hidden" name="sort_by" value={searchParams.sort_by} />}
-        {searchParams.sort_dir && <input type="hidden" name="sort_dir" value={searchParams.sort_dir} />}
-
-        {(searchParams.company_id || searchParams.supplier_id || searchParams.status || searchParams.date_from || searchParams.date_to) && (
-          <Link href="/pagamentos" className="text-sm text-ps-muted underline self-center">
-            Limpar
-          </Link>
-        )}
-      </AutoSubmitForm>
+          >
+            <option value="">Todos os fornecedores</option>
+            {(suppliers ?? []).map((s: any) => (
+              <option key={s.id} value={s.id}>{s.legal_name}</option>
+            ))}
+          </select>
+  
+          <select
+            name="status"
+            defaultValue={searchParams.status ?? ""}
+            className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+          >
+            <option value="">Todos os status</option>
+            <option value="pago">Pago</option>
+            <option value="provisionado">Provisionado (futuro)</option>
+            <option value="em_aberto">Em aberto (vencido)</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+  
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-ps-muted">De</label>
+            <input
+              type="date"
+              name="date_from"
+              defaultValue={searchParams.date_from ?? ""}
+              className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+            />
+            <label className="text-xs text-ps-muted">até</label>
+            <input
+              type="date"
+              name="date_to"
+              defaultValue={searchParams.date_to ?? ""}
+              className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+            />
+          </div>
+  
+          {/* Preservar sort nos filtros */}
+          {searchParams.sort_by && <input type="hidden" name="sort_by" value={searchParams.sort_by} />}
+          {searchParams.sort_dir && <input type="hidden" name="sort_dir" value={searchParams.sort_dir} />}
+  
+          {(searchParams.company_id || searchParams.supplier_id || searchParams.status || searchParams.date_from || searchParams.date_to) && (
+            <Link href="/pagamentos" className="text-sm text-ps-muted underline self-center">
+              Limpar
+            </Link>
+          )}
+        </AutoSubmitForm>
+      </Toolbar>
 
       {/* Tabela */}
       <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 overflow-hidden overflow-x-auto">

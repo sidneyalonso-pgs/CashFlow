@@ -2,6 +2,7 @@ import { companyLabel } from "@/lib/format";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
+import { Toolbar } from "@/components/Toolbar";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DataTable } from "@/components/DataTable";
 import { formatBRL } from "@/lib/calculations/money";
@@ -86,59 +87,62 @@ export default async function RevenuesPage({
     <div>
       <PageHeader
         title="Receitas"
-        actions={
-          <div className="flex gap-2">
-            <Link
-              href="/receitas/importar"
-              className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
-            >
-              Importar Excel
-            </Link>
-            <Link
-              href="/receitas/novo-em-massa"
-              className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
-            >
-              Lançar em massa
-            </Link>
-            <Link
-              href="/receitas/novo"
-              className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors"
-            >
-              Nova receita
-            </Link>
-          </div>
-        }
       />
 
-      <AutoSubmitForm className="flex flex-wrap gap-3 mb-4">
-        <select name="company_id" defaultValue={sp.company_id ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="">Todas as empresas</option>
-          {(companies ?? []).map((c) => (
-            <option key={c.id} value={c.id}>{c.trade_name || c.legal_name}</option>
-          ))}
-        </select>
-
-        <select name="category_id" defaultValue={sp.category_id ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="">Todas as categorias</option>
-          {(categories ?? []).map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-
-        <select name="status" defaultValue={sp.status ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="">Todos os status</option>
-          <option value="recebida">Recebida</option>
-          <option value="estimada">Estimada</option>
-          <option value="confirmada">Confirmada</option>
-          <option value="atrasada">Atrasada</option>
-          <option value="cancelada">Cancelada</option>
-        </select>
-
-        <input type="date" name="date_from" defaultValue={sp.date_from ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm" />
-        <input type="date" name="date_to" defaultValue={sp.date_to ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm" />
-
-        <Link href="/receitas" className="text-sm text-ps-muted underline self-center">Limpar</Link>
-      </AutoSubmitForm>
+      <Toolbar
+        actions={
+          <div className="flex gap-2">
+              <Link
+                href="/receitas/importar"
+                className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
+              >
+                Importar Excel
+              </Link>
+              <Link
+                href="/receitas/novo-em-massa"
+                className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
+              >
+                Lançar em massa
+              </Link>
+              <Link
+                href="/receitas/novo"
+                className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors"
+              >
+                Nova receita
+              </Link>
+            </div>
+        }
+      >
+        <AutoSubmitForm className="flex flex-wrap gap-3 mb-4">
+          <select name="company_id" defaultValue={sp.company_id ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+            <option value="">Todas as empresas</option>
+            {(companies ?? []).map((c) => (
+              <option key={c.id} value={c.id}>{c.trade_name || c.legal_name}</option>
+            ))}
+          </select>
+  
+          <select name="category_id" defaultValue={sp.category_id ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+            <option value="">Todas as categorias</option>
+            {(categories ?? []).map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+  
+          <select name="status" defaultValue={sp.status ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+            <option value="">Todos os status</option>
+            <option value="recebida">Recebida</option>
+            <option value="estimada">Estimada</option>
+            <option value="confirmada">Confirmada</option>
+            <option value="atrasada">Atrasada</option>
+            <option value="cancelada">Cancelada</option>
+          </select>
+  
+          <input type="date" name="date_from" defaultValue={sp.date_from ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm" />
+          <input type="date" name="date_to" defaultValue={sp.date_to ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm" />
+  
+          <Link href="/receitas" className="text-sm text-ps-muted underline self-center">Limpar</Link>
+        </AutoSubmitForm>
+      </Toolbar>
 
       <DataTable
         rows={revenues ?? []}

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
+import { Toolbar } from "@/components/Toolbar";
 import { DataTable } from "@/components/DataTable";
 import { NewTransferButton } from "./NewTransferButton";
 import { DeleteTransferButton } from "./DeleteTransferButton";
@@ -65,33 +66,36 @@ export default async function TransferenciasPage({
       <PageHeader
         title="Transferências"
         subtitle="Pix, TED, débitos bancários e transferências entre contas"
-        actions={
-          <NewTransferButton
-            companies={companies ?? []}
-            bankAccounts={(bankAccounts ?? []).map((a: any) => ({
-              id: a.id,
-              name: a.nickname,
-              bank_name: a.bank_name,
-              company_name: a.companies?.trade_name || a.companies?.legal_name || null,
-            }))}
-          />
-        }
       />
 
       {/* Filtros */}
-      <AutoSubmitForm className="flex flex-wrap gap-3 mb-6">
-        <select name="company_id" defaultValue={companyId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="">Todas as empresas</option>
-          {(companies ?? []).map((c: any) => (
-            <option key={c.id} value={c.id}>{c.trade_name || c.legal_name}</option>
-          ))}
-        </select>
-        <select name="mes" defaultValue={`${refYear}-${String(refMonth).padStart(2, "0")}`} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          {monthOptions.map((m) => (
-            <option key={m.value} value={m.value}>{m.label}/{refYear}</option>
-          ))}
-        </select>
-      </AutoSubmitForm>
+      <Toolbar
+        actions={
+          <NewTransferButton
+              companies={companies ?? []}
+              bankAccounts={(bankAccounts ?? []).map((a: any) => ({
+                id: a.id,
+                name: a.nickname,
+                bank_name: a.bank_name,
+                company_name: a.companies?.trade_name || a.companies?.legal_name || null,
+              }))}
+            />
+        }
+      >
+        <AutoSubmitForm className="flex flex-wrap gap-3 mb-6">
+          <select name="company_id" defaultValue={companyId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+            <option value="">Todas as empresas</option>
+            {(companies ?? []).map((c: any) => (
+              <option key={c.id} value={c.id}>{c.trade_name || c.legal_name}</option>
+            ))}
+          </select>
+          <select name="mes" defaultValue={`${refYear}-${String(refMonth).padStart(2, "0")}`} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+            {monthOptions.map((m) => (
+              <option key={m.value} value={m.value}>{m.label}/{refYear}</option>
+            ))}
+          </select>
+        </AutoSubmitForm>
+      </Toolbar>
 
       {/* Cards resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">

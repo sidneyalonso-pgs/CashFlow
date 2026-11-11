@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
+import { Toolbar } from "@/components/Toolbar";
 import { formatBRL } from "@/lib/calculations/money";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 
@@ -62,14 +63,6 @@ export default async function NotasDebitoPage({
       <PageHeader
         title="Notas de Débito"
         subtitle="Reembolsos e rateios entre empresas"
-        actions={
-          <Link
-            href="/faturamento/notas-debito/nova"
-            className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors"
-          >
-            Nova nota de débito
-          </Link>
-        }
       />
 
       <div className="grid grid-cols-2 gap-4 mb-4">
@@ -83,26 +76,37 @@ export default async function NotasDebitoPage({
         </div>
       </div>
 
-      <AutoSubmitForm className="flex flex-wrap gap-3 mb-4">
-        <input
-          type="month"
-          name="competencia"
-          defaultValue={searchParams.competencia ?? ""}
-          className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
-        />
-        <select name="tipo" defaultValue={searchParams.tipo ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="">Todos os tipos</option>
-          <option value="reembolso">Reembolso</option>
-          <option value="rateio">Rateio</option>
-        </select>
-        <select name="status" defaultValue={searchParams.status ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="">Todos os status</option>
-          <option value="Pendente">Pendente</option>
-          <option value="Pago">Pago</option>
-          <option value="Cancelado">Cancelado</option>
-        </select>
-        <Link href="/faturamento/notas-debito" className="text-sm text-ps-muted underline self-center">Limpar</Link>
-      </AutoSubmitForm>
+      <Toolbar
+        actions={
+          <Link
+              href="/faturamento/notas-debito/nova"
+              className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors"
+            >
+              Nova nota de débito
+            </Link>
+        }
+      >
+        <AutoSubmitForm className="flex flex-wrap gap-3 mb-4">
+          <input
+            type="month"
+            name="competencia"
+            defaultValue={searchParams.competencia ?? ""}
+            className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+          />
+          <select name="tipo" defaultValue={searchParams.tipo ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+            <option value="">Todos os tipos</option>
+            <option value="reembolso">Reembolso</option>
+            <option value="rateio">Rateio</option>
+          </select>
+          <select name="status" defaultValue={searchParams.status ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+            <option value="">Todos os status</option>
+            <option value="Pendente">Pendente</option>
+            <option value="Pago">Pago</option>
+            <option value="Cancelado">Cancelado</option>
+          </select>
+          <Link href="/faturamento/notas-debito" className="text-sm text-ps-muted underline self-center">Limpar</Link>
+        </AutoSubmitForm>
+      </Toolbar>
 
       <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">

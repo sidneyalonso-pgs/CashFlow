@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
+import { Toolbar } from "@/components/Toolbar";
 import { formatBRL } from "@/lib/calculations/money";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 
@@ -64,42 +65,45 @@ export default async function FaturamentoDashboard({ searchParams }: { searchPar
       <PageHeader
         title="Faturamento"
         subtitle="Demonstrativos de repasse e gestão de receitas de fee"
-        actions={
-          <div className="flex gap-2">
-            <Link href="/faturamento/clientes" className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors">
-              Merchants
-            </Link>
-            <Link href="/faturamento/tarifas" className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors">
-              Base de tarifas
-            </Link>
-            <Link href="/faturamento/faturas" className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors">
-              Todas as faturas
-            </Link>
-            <Link href="/faturamento/relatorio" className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors">
-              Relatório mensal
-            </Link>
-            <Link href="/faturamento/notas-debito" className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors">
-              Notas de Débito
-            </Link>
-            <Link href="/faturamento/emitir" className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors">
-              Emitir demonstrativo
-            </Link>
-          </div>
-        }
       />
 
       {/* Filtro de mês */}
-      <AutoSubmitForm className="flex gap-3 mb-4">
-        <input
-          type="month"
-          name="mes"
-          defaultValue={mesFiltro}
-          className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
-        />
-        {searchParams.mes && searchParams.mes !== mesAtual && (
-          <Link href="/faturamento" className="text-sm text-ps-muted underline self-center">Mês atual</Link>
-        )}
-      </AutoSubmitForm>
+      <Toolbar
+        actions={
+          <div className="flex gap-2">
+              <Link href="/faturamento/clientes" className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors">
+                Merchants
+              </Link>
+              <Link href="/faturamento/tarifas" className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors">
+                Base de tarifas
+              </Link>
+              <Link href="/faturamento/faturas" className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors">
+                Todas as faturas
+              </Link>
+              <Link href="/faturamento/relatorio" className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors">
+                Relatório mensal
+              </Link>
+              <Link href="/faturamento/notas-debito" className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors">
+                Notas de Débito
+              </Link>
+              <Link href="/faturamento/emitir" className="bg-ps-navy text-white text-sm font-medium rounded-full px-4 py-2 hover:bg-ps-navy-700 transition-colors">
+                Emitir demonstrativo
+              </Link>
+            </div>
+        }
+      >
+        <AutoSubmitForm className="flex gap-3 mb-4">
+          <input
+            type="month"
+            name="mes"
+            defaultValue={mesFiltro}
+            className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white"
+          />
+          {searchParams.mes && searchParams.mes !== mesAtual && (
+            <Link href="/faturamento" className="text-sm text-ps-muted underline self-center">Mês atual</Link>
+          )}
+        </AutoSubmitForm>
+      </Toolbar>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label={`Receita de fee (${mesFiltro})`} value={formatBRL(totalFee)} tone="green" />

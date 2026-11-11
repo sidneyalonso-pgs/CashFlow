@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
+import { Toolbar } from "@/components/Toolbar";
 import { InfoTip } from "@/components/InfoTip";
 import { ResumoCard } from "./ResumoCard";
 import { AutoSubmitForm } from "@/components/AutoSubmitForm";
@@ -333,64 +334,67 @@ export default async function CashFlowPage({
     <div>
       <PageHeader
         title="Cash Flow"
-        actions={
-          <div className="flex gap-2">
-            <Link
-              href="/cash-flow/detalhado"
-              className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
-            >
-              Ver Cash Flow Detalhado
-            </Link>
-          </div>
-        }
       />
 
-      <AutoSubmitForm className="flex flex-wrap gap-3 mb-6">
-        {/* marca a empresa atual como "anterior" para o próximo envio — é o que permite
-            diferenciar troca de empresa de "todas as contas" escolhido de propósito */}
-        <input type="hidden" name="prev_company_id" defaultValue={companyId ?? ""} />
-        <select name="company_id" defaultValue={companyId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="">Todas as empresas</option>
-          {(companies ?? []).map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.trade_name || c.legal_name}
-            </option>
-          ))}
-        </select>
-        <select name="bank_account_id" defaultValue={rawBankAccountId ?? "todas"} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="todas">Todas as contas</option>
-          {(allBankAccounts ?? []).map((a: any) => (
-            <option key={a.id} value={a.id}>
-              {a.nickname ?? a.bank_name}
-            </option>
-          ))}
-        </select>
-        <select name="visao" defaultValue={granularity} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="semana">Por semana</option>
-          <option value="mes">Por mês</option>
-          <option value="trimestre">Por trimestre</option>
-        </select>
-        <select name="pagamentos" defaultValue={projetado ? "ambos" : "realizados"} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          <option value="realizados">Saldo realizado</option>
-          <option value="ambos">Saldo projetado (+ provisões)</option>
-        </select>
-        {granularity === "semana" && (
-          <select name="mes" defaultValue={month} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-            {monthOptions.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
+      <Toolbar
+        actions={
+          <div className="flex gap-2">
+              <Link
+                href="/cash-flow/detalhado"
+                className="bg-white border border-ps-navy/15 text-ps-ink text-sm font-medium rounded-ps-sm px-4 py-2 hover:bg-ps-bg-2 transition-colors"
+              >
+                Ver Cash Flow Detalhado
+              </Link>
+            </div>
+        }
+      >
+        <AutoSubmitForm className="flex flex-wrap gap-3 mb-6">
+          {/* marca a empresa atual como "anterior" para o próximo envio — é o que permite
+              diferenciar troca de empresa de "todas as contas" escolhido de propósito */}
+          <input type="hidden" name="prev_company_id" defaultValue={companyId ?? ""} />
+          <select name="company_id" defaultValue={companyId ?? ""} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+            <option value="">Todas as empresas</option>
+            {(companies ?? []).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.trade_name || c.legal_name}
               </option>
             ))}
           </select>
-        )}
-        <select name="ano" defaultValue={year} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
-          {yearOptions.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
-      </AutoSubmitForm>
+          <select name="bank_account_id" defaultValue={rawBankAccountId ?? "todas"} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+            <option value="todas">Todas as contas</option>
+            {(allBankAccounts ?? []).map((a: any) => (
+              <option key={a.id} value={a.id}>
+                {a.nickname ?? a.bank_name}
+              </option>
+            ))}
+          </select>
+          <select name="visao" defaultValue={granularity} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+            <option value="semana">Por semana</option>
+            <option value="mes">Por mês</option>
+            <option value="trimestre">Por trimestre</option>
+          </select>
+          <select name="pagamentos" defaultValue={projetado ? "ambos" : "realizados"} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+            <option value="realizados">Saldo realizado</option>
+            <option value="ambos">Saldo projetado (+ provisões)</option>
+          </select>
+          {granularity === "semana" && (
+            <select name="mes" defaultValue={month} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+              {monthOptions.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          )}
+          <select name="ano" defaultValue={year} className="rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm bg-white">
+            {yearOptions.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </AutoSubmitForm>
+      </Toolbar>
 
       {/* Os seis cartões fecham a conta: inicial + receitas + outras entradas − despesas − outras saídas = final */}
       <div className="flex flex-wrap gap-3 mb-3">

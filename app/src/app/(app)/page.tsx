@@ -142,10 +142,13 @@ export default async function PosicaoExecutivaPage({
     <div className="space-y-6 print:space-y-4">
       {/* cabeçalho */}
       <div className="-mx-8 -mt-8 bg-ps-navy print:bg-transparent print:mx-0 print:mt-0">
-        <div className="flex items-end justify-between gap-6 flex-wrap px-8 pt-6 pb-3 min-h-[132px]">
-          <div>
-            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/60 print:text-ps-navy">Pagsmile · Tesouraria</p>
-            <h1 className="mt-1 text-2xl font-light tracking-tight text-white print:text-ps-ink">
+        {/* título em y = 66px: mesma linha da logo do menu e do usuário (veja PageHeader) */}
+        <div className="relative px-8 pt-[50px] pb-3 min-h-[132px] print:min-h-0 print:pt-0">
+          <div className="relative">
+            <p className="absolute bottom-full left-0 mb-1.5 whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.16em] text-white/60 print:static print:text-ps-navy">
+              Pagsmile · Tesouraria
+            </p>
+            <h1 className="text-2xl font-light tracking-tight text-white print:text-ps-ink">
               Posição Executiva de <span className="text-ps-mint font-medium print:text-ps-ink">Recursos</span>
             </h1>
           </div>

@@ -12,11 +12,19 @@ function Titulo({ texto }: { texto: string }) {
   );
 }
 
+// Todos os botões do cabeçalho seguem o mesmo formato (pílula), qualquer que seja o estilo de origem
+export const ACOES_PILULA = "[&_a]:!rounded-full [&_button]:!rounded-full";
+
 /**
  * Cabeçalho da página dentro da faixa verde. Sobe até a faixa do topo (a Topbar) cancelando o
  * padding do <main>, e termina com a borda arredondada do conteúdo claro.
- * As ações (botões/links) ficam na parte clara, logo abaixo da curva, alinhadas à direita,
- * com o estilo original de cada botão — a faixa verde fica só com título e subtítulo.
+ *
+ * Alinhamento: o título fica na mesma linha (y = 66px) da logo do menu e do usuário (Topbar).
+ * O "voltar" e o subtítulo são posicionados em volta do título sem empurrá-lo.
+ *
+ * As ações (botões/links) ficam na parte clara, logo abaixo da curva, alinhadas à direita, com o
+ * estilo original de cada botão. Telas com filtros usam o <Toolbar> para pôr filtros e ações na
+ * mesma linha — nesse caso não passam `actions` aqui.
  */
 export function PageHeader({
   title,
@@ -30,19 +38,27 @@ export function PageHeader({
   return (
     <>
       <div className="-mx-8 -mt-8 mb-2 bg-ps-navy print:bg-transparent print:mx-0 print:mt-0">
-        <div className="flex items-end justify-between gap-6 flex-wrap px-8 pt-6 pb-3 min-h-[132px]">
-          <div>
+        <div className="relative px-8 pt-[50px] pb-3 min-h-[132px] print:min-h-0 print:pt-0">
+          <div className="relative">
             {/* deriva o destino do endereço: tela interna nova já nasce com saída */}
-            <BackLink />
+            <div className="absolute bottom-full left-0 print:hidden">
+              <BackLink />
+            </div>
             <h1 className="text-2xl font-light tracking-tight text-white print:text-ps-ink">
               <Titulo texto={title} />
             </h1>
-            {subtitle && <p className="text-sm text-white/70 mt-1 print:text-ps-muted">{subtitle}</p>}
+            {subtitle && (
+              <p className="absolute left-0 top-full mt-0.5 w-[min(60ch,70vw)] text-sm text-white/70 print:static print:w-auto print:text-ps-muted">
+                {subtitle}
+              </p>
+            )}
           </div>
         </div>
         <div className="h-4 bg-ps-bg rounded-tl-[24px] print:hidden" />
       </div>
-      {actions && <div className="flex items-center justify-end gap-2 flex-wrap mb-4 print:hidden">{actions}</div>}
+      {actions && (
+        <div className={`flex items-center justify-end gap-2 flex-wrap mb-4 print:hidden ${ACOES_PILULA}`}>{actions}</div>
+      )}
     </>
   );
 }

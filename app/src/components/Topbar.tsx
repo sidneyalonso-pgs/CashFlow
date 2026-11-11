@@ -12,7 +12,8 @@ export function Topbar({ userEmail, userName }: { userEmail?: string; userName?:
   const nome = (userName ?? "").trim() || (userEmail ?? "").split("@")[0];
   return (
     <header className="relative z-20 h-0 print:hidden">
-      <div className="absolute top-6 right-8 flex items-center gap-3 rounded-full bg-ps-navy pr-4 py-1 pl-1" title={userEmail}>
+      {/* top-[42px]: centro do usuário (48px de altura) em y = 66px, a mesma linha da logo do menu e do título */}
+      <div className="absolute top-[42px] right-8 flex items-center gap-3 rounded-full bg-ps-navy pr-4 py-1 pl-1" title={userEmail}>
         <span
           aria-hidden="true"
           className="w-10 h-10 rounded-full bg-ps-mint text-ps-navy-900 font-semibold text-sm flex items-center justify-center ring-2 ring-white/25 shrink-0"
