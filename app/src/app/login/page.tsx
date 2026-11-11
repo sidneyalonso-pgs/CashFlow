@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LoginForm } from "./LoginForm";
-import { LoginBackground, ParticleLogo } from "./LoginBackground";
+import { LoginStage } from "./LoginStage";
 
 export default async function LoginPage() {
   const supabase = createClient();
@@ -40,42 +40,8 @@ export default async function LoginPage() {
   }
 
   return (
-    <div className="login-page">
-      <LoginBackground />
-
-      <header className="login-topbar">
-        <img src="/logos/pagsmile-logo-transparent.png" alt="PagSmile" className="login-logo-in h-7" />
-        <span className="login-topbar-tag">Treasury</span>
-      </header>
-
-      <main className="login-layout">
-        <section className="login-hero">
-          <ParticleLogo />
-          <div className="login-hero-copy">
-            <p className="login-hero-title">
-              Caixa sob <span>controle</span>.
-            </p>
-            <p className="login-hero-sub">Gestão de caixa, pagamentos e conciliação da PagSmile</p>
-          </div>
-        </section>
-
-        <section className="login-panel">
-          <p className="login-eyebrow">
-            <i /> Treasury
-          </p>
-          <h1 className="login-title">Entrar</h1>
-          <p className="login-lead">Use suas credenciais para acessar o Treasury.</p>
-
-          <LoginForm initialStep={initialStep} initialEnroll={initialEnroll} />
-
-          <p className="login-foot">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
-              <path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.500 7-10V6l-7-3Z" />
-            </svg>
-            Acesso restrito PagSmile
-          </p>
-        </section>
-      </main>
-    </div>
+    <LoginStage>
+      <LoginForm initialStep={initialStep} initialEnroll={initialEnroll} />
+    </LoginStage>
   );
 }

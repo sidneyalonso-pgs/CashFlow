@@ -6,60 +6,115 @@ import { signInAction, verifyEnrollAction, verifyMfaAction } from "./actions";
 
 type Step = "password" | "enroll" | "challenge";
 
-function MailIcon() {
+const svg = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+
+function IconMail() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
+    <svg viewBox="0 0 24 24" width="18" height="18" {...svg}>
       <rect x="3" y="5" width="18" height="14" rx="2" />
       <path d="m3 7 9 6 9-6" />
     </svg>
   );
 }
-
-function LockIcon() {
+function IconLock() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
-      <rect x="4" y="10" width="16" height="10" rx="2" />
-      <path d="M8 10V7a4 4 0 1 1 8 0v3" />
+    <svg viewBox="0 0 24 24" width="18" height="18" {...svg}>
+      <rect x="5" y="10.5" width="14" height="9" rx="2" />
+      <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
     </svg>
   );
 }
-
-function EyeIcon({ off }: { off?: boolean }) {
+function IconShield() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
-      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+    <svg viewBox="0 0 24 24" width="18" height="18" {...svg}>
+      <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" />
+    </svg>
+  );
+}
+function IconEye() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" {...svg}>
+      <path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12z" />
       <circle cx="12" cy="12" r="3" />
-      {off && <path d="M3 3l18 18" />}
+    </svg>
+  );
+}
+function IconEyeOff() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" {...svg}>
+      <path d="M3 3l18 18" />
+      <path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c7 0 10.5 7 10.5 7a13.3 13.3 0 0 1-3.1 4.1M6.6 6.6C3.7 8.4 1.5 12 1.5 12s3.5 7 10.5 7a10.6 10.6 0 0 0 4.4-1" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </svg>
+  );
+}
+function IconAlert() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" {...svg}>
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M12 8v5" />
+      <circle cx="12" cy="16" r="0.6" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+function IconArrowRight() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" {...svg} strokeWidth={2.2} aria-hidden="true">
+      <path d="M5 12h14M13 6l6 6-6 6" />
     </svg>
   );
 }
 
-function Spinner() {
+function Field({
+  id,
+  label,
+  icon,
+  children,
+}: {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <svg className="login-spinner w-4 h-4" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" opacity="0.25" />
-      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function FieldShell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="login-input flex items-center gap-2.5 rounded-ps-sm border border-white/12 bg-white/[0.04] px-3.5 h-[46px] text-white">
-      {children}
+    <div className="pc-field">
+      <label className="pc-label" htmlFor={id}>
+        {label}
+      </label>
+      <div className="pc-input-wrap pc-has-icon">
+        <span className="pc-input-icon" aria-hidden="true">
+          {icon}
+        </span>
+        {children}
+      </div>
     </div>
   );
 }
 
-function SubmitButton({ loading, children }: { loading: boolean; children: React.ReactNode }) {
+function ErrBox({ msg }: { msg: string }) {
   return (
-    <button
-      type="submit"
-      disabled={loading}
-      className="login-button w-full flex items-center justify-center gap-2 text-[#00263f] font-bold rounded-full h-[46px] text-sm"
-    >
-      {loading && <Spinner />}
-      {children}
+    <div className="pc-err" role="alert">
+      <span className="pc-err-icon" aria-hidden="true">
+        <IconAlert />
+      </span>
+      {msg}
+    </div>
+  );
+}
+
+function LoginBtn({ loading, loadingLabel, children }: { loading: boolean; loadingLabel: string; children: React.ReactNode }) {
+  return (
+    <button type="submit" className="pc-btn" disabled={loading} aria-busy={loading}>
+      {loading ? (
+        <>
+          <span className="pc-btn-spinner" aria-hidden="true" /> {loadingLabel}
+        </>
+      ) : (
+        <>
+          {children}
+          <IconArrowRight />
+        </>
+      )}
     </button>
   );
 }
@@ -158,147 +213,125 @@ export function LoginForm({
     router.refresh();
   }
 
-  const cardClass = `login-card${shake ? " login-card--shake" : ""}`;
-
-  if (step === "enroll" && enrollData) {
-    return (
-      <div className={cardClass}>
-        <form onSubmit={handleEnrollSubmit} className="space-y-4" aria-label="Configurar autenticação em duas etapas">
-          <p className="text-sm text-white/70">
-            Primeiro acesso: configure a autenticação em duas etapas. Escaneie o QR code com um aplicativo autenticador
-            (Google Authenticator, Authy, etc.).
-          </p>
-          <div className="flex justify-center bg-white p-3 rounded-ps-sm">
-            <img src={enrollData.qrCode} alt="QR code para configurar autenticação em duas etapas" className="w-40 h-40" />
-          </div>
-          <p className="text-xs text-white/50 text-center break-all">
-            Não consegue escanear? Digite manualmente: <span className="font-mono">{enrollData.secret}</span>
-          </p>
-          <div>
-            <label htmlFor="mfa-enroll-code" className="block text-xs font-semibold text-white/80 mb-1.5">
-              Código de verificação
-            </label>
-            <FieldShell>
-              <input
-                id="mfa-enroll-code"
-                type="text"
-                inputMode="numeric"
-                autoFocus
-                required
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="000000"
-                className="w-full bg-transparent text-sm tracking-[0.3em] outline-none placeholder:tracking-normal placeholder:text-white/30"
-              />
-            </FieldShell>
-          </div>
-
-          {error && (
-            <p role="alert" className="text-sm text-red-300">
-              {error}
-            </p>
-          )}
-
-          <SubmitButton loading={loading}>{loading ? "Confirmando..." : "Confirmar e entrar"}</SubmitButton>
-        </form>
-      </div>
-    );
-  }
-
-  if (step === "challenge") {
-    return (
-      <div className={cardClass}>
-        <form onSubmit={handleChallengeSubmit} className="space-y-4" aria-label="Verificação em duas etapas">
-          <div>
-            <label htmlFor="mfa-code" className="block text-xs font-semibold text-white/80 mb-1.5">
-              Código de autenticação
-            </label>
-            <FieldShell>
-              <input
-                id="mfa-code"
-                type="text"
-                inputMode="numeric"
-                autoFocus
-                required
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="000000"
-                className="w-full bg-transparent text-sm tracking-[0.3em] outline-none placeholder:tracking-normal placeholder:text-white/30"
-              />
-            </FieldShell>
-            <p className="text-xs text-white/50 mt-1.5">Digite o código do seu aplicativo autenticador.</p>
-          </div>
-
-          {error && (
-            <p role="alert" className="text-sm text-red-300">
-              {error}
-            </p>
-          )}
-
-          <SubmitButton loading={loading}>{loading ? "Verificando..." : "Confirmar"}</SubmitButton>
-        </form>
-      </div>
-    );
-  }
+  const cardClass = `pc-card${shake ? " pc-shake" : ""}`;
 
   return (
     <div className={cardClass}>
-      <form onSubmit={handlePasswordSubmit} className="space-y-4" aria-label="Entrar">
-        <div>
-          <label htmlFor="email" className="block text-xs font-semibold text-white/80 mb-1.5">
-            E-mail
-          </label>
-          <FieldShell>
-            <span className="text-white/45" aria-hidden="true">
-              <MailIcon />
-            </span>
+      <div className="pc-card-glow" aria-hidden="true" />
+      <div className="pc-header">
+        <span className="pc-eyebrow">
+          <i aria-hidden="true" />
+          Treasury
+        </span>
+      </div>
+
+      {step === "enroll" && enrollData && (
+        <form onSubmit={handleEnrollSubmit} className="pc-step" aria-label="Configurar autenticação em duas etapas">
+          <h1 className="pc-title">Autenticação em 2 fatores</h1>
+          <p className="pc-subtitle">Escaneie o QR code com Google Authenticator, Authy ou similar.</p>
+          <div className="pc-qr-box">
+            <div className="pc-qr-inner">
+              <img src={enrollData.qrCode} alt="QR code para configurar autenticação em duas etapas" className="pc-qr-img" />
+            </div>
+          </div>
+          <p className="pc-hint">
+            Não consegue escanear? Digite manualmente: <code>{enrollData.secret}</code>
+          </p>
+          <Field id="mfa-enroll-code" label="Código de verificação" icon={<IconShield />}>
+            <input
+              id="mfa-enroll-code"
+              className="pc-input"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              required
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="000000"
+            />
+          </Field>
+          {error && <ErrBox msg={error} />}
+          <LoginBtn loading={loading} loadingLabel="Confirmando...">
+            Confirmar e entrar
+          </LoginBtn>
+        </form>
+      )}
+
+      {step === "challenge" && (
+        <form onSubmit={handleChallengeSubmit} className="pc-step" aria-label="Verificação em duas etapas">
+          <h1 className="pc-title">Verificação em 2 etapas</h1>
+          <p className="pc-subtitle">Digite o código do seu app autenticador.</p>
+          <Field id="mfa-code" label="Código de autenticação" icon={<IconShield />}>
+            <input
+              id="mfa-code"
+              className="pc-input"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              required
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="000000"
+            />
+          </Field>
+          {error && <ErrBox msg={error} />}
+          <LoginBtn loading={loading} loadingLabel="Verificando...">
+            Confirmar
+          </LoginBtn>
+        </form>
+      )}
+
+      {step === "password" && (
+        <form onSubmit={handlePasswordSubmit} className="pc-step" aria-label="Entrar">
+          <h1 className="pc-title">Entrar</h1>
+          <p className="pc-subtitle">Use suas credenciais para acessar o Treasury.</p>
+          <Field id="email" label="E-mail" icon={<IconMail />}>
             <input
               id="email"
+              className="pc-input"
               type="email"
               required
               autoComplete="email"
+              placeholder="seu.nome@empresa.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-transparent text-sm text-white outline-none"
             />
-          </FieldShell>
-        </div>
-        <div>
-          <label htmlFor="password" className="block text-xs font-semibold text-white/80 mb-1.5">
-            Senha
-          </label>
-          <FieldShell>
-            <span className="text-white/45" aria-hidden="true">
-              <LockIcon />
-            </span>
+          </Field>
+          <Field id="password" label="Senha" icon={<IconLock />}>
             <input
               id="password"
+              className="pc-input pc-input-pass"
               type={showPassword ? "text" : "password"}
               required
               autoComplete="current-password"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-transparent text-sm text-white outline-none"
             />
             <button
               type="button"
+              className="pc-eye-btn"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-              className="text-white/45 hover:text-white transition-colors shrink-0"
+              aria-pressed={showPassword}
             >
-              <EyeIcon off={showPassword} />
+              {showPassword ? <IconEyeOff /> : <IconEye />}
             </button>
-          </FieldShell>
-        </div>
+          </Field>
+          {error && <ErrBox msg={error} />}
+          <LoginBtn loading={loading} loadingLabel="Entrando...">
+            Entrar
+          </LoginBtn>
+        </form>
+      )}
 
-        {error && (
-          <p role="alert" className="text-sm text-red-300">
-            {error}
-          </p>
-        )}
-
-        <SubmitButton loading={loading}>{loading ? "Entrando..." : "Entrar"}</SubmitButton>
-      </form>
+      <div className="pc-footer">
+        <b>
+          <IconShield /> Acesso restrito PagSmile
+        </b>
+      </div>
     </div>
   );
 }
