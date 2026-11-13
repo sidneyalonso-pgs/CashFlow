@@ -11,6 +11,120 @@ function competenciaDe(v: FormDataEntryValue | string | null | undefined): strin
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(s) ? `${s}-01` : null;
 }
 
+/** Quantos meses à frente um pagamento recorrente é provisionado automaticamente. */
+const MESES_RECORRENCIA = 6;
+
+// Semana do mês → dia âncora (o mesmo critério do "Gerar" em Pagamentos recorrentes)
+const SEMANA_PARA_DIA: Record<number, number> = { 1: 7, 2: 14, 3: 21, 4: 28, 5: 28 };
+
+type PagamentoRecorrente = {
+  company_id: string;
+  supplier_id: string;
+  description: string;
+  gross_amount: number;
+  category_id: string | null;
+  cost_center_id: string | null;
+  paying_bank_account_id: string | null;
+  cost_type: string;
+  fixed_variable: string | null;
+  chart_account_id: string | null;
+  due_date: string;
+  competence_date: string;
+  notes?: string | null;
+};
+
+/** Soma k meses a uma data AAAA-MM-DD mantendo o dia (ou o dia informado); em mês curto vai para o último dia. */
+function somaMeses(iso: string, k: number, dia?: number | null): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const total = y * 12 + (m - 1) + k;
+  const ano = Math.floor(total / 12);
+  const mes = total % 12;
+  const ultimoDia = new Date(Date.UTC(ano, mes + 1, 0)).getUTCDate();
+  const diaFinal = Math.min(dia && dia > 0 ? dia : d, ultimoDia);
+  return `${ano}-${String(mes + 1).padStart(2, "0")}-${String(diaFinal).padStart(2, "0")}`;
+}
+
+/** Dia do mês escolhido no formulário (por dia, ou por semana do mês); null = mesmo dia do lançamento. */
+function diaDoAgendamento(mode: string, dayOfMonth: number | null, weekOfMonth: number | null): number | null {
+  if (mode === "dia") return dayOfMonth && dayOfMonth >= 1 && dayOfMonth <= 31 ? dayOfMonth : null;
+  if (mode === "semana") return weekOfMonth ? SEMANA_PARA_DIA[weekOfMonth] ?? null : null;
+  return null;
+}
+
+/**
+ * Provisiona os próximos MESES_RECORRENCIA meses de pagamentos marcados como recorrentes:
+ * mesmo fornecedor, empresa, valor, descrição e conta, no mesmo dia do mês (status "agendado").
+ *
+ * Não duplica: antes de criar, conta quantos pagamentos idênticos já existem naquela data e só
+ * cria os que faltam. Isso importa porque pode haver parcelas iguais no mesmo dia (ex.: duas
+ * de R$ 6.306,47) — a contagem respeita a quantidade, e repetir o lançamento não gera de novo.
+ */
+async function gerarRecorrencias(
+  supabase: ReturnType<typeof createClient>,
+  userId: string | undefined,
+  itens: PagamentoRecorrente[],
+  dia?: number | null
+): Promise<{ criados: number; error?: string }> {
+  const grupos = new Map<string, { base: PagamentoRecorrente; qtd: number }>();
+  for (const it of itens) {
+    const chave = [it.company_id, it.supplier_id, it.gross_amount, it.description, it.due_date].join("|");
+    const g = grupos.get(chave);
+    if (g) g.qtd++;
+    else grupos.set(chave, { base: it, qtd: 1 });
+  }
+
+  const novos: Record<string, unknown>[] = [];
+  for (const { base, qtd } of grupos.values()) {
+    for (let k = 1; k <= MESES_RECORRENCIA; k++) {
+      const due = somaMeses(base.due_date, k, dia);
+      // competência manual (outro mês) acompanha o deslocamento; sem ela, segue a data do pagamento
+      const comp = base.competence_date === base.due_date ? due : somaMeses(base.competence_date, k);
+
+      const { data: existentes, error } = await supabase
+        .from("payments")
+        .select("id")
+        .eq("company_id", base.company_id)
+        .eq("supplier_id", base.supplier_id)
+        .eq("gross_amount", base.gross_amount)
+        .eq("description", base.description)
+        .eq("due_date", due)
+        .is("deleted_at", null);
+      if (error) return { criados: 0, error: error.message };
+
+      const faltam = qtd - (existentes?.length ?? 0);
+      for (let i = 0; i < faltam; i++) {
+        novos.push({
+          company_id: base.company_id,
+          supplier_id: base.supplier_id,
+          description: base.description,
+          gross_amount: base.gross_amount,
+          currency: "BRL",
+          category_id: base.category_id,
+          cost_center_id: base.cost_center_id,
+          paying_bank_account_id: base.paying_bank_account_id,
+          cost_type: base.cost_type,
+          fixed_variable: base.fixed_variable,
+          chart_account_id: base.chart_account_id,
+          document_date: due,
+          due_date: due,
+          expected_payment_date: due,
+          competence_date: comp,
+          notes: base.notes ?? null,
+          recurring: true,
+          status: "agendado",
+          created_by: userId,
+          updated_by: userId,
+        });
+      }
+    }
+  }
+
+  if (novos.length === 0) return { criados: 0 };
+  const { error } = await supabase.from("payments").insert(novos);
+  if (error) return { criados: 0, error: error.message };
+  return { criados: novos.length };
+}
+
 export async function createPaidPayment(formData: FormData) {
   const companyId = String(formData.get("company_id") || "");
   const supplierId = String(formData.get("supplier_id") || "");
@@ -86,21 +200,37 @@ export async function createPaidPayment(formData: FormData) {
     const scheduleMode = String(formData.get("schedule_mode") || "dia");
     const dayOfMonth = scheduleMode === "dia" ? Number(formData.get("day_of_month")) || null : null;
     const weekOfMonth = scheduleMode === "semana" ? Number(formData.get("week_of_month")) || null : null;
-    await supabase.from("recurring_payment_templates").insert({
-      company_id: companyId,
-      supplier_id: supplierId,
-      description: description || supplier?.default_description || supplier?.legal_name || "Pagamento",
-      day_of_month: dayOfMonth,
-      week_of_month: weekOfMonth,
-      category_id: categoryId,
-      cost_center_id: costCenterId,
-      paying_bank_account_id: bankAccountId,
-      created_by: user?.id,
-    });
+    const descricaoFinal = description || supplier?.default_description || supplier?.legal_name || "Pagamento";
+    const rec = await gerarRecorrencias(
+      supabase,
+      user?.id,
+      [
+        {
+          company_id: companyId,
+          supplier_id: supplierId,
+          description: descricaoFinal,
+          gross_amount: grossAmount,
+          category_id: categoryId,
+          cost_center_id: costCenterId,
+          paying_bank_account_id: bankAccountId,
+          cost_type: supplier?.cost_type ?? "despesas",
+          fixed_variable: supplier?.cost_structure ?? null,
+          chart_account_id: supplier?.chart_account_id ?? null,
+          due_date: paidAt,
+          competence_date: competenciaDe(formData.get("competence")) ?? paidAt,
+          notes,
+        },
+      ],
+      diaDoAgendamento(scheduleMode, dayOfMonth, weekOfMonth)
+    );
+    // o pagamento já foi gravado: se só a recorrência falhar, avisa em vez de esconder
+    if (rec.error) return { error: `Pagamento lançado, mas os meses seguintes não foram gerados: ${rec.error}` };
   }
 
   revalidatePath("/pagamentos");
   revalidatePath("/pagamentos/recorrentes");
+  revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   redirect("/pagamentos");
 }
 
@@ -162,21 +292,36 @@ export async function createScheduledPayment(formData: FormData) {
     const scheduleMode = String(formData.get("schedule_mode") || "dia");
     const dayOfMonth = scheduleMode === "dia" ? Number(formData.get("day_of_month")) || null : null;
     const weekOfMonth = scheduleMode === "semana" ? Number(formData.get("week_of_month")) || null : null;
-    await supabase.from("recurring_payment_templates").insert({
-      company_id: companyId,
-      supplier_id: supplierId,
-      description: description || supplier?.default_description || supplier?.legal_name || "Pagamento",
-      day_of_month: dayOfMonth,
-      week_of_month: weekOfMonth,
-      category_id: categoryId,
-      cost_center_id: costCenterId,
-      paying_bank_account_id: bankAccountId,
-      created_by: user?.id,
-    });
+    const descricaoFinal = description || supplier?.default_description || supplier?.legal_name || "Pagamento";
+    const rec = await gerarRecorrencias(
+      supabase,
+      user?.id,
+      [
+        {
+          company_id: companyId,
+          supplier_id: supplierId,
+          description: descricaoFinal,
+          gross_amount: grossAmount,
+          category_id: categoryId,
+          cost_center_id: costCenterId,
+          paying_bank_account_id: bankAccountId,
+          cost_type: supplier?.cost_type ?? "despesas",
+          fixed_variable: supplier?.cost_structure ?? null,
+          chart_account_id: supplier?.chart_account_id ?? null,
+          due_date: expectedDate,
+          competence_date: competenciaDe(formData.get("competence")) ?? expectedDate,
+          notes,
+        },
+      ],
+      diaDoAgendamento(scheduleMode, dayOfMonth, weekOfMonth)
+    );
+    if (rec.error) return { error: `Pagamento lançado, mas os meses seguintes não foram gerados: ${rec.error}` };
   }
 
   revalidatePath("/pagamentos");
   revalidatePath("/pagamentos/recorrentes");
+  revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
   redirect("/pagamentos");
 }
 
@@ -514,6 +659,8 @@ export async function createBulkPayments(rows: Array<{
   } = await supabase.auth.getUser();
 
   const errors: string[] = [];
+  // linhas gravadas com "Recorrente": depois do laço, os meses seguintes são provisionados de uma vez
+  const recorrentes: PagamentoRecorrente[] = [];
 
   for (const row of rows) {
     if (!row.company_id || !row.supplier_id || !row.gross_amount || row.gross_amount <= 0 || !row.date) {
@@ -568,9 +715,32 @@ export async function createBulkPayments(rows: Array<{
         created_by: user?.id,
       });
     }
+
+    if (row.recurring) {
+      recorrentes.push({
+        company_id: row.company_id,
+        supplier_id: row.supplier_id,
+        description,
+        gross_amount: row.gross_amount,
+        category_id: row.category_id || null,
+        cost_center_id: row.cost_center_id || null,
+        paying_bank_account_id: row.bank_account_id || null,
+        cost_type: supplier?.cost_type ?? "despesas",
+        fixed_variable: supplier?.cost_structure ?? null,
+        chart_account_id: supplier?.chart_account_id ?? null,
+        due_date: row.date,
+        competence_date: competenciaDe(row.competence) ?? row.date,
+      });
+    }
+  }
+
+  if (recorrentes.length > 0) {
+    const rec = await gerarRecorrencias(supabase, user?.id, recorrentes);
+    if (rec.error) errors.push(`Pagamentos lançados, mas os meses seguintes não foram gerados: ${rec.error}`);
   }
 
   revalidatePath("/pagamentos");
+  revalidatePath("/pagamentos/recorrentes");
   revalidatePath("/cash-flow");
   revalidatePath("/cash-flow/detalhado");
   return { errors };
@@ -578,14 +748,40 @@ export async function createBulkPayments(rows: Array<{
 
 export async function createRecurringFromPayment(paymentId: string, scheduleMode: string, dayOfMonth: number | null, weekOfMonth: number | null) {
   const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const { error } = await supabase
+  const { data: p, error } = await supabase
     .from("payments")
     .update({ recurring: true })
-    .eq("id", paymentId);
+    .eq("id", paymentId)
+    .select(
+      "company_id, supplier_id, description, gross_amount, category_id, cost_center_id, paying_bank_account_id, cost_type, fixed_variable, chart_account_id, due_date, competence_date, notes"
+    )
+    .single();
 
-  if (error) return { error: error.message };
+  if (error || !p) return { error: error?.message ?? "Pagamento não encontrado." };
+
+  // marcar como recorrente também provisiona os próximos meses (sem duplicar o que já existe)
+  const rec = await gerarRecorrencias(
+    supabase,
+    user?.id,
+    [
+      {
+        ...p,
+        gross_amount: Number(p.gross_amount),
+        competence_date: p.competence_date ?? p.due_date,
+        cost_type: p.cost_type ?? "despesas",
+      } as PagamentoRecorrente,
+    ],
+    diaDoAgendamento(scheduleMode, dayOfMonth, weekOfMonth)
+  );
+  if (rec.error) return { error: `Marcado como recorrente, mas os meses seguintes não foram gerados: ${rec.error}` };
+
   revalidatePath("/pagamentos");
   revalidatePath("/pagamentos/recorrentes");
-  return { error: null };
+  revalidatePath("/cash-flow");
+  revalidatePath("/cash-flow/detalhado");
+  return { error: null, criados: rec.criados };
 }
