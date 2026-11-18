@@ -6,6 +6,7 @@ import { formatBRL } from "@/lib/calculations/money";
 import { reconcileEntry, reconcileEntryGroup, ignoreEntry, unreconcileEntry } from "./actions";
 import { scoreCandidates, confidenceLabel, type Candidate } from "@/lib/reconciliation/score";
 import { CreateFromEntryButton } from "./CreateFromEntryButton";
+import { LinkManyButton } from "./LinkManyButton";
 
 const CONFIDENCE_STYLES = {
   alta: "bg-green-100 text-green-700",
@@ -176,6 +177,7 @@ export function ReconcileRow({
         >
           {isPending ? "..." : "Conciliar"}
         </button>
+        <LinkManyButton entry={entry} candidates={candidates} />
         <CreateFromEntryButton entry={entry} />
         <button onClick={handleIgnore} disabled={isPending} className="text-xs text-ps-muted underline">
           Ignorar
