@@ -104,7 +104,8 @@ export function buildProposals(
   bankAccountId: string
 ): Proposal[] {
   const scoredByEntry = new Map<string, Scored[]>();
-  const claimCount = new Map<string, number>(); // candidato → nº de linhas que o disputam (mesma conta)
+  // candidato → distâncias de data (dias) das linhas que o disputam (mesma conta)
+  const claims = new Map<string, number[]>();
 
   for (const entry of entries) {
     const list: Scored[] = [];
@@ -123,7 +124,7 @@ export function buildProposals(
     });
     scoredByEntry.set(entry.id, list);
     for (const s of list) {
-      if (s.sameAccount) claimCount.set(s.candidate.key, (claimCount.get(s.candidate.key) ?? 0) + 1);
+      if (s.sameAccount) claims.set(s.candidate.key, [...(claims.get(s.candidate.key) ?? []), s.days]);
     }
   }
 
@@ -145,8 +146,11 @@ export function buildProposals(
     if (list.length === 0) continue;
     const top = list[0];
     if (top.days > HIGH_DAYS) continue;
-    const unique = list.length === 1 && (claimCount.get(top.candidate.key) ?? 0) === 1;
-    const nameWins = top.sim >= 0.6 && (list[1]?.sim ?? 0) < 0.3 && (claimCount.get(top.candidate.key) ?? 0) === 1;
+    const rivals = (claims.get(top.candidate.key) ?? []).slice();
+    rivals.splice(rivals.indexOf(top.days), 1); // tira a própria linha
+    const winsCandidate = rivals.every((d) => top.days < d); // nenhum rival tão perto quanto esta linha
+    const unique = list.length === 1 && winsCandidate;
+    const nameWins = top.sim >= 0.6 && (list[1]?.sim ?? 0) < 0.3 && winsCandidate;
     if (unique || nameWins) {
       usedCandidates.add(top.candidate.key);
       usedEntries.add(entry.id);
@@ -155,7 +159,10 @@ export function buildProposals(
   }
 
   // 2ª passada: o que sobrou vira "revisar" (mesma conta / sem conta) ou "conta divergente"
-  for (const entry of entries) {
+  const byProximity = [...entries].sort(
+    (a, b) => (scoredByEntry.get(a.id)?.[0]?.days ?? 99) - (scoredByEntry.get(b.id)?.[0]?.days ?? 99)
+  );
+  for (const entry of byProximity) {
     if (usedEntries.has(entry.id)) continue;
     const list = (scoredByEntry.get(entry.id) ?? []).filter((s) => !usedCandidates.has(s.candidate.key));
     if (list.length === 0) continue;
@@ -185,12 +192,18 @@ export function buildProposals(
       .filter((c) => !usedCandidates.has(c.key) && (c.accountId === bankAccountId || !c.accountId))
       .sort((a, b) => b.amount - a.amount);
     for (const cand of pool) {
-      const free = entries
+      const all = entries
         .filter((e) => e.direction === direction && !usedEntries.has(e.id) && cents(e.amount) < cents(cand.amount) && daysBetween(e.date, cand.date) <= MAX_DAYS)
-        .sort((a, b) => daysBetween(a.date, cand.date) - daysBetween(b.date, cand.date) || b.amount - a.amount)
-        .slice(0, GROUP_POOL_MAX);
-      if (free.length < 2) continue;
-      const sols = findSubsets(free.map((e) => ({ id: e.id, cents: cents(e.amount) })), cents(cand.amount), GROUP_SIZE_MAX_ENTRIES);
+        .sort((a, b) => daysBetween(a.date, cand.date) - daysBetween(b.date, cand.date) || b.amount - a.amount);
+      let sols: string[][] = [];
+      let free = all;
+      // tolerância crescente: a combinação com a data exata vence uma que só fecha com datas mais distantes
+      for (const tol of [0, HIGH_DAYS, MAX_DAYS]) {
+        free = all.filter((e) => daysBetween(e.date, cand.date) <= tol).slice(0, GROUP_POOL_MAX);
+        if (free.length < 2) continue;
+        sols = findSubsets(free.map((e) => ({ id: e.id, cents: cents(e.amount) })), cents(cand.amount), GROUP_SIZE_MAX_ENTRIES);
+        if (sols.length > 0) break;
+      }
       if (sols.length === 0) continue;
       const chosen = sols[0];
       const chosenEntries = free.filter((e) => chosen.includes(e.id));
@@ -220,11 +233,15 @@ export function buildProposals(
     const byType = new Map<string, Candidate[]>();
     for (const c of pool) byType.set(c.entityType, [...(byType.get(c.entityType) ?? []), c]);
     for (const list of Array.from(byType.values())) {
-      const sorted = list
-        .sort((a, b) => daysBetween(a.date, entry.date) - daysBetween(b.date, entry.date) || b.amount - a.amount)
-        .slice(0, GROUP_POOL_MAX);
-      if (sorted.length < 2) continue;
-      const sols = findSubsets(sorted.map((c) => ({ id: c.key, cents: cents(c.amount) })), cents(entry.amount), GROUP_SIZE_MAX_CANDIDATES);
+      const ordered = list.sort((a, b) => daysBetween(a.date, entry.date) - daysBetween(b.date, entry.date) || b.amount - a.amount);
+      let sols: string[][] = [];
+      let sorted = ordered;
+      for (const tol of [0, HIGH_DAYS, MAX_DAYS]) {
+        sorted = ordered.filter((c) => daysBetween(c.date, entry.date) <= tol).slice(0, GROUP_POOL_MAX);
+        if (sorted.length < 2) continue;
+        sols = findSubsets(sorted.map((c) => ({ id: c.key, cents: cents(c.amount) })), cents(entry.amount), GROUP_SIZE_MAX_CANDIDATES);
+        if (sols.length > 0) break;
+      }
       if (sols.length === 0) continue;
       const chosen = sorted.filter((c) => sols[0].includes(c.key));
       const maxDays = Math.max(...chosen.map((c) => daysBetween(entry.date, c.date)));
