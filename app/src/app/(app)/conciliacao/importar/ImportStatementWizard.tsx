@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
-import { parseBankStatementText, parseOfxStatement, type StatementRow } from "@/lib/parsing/bankStatement";
+import {
+  parseBankStatementText,
+  parseBankStatementMatrix,
+  parseOfxStatement,
+  type ParsedStatement,
+  type StatementRow,
+} from "@/lib/parsing/bankStatement";
 import { formatBRL } from "@/lib/calculations/money";
 import { importBankStatement } from "./actions";
 
@@ -19,6 +25,7 @@ export function ImportStatementWizard({
   const [bankAccountId, setBankAccountId] = useState("");
   const [rows, setRows] = useState<StatementRow[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [closing, setClosing] = useState<ParsedStatement["closing"]>(undefined);
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ imported: number; total: number } | null>(null);
@@ -36,33 +43,43 @@ export function ImportStatementWizard({
     const lowerName = file.name.toLowerCase();
     const isOfx = lowerName.endsWith(".ofx") || lowerName.endsWith(".qfx");
 
-    let parsed: ReturnType<typeof parseBankStatementText>;
+    let parsed: ParsedStatement;
     if (isOfx) {
       const text = await file.text();
       parsed = parseOfxStatement(text);
-    } else {
-      let text: string;
-      if (lowerName.endsWith(".csv")) {
-        text = await file.text();
-      } else {
-        const buffer = await file.arrayBuffer();
-        const workbook = XLSX.read(buffer);
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        text = XLSX.utils.sheet_to_csv(sheet, { FS: ";" });
-      }
+    } else if (lowerName.endsWith(".csv")) {
+      // CSV de banco costuma vir em latin1; tenta UTF-8 e cai para latin1 se aparecer caractere inválido
+      const buffer = await file.arrayBuffer();
+      let text = new TextDecoder("utf-8").decode(buffer);
+      if (text.includes("�")) text = new TextDecoder("windows-1252").decode(buffer);
       parsed = parseBankStatementText(text);
+    } else {
+      // Excel: usa a primeira aba em que o parser reconhece um cabeçalho com data e valor
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer);
+      parsed = { rows: [], warnings: [] };
+      for (const name of workbook.SheetNames) {
+        const matrix = XLSX.utils.sheet_to_json<any[]>(workbook.Sheets[name], { header: 1, raw: true, defval: null });
+        const attempt = parseBankStatementMatrix(matrix);
+        if (attempt.rows.length > 0) {
+          parsed = attempt;
+          break;
+        }
+        parsed = attempt;
+      }
     }
 
     if (parsed.rows.length === 0) {
       setError(
         isOfx
           ? "Não encontrei transações no arquivo OFX."
-          : "Não encontrei linhas de transação no arquivo. Confira se ele tem colunas de Data, Descrição e Valor."
+          : parsed.warnings[0] ?? "Não encontrei linhas de transação no arquivo. Confira se ele tem colunas de Data e Valor."
       );
       return;
     }
     setRows(parsed.rows);
     setWarnings(parsed.warnings);
+    setClosing(parsed.closing);
   }
 
   async function handleConfirm() {
@@ -119,8 +136,9 @@ export function ImportStatementWizard({
           </select>
         </div>
         <p className="text-sm text-ps-muted">
-          Aceita o extrato em <strong>OFX</strong> (recomendado — evita duplicidade automaticamente), CSV (colunas
-          Data, Descrição, Valor e Saldo) ou uma planilha Excel no mesmo formato.
+          Aceita o extrato em <strong>OFX</strong> (recomendado — evita duplicidade automaticamente), CSV ou planilha
+          Excel. No CSV/Excel o sistema reconhece as colunas pelo nome do cabeçalho (Data, Valor — com sinal ou com
+          coluna de Crédito/Débito ou Direção —, Descrição/Histórico, Saldo e ID da transação), em qualquer ordem.
         </p>
         <input type="file" accept=".ofx,.qfx,.xlsx,.csv" onChange={handleFile} className="text-sm" />
         {error && <p className="text-sm text-red-600">{error}</p>}
@@ -144,6 +162,12 @@ export function ImportStatementWizard({
 
       {rows.length > 0 && !result && (
         <div className="bg-white rounded-ps shadow-ps-sm border border-ps-navy/5 p-5">
+          {closing && (
+            <p className="text-xs text-ps-muted mb-3">
+              Saldo final informado pelo arquivo: <strong>{formatBRL(closing.balance)}</strong>
+              {closing.date ? ` em ${closing.date.split("-").reverse().join("/")}` : ""}.
+            </p>
+          )}
           <h3 className="font-semibold text-ps-ink mb-3">
             2. Prévia ({rows.length} linha{rows.length === 1 ? "" : "s"})
           </h3>

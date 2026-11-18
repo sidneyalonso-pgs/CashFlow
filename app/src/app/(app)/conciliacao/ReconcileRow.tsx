@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { formatBRL } from "@/lib/calculations/money";
 import { reconcileEntry, reconcileEntryGroup, ignoreEntry, unreconcileEntry } from "./actions";
 import { scoreCandidates, confidenceLabel, type Candidate } from "@/lib/reconciliation/score";
+import { CreateFromEntryButton } from "./CreateFromEntryButton";
 
 const CONFIDENCE_STYLES = {
   alta: "bg-green-100 text-green-700",
@@ -16,7 +17,7 @@ export function ReconcileRow({
   candidates,
   reconciled: initialReconciled,
 }: {
-  entry: { id: string; entry_date: string; bank_description: string; amount: number; direction: string };
+  entry: { id: string; entry_date: string; bank_description: string; amount: number; direction: string; bank_account_id?: string };
   candidates: Candidate[];
   reconciled?: { key: string; label: string; amount: number; date: string } | null;
 }) {
@@ -172,6 +173,7 @@ export function ReconcileRow({
         >
           {isPending ? "..." : "Conciliar"}
         </button>
+        <CreateFromEntryButton entry={entry} />
         <button onClick={handleIgnore} disabled={isPending} className="text-xs text-ps-muted underline">
           Ignorar
         </button>

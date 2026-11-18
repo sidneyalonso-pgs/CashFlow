@@ -7,6 +7,9 @@ export type Candidate = {
   label: string;
   amount: number;
   date: string;
+  /** conta bancária do lançamento no Treasury (pagadora / recebedora); null = não informada */
+  accountId?: string | null;
+  accountName?: string | null;
 };
 
 type ScoredCandidate = Candidate & { score: number; reason: string };
@@ -22,7 +25,7 @@ const STOPWORDS = new Set([
 ]);
 
 // Similaridade entre duas strings (0-1): proporção de tokens significativos em comum
-function stringSimilarity(a: string, b: string): number {
+export function stringSimilarity(a: string, b: string): number {
   const normalize = (s: string) =>
     s
       .toLowerCase()

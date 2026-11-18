@@ -6,6 +6,16 @@ import { ExportReconciliationButton } from "./ExportReconciliationButton";
 import { ExportDeParaButton } from "./ExportDeParaButton";
 import { SessionDeleteButton } from "./SessionDeleteButton";
 import { companyLabel } from "@/lib/format";
+import { AutoMatchPanel, type ProposalView } from "./AutoMatchPanel";
+import { DailyBalancePanel, type DailyRow } from "./DailyBalancePanel";
+import { buildProposals, type MatchEntry } from "@/lib/reconciliation/autoMatch";
+import { getAccountBalanceAsOf, getAccountDailyMovements } from "@/lib/calculations/accountBalance";
+
+function addDays(iso: string, n: number) {
+  const d = new Date(iso + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
 
 const BANK_COLORS: Record<string, string> = {
   "Banco Inter": "bg-orange-400",
@@ -88,6 +98,10 @@ export default async function ReconciliationPage({
   let transferOutflowCandidates: any[] = [];
   let transferInflowCandidates: any[] = [];
   let openImport: any = null;
+  let proposals: ProposalView[] = [];
+  let dailyRows: DailyRow[] = [];
+  let dailyLabel = "";
+  let dailyPeriod = "";
 
   if (openImportId) {
     openImport = (imports ?? []).find((i: any) => i.id === openImportId);
@@ -96,7 +110,7 @@ export default async function ReconciliationPage({
     // Entradas pendentes deste import
     const { data: pendingData } = await supabase
       .from("bank_statement_entries")
-      .select("id, entry_date, bank_description, amount, direction")
+      .select("id, entry_date, bank_description, amount, direction, bank_account_id")
       .eq("import_id", openImportId)
       .eq("reconciliation_status", "pendente")
       .order("entry_date");
@@ -119,42 +133,49 @@ export default async function ReconciliationPage({
       const allDates = [...(pendingData ?? []), ...(reconciledData ?? [])].map((e: any) => e.entry_date).sort();
       const minDate = allDates[0] ?? new Date().toISOString().slice(0, 7) + "-01";
       const maxDate = allDates[allDates.length - 1] ?? minDate;
+      // folga de 3 dias: a baixa no Treasury pode estar alguns dias antes/depois da linha do banco
+      const searchFrom = addDays(minDate, -3);
+      const searchTo = addDays(maxDate, 3);
 
       // Busca pagamentos por empresa (não por conta específica) pra não perder lançamentos sem paying_bank_account_id
       let paymentsQuery = supabase
         .from("payments")
-        .select("id, description, gross_amount, effective_payment_date")
+        .select("id, description, gross_amount, effective_payment_date, paying_bank_account_id")
         .eq("status", "pago")
+        .is("deleted_at", null)
         .eq("reconciliation_status", "pendente")
-        .gte("effective_payment_date", minDate)
-        .lte("effective_payment_date", maxDate);
+        .gte("effective_payment_date", searchFrom)
+        .lte("effective_payment_date", searchTo);
       if (companyId) paymentsQuery = paymentsQuery.eq("company_id", companyId);
 
       let revenuesQuery = supabase
         .from("revenues")
         .select("id, description, realized_amount, realized_date, origem, receiving_bank_account_id, categories(name)")
         .eq("status", "recebida")
+        .is("deleted_at", null)
         .eq("reconciliation_status", "pendente")
-        .gte("realized_date", minDate)
-        .lte("realized_date", maxDate);
+        .gte("realized_date", searchFrom)
+        .lte("realized_date", searchTo);
       if (companyId) revenuesQuery = revenuesQuery.eq("company_id", companyId);
 
-      const [{ data: paymentsData }, { data: revenuesData }, { data: investmentsData }, { data: transfersData }] = await Promise.all([
+      const [{ data: paymentsData }, { data: revenuesData }, { data: investmentsData }, { data: transfersData }, { data: accountsData }] = await Promise.all([
         paymentsQuery,
         revenuesQuery,
         supabase
           .from("investments")
           .select("id, institution, product, applied_amount, applied_date, redeemed_amount, redeemed_date, status")
           .eq("bank_account_id", bankAccountId)
-          .gte("applied_date", minDate)
-          .lte("applied_date", maxDate),
+          .gte("applied_date", searchFrom)
+          .lte("applied_date", searchTo),
         supabase
           .from("transfers")
           .select("id, tipo, description, counterpart_name, amount, transfer_date, from_account_id, to_account_id")
-          .gte("transfer_date", minDate)
-          .lte("transfer_date", maxDate)
+          .gte("transfer_date", searchFrom)
+          .lte("transfer_date", searchTo)
           .or(`from_account_id.eq.${bankAccountId},to_account_id.eq.${bankAccountId}`),
+        supabase.from("bank_accounts").select("id, nickname, bank_name"),
       ]);
+      const accountNameById = new Map<string, string>((accountsData ?? []).map((a: any) => [a.id, a.nickname ?? a.bank_name]));
 
       const reconciledInvestmentIds = new Set(
         (reconciledData ?? [])
@@ -176,6 +197,8 @@ export default async function ReconciliationPage({
         label: p.description,
         amount: Number(p.gross_amount),
         date: p.effective_payment_date,
+        accountId: p.paying_bank_account_id ?? null,
+        accountName: p.paying_bank_account_id ? accountNameById.get(p.paying_bank_account_id) ?? null : null,
       }));
 
       // Receitas da Central Piloto que caíram juntas (mesma data de apuração e banco) aparecem numa
@@ -198,6 +221,8 @@ export default async function ReconciliationPage({
         label: r.description,
         amount: Number(r.realized_amount),
         date: r.realized_date,
+        accountId: r.receiving_bank_account_id ?? null,
+        accountName: r.receiving_bank_account_id ? accountNameById.get(r.receiving_bank_account_id) ?? null : null,
       }));
       for (const [chave, grupo] of Array.from(gruposCentral.entries())) {
         const porCategoria = new Map<string, number>();
@@ -215,6 +240,8 @@ export default async function ReconciliationPage({
           label: `Central Piloto ${dataBRConc(data)}: ${Array.from(porCategoria.entries()).map(([n, v]) => `${n} ${brl(v)}`).join(" + ")}`,
           amount: soma,
           date: data,
+          accountId: grupo[0].receiving_bank_account_id ?? null,
+          accountName: grupo[0].receiving_bank_account_id ? accountNameById.get(grupo[0].receiving_bank_account_id) ?? null : null,
         });
       }
 
@@ -227,6 +254,7 @@ export default async function ReconciliationPage({
             label: `Aplicação: ${inv.product} — ${inv.institution}`,
             amount: Number(inv.applied_amount),
             date: inv.applied_date,
+            accountId: bankAccountId,
           });
         }
         if (inv.redeemed_date && !reconciledInvestmentIds.has(`red:${inv.id}`)) {
@@ -237,6 +265,7 @@ export default async function ReconciliationPage({
             label: `Resgate: ${inv.product} — ${inv.institution}`,
             amount: Number(inv.redeemed_amount),
             date: inv.redeemed_date,
+            accountId: bankAccountId,
           });
         }
       }
@@ -251,9 +280,107 @@ export default async function ReconciliationPage({
           label,
           amount: Number(t.amount),
           date: t.transfer_date,
+          accountId: bankAccountId,
         };
         if (t.from_account_id === bankAccountId) transferOutflowCandidates.push(candidate);
         if (t.to_account_id === bankAccountId) transferInflowCandidates.push(candidate);
+      }
+
+      // Sugestões automáticas (etapa 1) — só para linhas pendentes, sempre comparando a CONTA
+      const candidatesFor = (e: MatchEntry) =>
+        e.direction === "entrada"
+          ? [...revenueCandidates, ...investmentRedemptionCandidates, ...transferInflowCandidates]
+          : [...paymentCandidates, ...investmentApplicationCandidates, ...transferOutflowCandidates];
+      const matchEntries: MatchEntry[] = entries.map((e: any) => ({
+        id: e.id,
+        date: e.entry_date,
+        amount: Number(e.amount),
+        direction: e.direction,
+        description: e.bank_description ?? "",
+      }));
+      const entryById = new Map<string, any>(entries.map((e: any) => [e.id, e]));
+      proposals = buildProposals(matchEntries, candidatesFor, bankAccountId).map((p) => {
+        const rows = p.entryIds.map((id) => entryById.get(id)).filter(Boolean);
+        return {
+          id: p.entryIds[0],
+          kind: p.kind,
+          direction: rows[0].direction,
+          confidence: p.confidence,
+          reason: p.reason,
+          entries: rows.map((e: any) => ({
+            id: e.id,
+            date: e.entry_date,
+            description: e.bank_description ?? "",
+            amount: Number(e.amount),
+          })),
+          candidates: p.candidates.map((c) => ({
+            key: c.key,
+            entityType: c.entityType,
+            entityId: c.entityId,
+            entityIds: c.entityIds,
+            label: c.label,
+            date: c.date,
+            amount: c.amount,
+            accountName: c.accountName ?? null,
+          })),
+        };
+      });
+
+      // Saldo diário banco x Treasury (etapa 2)
+      if (companyId && allDates.length > 0) {
+        const [{ data: acctEntries }, daily, opening] = await Promise.all([
+          supabase
+            .from("bank_statement_entries")
+            .select("entry_date, amount, direction, bank_balance, reconciliation_status, created_at")
+            .eq("bank_account_id", bankAccountId)
+            .gte("entry_date", minDate)
+            .lte("entry_date", maxDate)
+            .order("created_at"),
+          getAccountDailyMovements(supabase, bankAccountId, companyId, minDate, maxDate),
+          getAccountBalanceAsOf(supabase, bankAccountId, companyId, addDays(minDate, -1)),
+        ]);
+        const byDay = new Map<string, DailyRow>();
+        const dayRow = (d: string): DailyRow => {
+          let r = byDay.get(d);
+          if (!r) {
+            r = { date: d, bankNet: 0, bankBalance: null, treasuryNet: 0, treasuryBalance: 0, openEntries: 0, openEntriesNet: 0, openTreasuryNet: 0 };
+            byDay.set(d, r);
+          }
+          return r;
+        };
+        for (const e of (acctEntries ?? []) as any[]) {
+          const signed = (e.direction === "saida" ? -1 : 1) * Number(e.amount);
+          const r = dayRow(e.entry_date);
+          r.bankNet += signed;
+          // ordenado por created_at: o último saldo informado do dia é o saldo de fechamento
+          if (e.bank_balance !== null && e.bank_balance !== undefined) r.bankBalance = Number(e.bank_balance);
+          if (e.reconciliation_status === "pendente") {
+            r.openEntries += 1;
+            r.openEntriesNet += signed;
+          }
+        }
+        for (const [d, v] of Object.entries(daily)) dayRow(d).treasuryNet += v.inflow - v.outflow;
+        // lançamentos baixados no Treasury nesta conta e ainda sem linha do extrato
+        for (const c of paymentCandidates) if (c.accountId === bankAccountId && c.date >= minDate && c.date <= maxDate) dayRow(c.date).openTreasuryNet -= c.amount;
+        for (const c of revenueCandidates) if (c.accountId === bankAccountId && c.date >= minDate && c.date <= maxDate) dayRow(c.date).openTreasuryNet += c.amount;
+
+        let running = opening;
+        dailyRows = Array.from(byDay.values())
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .map((r) => {
+            running += r.treasuryNet;
+            return {
+              ...r,
+              bankNet: Math.round(r.bankNet * 100) / 100,
+              treasuryNet: Math.round(r.treasuryNet * 100) / 100,
+              openEntriesNet: Math.round(r.openEntriesNet * 100) / 100,
+              openTreasuryNet: Math.round(r.openTreasuryNet * 100) / 100,
+              treasuryBalance: Math.round(running * 100) / 100,
+            };
+          });
+        const acc: any = openImport?.bank_accounts;
+        dailyLabel = acc?.nickname ?? acc?.bank_name ?? "Conta";
+        dailyPeriod = `${fmtDate(minDate)} a ${fmtDate(maxDate)}`;
       }
 
       // Montar mapa de conciliados
@@ -407,7 +534,10 @@ export default async function ReconciliationPage({
 
                 {/* Inline workspace */}
                 {isOpen && (
-                  <div className="overflow-x-auto">
+                  <div>
+                    <DailyBalancePanel rows={dailyRows} accountLabel={dailyLabel} periodLabel={dailyPeriod} />
+                    <AutoMatchPanel proposals={proposals} />
+                    <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-ps-bg-2 text-ps-muted text-xs uppercase tracking-wide">
                         <tr>
@@ -447,6 +577,7 @@ export default async function ReconciliationPage({
                         )}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 )}
               </div>
