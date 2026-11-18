@@ -257,6 +257,16 @@ export function PaymentForm({
       </div>
 
       <div>
+        <label className="block text-sm text-ps-ink-2 mb-1">Nº da NF</label>
+        <input
+          type="text"
+          name="document_number"
+          placeholder="Número da nota fiscal (opcional)"
+          className="w-full rounded-ps-sm border border-ps-navy/15 px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div>
         <label className="block text-sm text-ps-ink-2 mb-1">Observações</label>
         <textarea
           name="notes"

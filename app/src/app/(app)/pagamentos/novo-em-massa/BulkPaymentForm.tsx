@@ -27,10 +27,11 @@ type Row = {
   bank_account_id: string;
   recurring: boolean;
   competence: string;
+  document_number: string;
 };
 
 function makeRow(id: number, today: string): Row {
-  return { id, company_id: "", supplier_id: "", description: "", gross_amount: "", date: today, mode: "pago", category_id: "", cost_center_id: "", bank_account_id: "", recurring: false, competence: "" };
+  return { id, company_id: "", supplier_id: "", description: "", gross_amount: "", date: today, mode: "pago", category_id: "", cost_center_id: "", bank_account_id: "", recurring: false, competence: "", document_number: "" };
 }
 
 export function BulkPaymentForm({
@@ -103,6 +104,7 @@ export function BulkPaymentForm({
           bank_account_id: r.bank_account_id || null,
           recurring: r.recurring,
           competence: r.competence || null,
+          document_number: r.document_number || null,
         }))
       );
       if (result.errors.length > 0) {
@@ -125,6 +127,7 @@ export function BulkPaymentForm({
               <th className={thCls}>Empresa *</th>
               <th className={thCls}>Fornecedor *</th>
               <th className={thCls}>Descrição</th>
+              <th className={thCls}>Nº da NF</th>
               <th className={thCls}>Valor *</th>
               <th className={thCls}>Data *</th>
               <th className={thCls} title="Mês/ano em que a despesa pertence (DRE). Vazio = mês da data.">Competência</th>
@@ -160,6 +163,15 @@ export function BulkPaymentForm({
                     type="text"
                     value={row.description}
                     onChange={(e) => updateRow(row.id, "description", e.target.value)}
+                    placeholder="(opcional)"
+                    className={inputCls}
+                  />
+                </td>
+                <td className="px-3 py-2 min-w-[110px]">
+                  <input
+                    type="text"
+                    value={row.document_number}
+                    onChange={(e) => updateRow(row.id, "document_number", e.target.value)}
                     placeholder="(opcional)"
                     className={inputCls}
                   />

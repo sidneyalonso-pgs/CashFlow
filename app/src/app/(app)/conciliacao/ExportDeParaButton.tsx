@@ -53,7 +53,7 @@ export function ExportDeParaButton({ bankAccountId }: { bankAccountId?: string }
 
     const [{ data: payments }, { data: revenues }] = await Promise.all([
       paymentIds.length
-        ? supabase.from("payments").select("id, description, chart_of_accounts(codigo, descricao)").in("id", paymentIds)
+        ? supabase.from("payments").select("id, description, document_number, chart_of_accounts(codigo, descricao)").in("id", paymentIds)
         : Promise.resolve({ data: [] as any[] }),
       revenueIds.length
         ? supabase.from("revenues").select("id, description, chart_of_accounts(codigo, descricao)").in("id", revenueIds)
@@ -115,7 +115,8 @@ export function ExportDeParaButton({ bankAccountId }: { bankAccountId?: string }
 
       const descricaoBase = entidade?.description || entry.bank_description || "";
       const nomeConta = contaEntidade?.descricao ?? "";
-      const historicoContabil = `VALOR REF. ${operacao} ${descricaoBase}${nomeConta ? ` - ${nomeConta}` : ""}`.toUpperCase();
+      const nf = isPagamento && entidade?.document_number ? ` NF ${String(entidade.document_number).trim()}` : "";
+      const historicoContabil = `VALOR REF. ${operacao} ${descricaoBase}${nf}${nomeConta ? ` - ${nomeConta}` : ""}`.toUpperCase();
 
       csvLines.push(
         [

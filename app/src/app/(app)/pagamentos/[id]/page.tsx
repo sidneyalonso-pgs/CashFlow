@@ -60,6 +60,8 @@ export default async function PaymentDetailPage({ params }: { params: { id: stri
               <dd>{payment.cost_centers?.name ?? "—"}</dd>
               <dt className="text-ps-muted">Data do pagamento</dt>
               <dd>{payment.effective_payment_date ?? "—"}</dd>
+              <dt className="text-ps-muted">Nº da NF</dt>
+              <dd>{payment.document_number ?? "—"}</dd>
               <dt className="text-ps-muted">Recorrente</dt>
               <dd>{payment.recurring ? "Sim" : "Não"}</dd>
               {payment.notes && (

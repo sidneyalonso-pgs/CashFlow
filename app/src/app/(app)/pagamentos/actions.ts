@@ -135,6 +135,7 @@ export async function createPaidPayment(formData: FormData) {
   const costCenterId = String(formData.get("cost_center_id") || "") || null;
   const bankAccountId = String(formData.get("paying_bank_account_id") || "") || null;
   const notes = String(formData.get("notes") || "") || null;
+  const documentNumber = String(formData.get("document_number") || "").trim() || null;
   const recurring = formData.get("recurring") === "on";
 
   if (!companyId || !supplierId || !grossAmount || grossAmount <= 0 || !paidAt) {
@@ -169,6 +170,7 @@ export async function createPaidPayment(formData: FormData) {
       fixed_variable: supplier?.cost_structure ?? null,
       chart_account_id: supplier?.chart_account_id ?? null,
       paying_bank_account_id: bankAccountId,
+      document_number: documentNumber,
       document_date: paidAt,
       due_date: paidAt,
       expected_payment_date: paidAt,
@@ -244,6 +246,7 @@ export async function createScheduledPayment(formData: FormData) {
   const costCenterId = String(formData.get("cost_center_id") || "") || null;
   const bankAccountId = String(formData.get("paying_bank_account_id") || "") || null;
   const notes = String(formData.get("notes") || "") || null;
+  const documentNumber = String(formData.get("document_number") || "").trim() || null;
   const recurring = formData.get("recurring") === "on";
 
   if (!companyId || !supplierId || !grossAmount || grossAmount <= 0 || !expectedDate) {
@@ -275,6 +278,7 @@ export async function createScheduledPayment(formData: FormData) {
     cost_type: supplier?.cost_type ?? "despesas",
     fixed_variable: supplier?.cost_structure ?? null,
     paying_bank_account_id: bankAccountId,
+    document_number: documentNumber,
     document_date: expectedDate,
     due_date: expectedDate,
     expected_payment_date: expectedDate,
@@ -429,6 +433,7 @@ export async function updatePayment(paymentId: string, formData: FormData) {
   const categoryId = String(formData.get("category_id") || "") || null;
   const costCenterId = String(formData.get("cost_center_id") || "") || null;
   const notes = String(formData.get("notes") || "") || null;
+  const documentNumber = String(formData.get("document_number") || "").trim() || null;
   const dueDate = String(formData.get("due_date") || "") || null;
   const competencia = competenciaDe(formData.get("competence"));
 
@@ -459,6 +464,7 @@ export async function updatePayment(paymentId: string, formData: FormData) {
     gross_amount: grossAmount,
     category_id: categoryId,
     cost_center_id: costCenterId,
+    document_number: documentNumber,
     notes,
   };
 
@@ -652,6 +658,7 @@ export async function createBulkPayments(rows: Array<{
   bank_account_id?: string | null;
   recurring?: boolean;
   competence?: string | null;
+  document_number?: string | null;
 }>) {
   const supabase = createClient();
   const {
@@ -686,6 +693,7 @@ export async function createBulkPayments(rows: Array<{
         supplier_id: row.supplier_id,
         description,
         gross_amount: row.gross_amount,
+        document_number: row.document_number?.trim() || null,
         currency: "BRL",
         category_id: row.category_id || null,
         cost_center_id: row.cost_center_id || null,

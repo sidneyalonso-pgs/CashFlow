@@ -13,6 +13,7 @@ type Payment = {
   category_id: string | null;
   cost_center_id: string | null;
   notes: string | null;
+  document_number?: string | null;
   status: string;
   due_date: string | null;
   competence_date?: string | null;
@@ -89,6 +90,7 @@ export function EditPaymentButton({
             type="month"
             defaultValue={payment.competence_date ? payment.competence_date.slice(0, 7) : ""}
           />
+          <TextField label="Nº da NF" name="document_number" defaultValue={payment.document_number ?? ""} />
           <div>
             <label className="block text-sm text-ps-ink-2 mb-1">Observações</label>
             <textarea
