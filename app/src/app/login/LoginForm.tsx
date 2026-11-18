@@ -160,7 +160,7 @@ export function LoginForm({
     const result = await signInAction(formData);
     setLoading(false);
 
-    if (result.error) {
+    if ("error" in result && result.error) {
       flashError(result.error);
       return;
     }
