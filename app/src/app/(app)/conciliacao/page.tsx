@@ -11,6 +11,12 @@ import { DailyBalancePanel, type DailyRow } from "./DailyBalancePanel";
 import { buildProposals, type MatchEntry } from "@/lib/reconciliation/autoMatch";
 import { getAccountBalanceAsOf, getAccountDailyMovements } from "@/lib/calculations/accountBalance";
 
+/** "Categoria · Centro de custo" (o que existir) */
+function catLabel(category?: string | null, costCenter?: string | null): string | null {
+  const parts = [category, costCenter].filter(Boolean) as string[];
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
 function addDays(iso: string, n: number) {
   const d = new Date(iso + "T00:00:00Z");
   d.setUTCDate(d.getUTCDate() + n);
@@ -90,7 +96,7 @@ export default async function ReconciliationPage({
   // Workspace do import aberto
   let entries: any[] = [];
   let reconciledEntries: any[] = [];
-  let reconciledMap: Record<string, { key: string; label: string; amount: number; date: string }> = {};
+  let reconciledMap: Record<string, { key: string; label: string; amount: number; date: string; category?: string | null }> = {};
   let paymentCandidates: any[] = [];
   let revenueCandidates: any[] = [];
   let investmentApplicationCandidates: any[] = [];
@@ -115,13 +121,48 @@ export default async function ReconciliationPage({
       .eq("reconciliation_status", "pendente")
       .order("entry_date");
 
-    // Entradas conciliadas deste import
-    const { data: reconciledData } = await supabase
+    // Entradas conciliadas deste import.
+    // reconciliations.entity_id é polimórfico (sem FK para payments/revenues/...), então o PostgREST não
+    // monta esse join: embute só reconciliations (que tem FK para a linha) e busca os lançamentos à parte.
+    const { data: reconciledRaw } = await supabase
       .from("bank_statement_entries")
-      .select("id, entry_date, bank_description, amount, direction, reconciliation_status, reconciliations(entity_type, entity_id, payments(description, gross_amount, effective_payment_date), revenues(description, realized_amount, realized_date), investments(institution, product, applied_amount, applied_date, redeemed_amount, redeemed_date), transfers(tipo, description, counterpart_name, amount, transfer_date))")
+      .select("id, entry_date, bank_description, amount, direction, reconciliation_status, reconciliations(entity_type, entity_id)")
       .eq("import_id", openImportId)
       .in("reconciliation_status", ["conciliado_manualmente", "ignorado"])
       .order("entry_date");
+
+    const fetchByIds = async (table: string, select: string, ids: string[]) => {
+      const out: any[] = [];
+      const unique = Array.from(new Set(ids));
+      for (let i = 0; i < unique.length; i += 100) {
+        const { data } = await supabase.from(table).select(select).in("id", unique.slice(i, i + 100));
+        out.push(...(data ?? []));
+      }
+      return new Map<string, any>(out.map((r: any) => [r.id, r]));
+    };
+    const idsOfType = (types: string[]) =>
+      (reconciledRaw ?? []).flatMap((e: any) =>
+        (e.reconciliations ?? []).filter((r: any) => types.includes(r.entity_type)).map((r: any) => r.entity_id)
+      );
+    const [paymentsById, revenuesById, investmentsById, transfersById] = await Promise.all([
+      fetchByIds("payments", "id, description, gross_amount, effective_payment_date, categories(name), cost_centers(name)", idsOfType(["payment"])),
+      fetchByIds("revenues", "id, description, realized_amount, realized_date, categories(name)", idsOfType(["revenue"])),
+      fetchByIds("investments", "id, institution, product, applied_amount, applied_date, redeemed_amount, redeemed_date", idsOfType(["investment_application", "investment_redemption"])),
+      fetchByIds("transfers", "id, tipo, description, counterpart_name, amount, transfer_date", idsOfType(["transfer"])),
+    ]);
+    const reconciledData = (reconciledRaw ?? []).map((e: any) => ({
+      ...e,
+      reconciliations: (e.reconciliations ?? []).map((r: any) => ({
+        ...r,
+        payments: r.entity_type === "payment" ? paymentsById.get(r.entity_id) ?? null : null,
+        revenues: r.entity_type === "revenue" ? revenuesById.get(r.entity_id) ?? null : null,
+        investments:
+          r.entity_type === "investment_application" || r.entity_type === "investment_redemption"
+            ? investmentsById.get(r.entity_id) ?? null
+            : null,
+        transfers: r.entity_type === "transfer" ? transfersById.get(r.entity_id) ?? null : null,
+      })),
+    }));
 
     entries = pendingData ?? [];
     reconciledEntries = reconciledData ?? [];
@@ -140,7 +181,7 @@ export default async function ReconciliationPage({
       // Busca pagamentos por empresa (não por conta específica) pra não perder lançamentos sem paying_bank_account_id
       let paymentsQuery = supabase
         .from("payments")
-        .select("id, description, gross_amount, effective_payment_date, paying_bank_account_id")
+        .select("id, description, gross_amount, effective_payment_date, paying_bank_account_id, categories(name), cost_centers(name)")
         .eq("status", "pago")
         .is("deleted_at", null)
         .eq("reconciliation_status", "pendente")
@@ -199,6 +240,7 @@ export default async function ReconciliationPage({
         date: p.effective_payment_date,
         accountId: p.paying_bank_account_id ?? null,
         accountName: p.paying_bank_account_id ? accountNameById.get(p.paying_bank_account_id) ?? null : null,
+        categoryName: catLabel((p as any).categories?.name, (p as any).cost_centers?.name),
       }));
 
       // Receitas da Central Piloto que caíram juntas (mesma data de apuração e banco) aparecem numa
@@ -223,6 +265,7 @@ export default async function ReconciliationPage({
         date: r.realized_date,
         accountId: r.receiving_bank_account_id ?? null,
         accountName: r.receiving_bank_account_id ? accountNameById.get(r.receiving_bank_account_id) ?? null : null,
+        categoryName: r.categories?.name ?? null,
       }));
       for (const [chave, grupo] of Array.from(gruposCentral.entries())) {
         const porCategoria = new Map<string, number>();
@@ -240,6 +283,7 @@ export default async function ReconciliationPage({
           label: `Central Piloto ${dataBRConc(data)}: ${Array.from(porCategoria.entries()).map(([n, v]) => `${n} ${brl(v)}`).join(" + ")}`,
           amount: soma,
           date: data,
+          categoryName: Array.from(porCategoria.keys()).join(" + "),
           accountId: grupo[0].receiving_bank_account_id ?? null,
           accountName: grupo[0].receiving_bank_account_id ? accountNameById.get(grupo[0].receiving_bank_account_id) ?? null : null,
         });
@@ -255,6 +299,7 @@ export default async function ReconciliationPage({
             amount: Number(inv.applied_amount),
             date: inv.applied_date,
             accountId: bankAccountId,
+            categoryName: "Investimentos",
           });
         }
         if (inv.redeemed_date && !reconciledInvestmentIds.has(`red:${inv.id}`)) {
@@ -266,6 +311,7 @@ export default async function ReconciliationPage({
             amount: Number(inv.redeemed_amount),
             date: inv.redeemed_date,
             accountId: bankAccountId,
+            categoryName: "Investimentos",
           });
         }
       }
@@ -281,6 +327,7 @@ export default async function ReconciliationPage({
           amount: Number(t.amount),
           date: t.transfer_date,
           accountId: bankAccountId,
+          categoryName: "Transferência entre contas",
         };
         if (t.from_account_id === bankAccountId) transferOutflowCandidates.push(candidate);
         if (t.to_account_id === bankAccountId) transferInflowCandidates.push(candidate);
@@ -322,6 +369,7 @@ export default async function ReconciliationPage({
             date: c.date,
             amount: c.amount,
             accountName: c.accountName ?? null,
+            categoryName: c.categoryName ?? null,
           })),
         };
       });
@@ -394,23 +442,24 @@ export default async function ReconciliationPage({
             label: `${recs.length} receitas da Central Piloto`,
             amount: soma,
             date: recs[0].revenues.realized_date,
+            category: Array.from(new Set(recs.map((x: any) => x.revenues.categories?.name).filter(Boolean))).join(" + ") || null,
           };
           continue;
         }
         const rec = recs[0];
         if (!rec) continue;
         if (rec.entity_type === "payment" && rec.payments) {
-          reconciledMap[e.id] = { key: `payment:${rec.entity_id}`, label: rec.payments.description, amount: Number(rec.payments.gross_amount), date: rec.payments.effective_payment_date };
+          reconciledMap[e.id] = { key: `payment:${rec.entity_id}`, label: rec.payments.description, amount: Number(rec.payments.gross_amount), date: rec.payments.effective_payment_date, category: catLabel(rec.payments.categories?.name, rec.payments.cost_centers?.name) };
         } else if (rec.entity_type === "revenue" && rec.revenues) {
-          reconciledMap[e.id] = { key: `revenue:${rec.entity_id}`, label: rec.revenues.description, amount: Number(rec.revenues.realized_amount), date: rec.revenues.realized_date };
+          reconciledMap[e.id] = { key: `revenue:${rec.entity_id}`, label: rec.revenues.description, amount: Number(rec.revenues.realized_amount), date: rec.revenues.realized_date, category: rec.revenues.categories?.name ?? null };
         } else if (rec.entity_type === "investment_application" && rec.investments) {
-          reconciledMap[e.id] = { key: `investment_application:${rec.entity_id}`, label: `Aplicação: ${rec.investments.product} — ${rec.investments.institution}`, amount: Number(rec.investments.applied_amount), date: rec.investments.applied_date };
+          reconciledMap[e.id] = { key: `investment_application:${rec.entity_id}`, label: `Aplicação: ${rec.investments.product} — ${rec.investments.institution}`, amount: Number(rec.investments.applied_amount), date: rec.investments.applied_date, category: "Investimentos" };
         } else if (rec.entity_type === "investment_redemption" && rec.investments) {
-          reconciledMap[e.id] = { key: `investment_redemption:${rec.entity_id}`, label: `Resgate: ${rec.investments.product} — ${rec.investments.institution}`, amount: Number(rec.investments.redeemed_amount), date: rec.investments.redeemed_date };
+          reconciledMap[e.id] = { key: `investment_redemption:${rec.entity_id}`, label: `Resgate: ${rec.investments.product} — ${rec.investments.institution}`, amount: Number(rec.investments.redeemed_amount), date: rec.investments.redeemed_date, category: "Investimentos" };
         } else if (rec.entity_type === "transfer" && rec.transfers) {
           const t = rec.transfers;
           const label = `${TRANSFER_LABELS[t.tipo] ?? t.tipo}${t.counterpart_name ? ` — ${t.counterpart_name}` : t.description ? ` — ${t.description}` : ""}`;
-          reconciledMap[e.id] = { key: `transfer:${rec.entity_id}`, label, amount: Number(t.amount), date: t.transfer_date };
+          reconciledMap[e.id] = { key: `transfer:${rec.entity_id}`, label, amount: Number(t.amount), date: t.transfer_date, category: "Transferência entre contas" };
         }
       }
     }
@@ -545,6 +594,7 @@ export default async function ReconciliationPage({
                           <th className="text-left px-4 py-3">Descrição do banco</th>
                           <th className="text-left px-4 py-3">Valor</th>
                           <th className="text-left px-4 py-3">Corresponder a</th>
+                          <th className="text-left px-4 py-3">Categoria</th>
                           <th className="text-left px-4 py-3">Ações</th>
                         </tr>
                       </thead>
@@ -570,7 +620,7 @@ export default async function ReconciliationPage({
                         ))}
                         {entries.length === 0 && reconciledEntries.length === 0 && (
                           <tr>
-                            <td colSpan={5} className="px-4 py-8 text-center text-ps-muted">
+                            <td colSpan={6} className="px-4 py-8 text-center text-ps-muted">
                               Nenhuma entrada encontrada neste extrato.
                             </td>
                           </tr>

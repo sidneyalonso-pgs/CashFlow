@@ -22,6 +22,7 @@ export type ProposalView = {
     date: string;
     amount: number;
     accountName?: string | null;
+    categoryName?: string | null;
   }>;
 };
 
@@ -167,6 +168,9 @@ export function AutoMatchPanel({ proposals }: { proposals: ProposalView[] }) {
                     {p.candidates.slice(0, 4).map((c) => (
                       <div key={c.key}>
                         <span className="text-ps-ink">{c.label}</span>{" "}
+                        {c.categoryName && (
+                          <span className="rounded-full bg-ps-navy/5 px-2 py-0.5 text-[10px] text-ps-navy">{c.categoryName}</span>
+                        )}{" "}
                         <span className="text-ps-muted">
                           {fmtDate(c.date)} · {formatBRL(c.amount)}
                         </span>

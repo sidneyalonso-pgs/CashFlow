@@ -10,6 +10,8 @@ export type Candidate = {
   /** conta bancária do lançamento no Treasury (pagadora / recebedora); null = não informada */
   accountId?: string | null;
   accountName?: string | null;
+  /** categoria do lançamento no Treasury (ex.: Licença de Software) */
+  categoryName?: string | null;
 };
 
 type ScoredCandidate = Candidate & { score: number; reason: string };

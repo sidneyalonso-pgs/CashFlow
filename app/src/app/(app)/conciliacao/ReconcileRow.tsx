@@ -19,7 +19,7 @@ export function ReconcileRow({
 }: {
   entry: { id: string; entry_date: string; bank_description: string; amount: number; direction: string; bank_account_id?: string };
   candidates: Candidate[];
-  reconciled?: { key: string; label: string; amount: number; date: string } | null;
+  reconciled?: { key: string; label: string; amount: number; date: string; category?: string | null } | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -65,6 +65,7 @@ export function ReconcileRow({
           label: selectedCandidate.label,
           amount: selectedCandidate.amount,
           date: selectedCandidate.date,
+          category: selectedCandidate.categoryName ?? null,
         });
         router.refresh(); // atualiza barra de progresso em background
       }
@@ -100,6 +101,7 @@ export function ReconcileRow({
             {reconciledState.date} — {reconciledState.label} — {formatBRL(reconciledState.amount)}
           </span>
         </td>
+        <td className="px-4 py-3 text-xs text-ps-muted">{reconciledState.category ?? "—"}</td>
         <td className="px-4 py-3">
           <button
             onClick={handleUnreconcile}
@@ -165,6 +167,7 @@ export function ReconcileRow({
           {error && <p className="text-xs text-red-600">{error}</p>}
         </div>
       </td>
+      <td className="px-4 py-3 text-xs text-ps-muted">{selectedCandidate?.categoryName ?? "—"}</td>
       <td className="px-4 py-3 whitespace-nowrap">
         <button
           onClick={handleReconcile}
